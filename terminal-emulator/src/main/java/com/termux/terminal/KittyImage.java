@@ -594,6 +594,24 @@ public class KittyImage {
      * @return Returns `true` if the source rectangle is valid, otherwise `false`, in which case
      * {@link #getErrorCode()} will be set.
      */
+    /** Parse width and height from a PNG IHDR chunk, or return null if not a valid PNG header. */
+    public static int[] parsePngDimensions(byte[] data) {
+        if (data == null || data.length < 24) return null;
+        if ((data[0] & 0xFF) != 0x89 || data[1] != 'P' || data[2] != 'N' || data[3] != 'G' ||
+            data[4] != '\r' || data[5] != '\n' || data[6] != 0x1A || data[7] != '\n') {
+            return null;
+        }
+        if (data[12] != 'I' || data[13] != 'H' || data[14] != 'D' || data[15] != 'R') {
+            return null;
+        }
+        int width = ((data[16] & 0xFF) << 24) | ((data[17] & 0xFF) << 16) |
+            ((data[18] & 0xFF) << 8) | (data[19] & 0xFF);
+        int height = ((data[20] & 0xFF) << 24) | ((data[21] & 0xFF) << 16) |
+            ((data[22] & 0xFF) << 8) | (data[23] & 0xFF);
+        if (width < 1 || height < 1) return null;
+        return new int[] {width, height};
+    }
+
     public synchronized boolean validateSourceRectangle(int imageWidth, int imageHeight) {
         if (mRawX > PIXEL_DIMENSION__MAX) {
             return setStateFailed(ERROR__EINVAL, "source rectangle x " + mRawX + " exceeds max " + PIXEL_DIMENSION__MAX);

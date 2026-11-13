@@ -372,7 +372,23 @@ public final class TerminalBuffer {
                     // Use the last style if this is a zero-width character:
                     if (displayWidth > 0) styleAtCol = oldLine.getStyle(currentOldCol);
 
-                    // Line wrap as necessary:
+                    // Line wrap as necessary, except for terminal bitmap cells which stay grid-aligned
+                    // and are clipped at the right margin instead of splitting multi-row images apart.
+                    if (TextStyle.isTerminalBitmap(styleAtCol)) {
+                        if (currentOutputExternalColumn + displayWidth <= mColumns) {
+                            setChar(currentOutputExternalColumn, currentOutputExternalRow, codePoint, styleAtCol);
+                            currentOutputExternalColumn += displayWidth;
+                        }
+                        if (oldCursorRow == externalOldRow && oldCursorColumn == currentOldCol) {
+                            newCursorColumn = Math.min(currentOutputExternalColumn, Math.max(0, mColumns - 1));
+                            newCursorRow = currentOutputExternalRow;
+                            newCursorPlaced = true;
+                        }
+                        currentOldCol += displayWidth;
+                        if (justToCursor && newCursorPlaced) break;
+                        continue;
+                    }
+
                     if (currentOutputExternalColumn + displayWidth > mColumns) {
                         setLineWrap(currentOutputExternalRow);
                         if (currentOutputExternalRow == mScreenRows - 1) {
@@ -800,7 +816,18 @@ public final class TerminalBuffer {
      * that were created for them. The bitmaps for sixel and iTerm images are not removed.
      */
     public synchronized void deleteAllKittyImagePlacements() {
-        deleteKittyImagePlacements(KittyImage.IMAGE_ID__NONE, KittyImage.PLACEMENT_ID__NONE, true);
+        deleteKittyImagePlacementsAt(-1, -1);
+    }
+
+    /** Check whether any placement (including in scrollback) still references {@code kittyImageId}. */
+    public synchronized boolean hasAnyKittyPlacementForImage(long kittyImageId) {
+        if (mTerminalBitmaps.isEmpty()) return false;
+        for (TerminalBitmap bitmap : mTerminalBitmaps.values()) {
+            if (bitmap.isKittyImage() && bitmap.getKittyImageId() == kittyImageId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

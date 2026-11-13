@@ -225,6 +225,8 @@ public final class TerminalEmulator {
     private static final int DECSET_BIT_LEFTRIGHT_MARGIN_MODE = 1 << 11;
     /** Not really DECSET bit... - http://www.vt100.net/docs/vt510-rm/DECSACE */
     private static final int DECSET_BIT_RECTANGULAR_CHANGEATTRIBUTE = 1 << 12;
+    /** DECSET 2026 - Synchronized Output (?2026 h/l). */
+    private static final int DECSET_BIT_SYNCHRONIZED_OUTPUT = 1 << 13;
 
 
     private String mTitle;
@@ -529,11 +531,65 @@ public final class TerminalEmulator {
             }
         }
 
+        private int mFrameVersion = 0;
+        private int mCachedScaledFrameIndex = -1;
+        private int mCachedScaledFrameVersion = -1;
+        private int mCachedScaledKey = 0;
+        private Bitmap mCachedScaledBitmap;
+
+        @Override
+        public synchronized boolean hasAnimationFrames() {
+            return !mFrames.isEmpty() || mFrameVersion > 0;
+        }
+
         @Override
         public synchronized Bitmap getCurrentBitmap(int sourceX, int sourceY, int sourceWidth, int sourceHeight,
                                                     int widthPixels, int heightPixels, boolean preserveAspectRatio) {
             advanceAnimationLocked();
-            return getFrameBitmap(mCurrentFrameIndex + 1);
+            Bitmap raw = getFrameBitmap(mCurrentFrameIndex + 1);
+            if (raw == null) return null;
+            int cacheKey = (((((sourceX * 31 + sourceY) * 31 + sourceWidth) * 31 + sourceHeight) * 31 +
+                widthPixels) * 31 + heightPixels) * 2 + (preserveAspectRatio ? 1 : 0);
+            if (mCachedScaledBitmap != null && mCachedScaledFrameIndex == mCurrentFrameIndex
+                && mCachedScaledFrameVersion == mFrameVersion && mCachedScaledKey == cacheKey) {
+                return mCachedScaledBitmap;
+            }
+            Bitmap result = raw;
+            int bw = result.getWidth();
+            int bh = result.getHeight();
+            if (sourceX > 0 || sourceY > 0 || sourceWidth > 0 || sourceHeight > 0) {
+                int sx = Math.max(0, Math.min(sourceX, bw - 1));
+                int sy = Math.max(0, Math.min(sourceY, bh - 1));
+                int sw = sourceWidth > 0 ? Math.min(sourceWidth, bw - sx) : (bw - sx);
+                int sh = sourceHeight > 0 ? Math.min(sourceHeight, bh - sy) : (bh - sy);
+                if (sw > 0 && sh > 0 && (sx != 0 || sy != 0 || sw != bw || sh != bh)) {
+                    result = Bitmap.createBitmap(result, sx, sy, sw, sh);
+                    bw = sw;
+                    bh = sh;
+                }
+            }
+            if (widthPixels > 0 || heightPixels > 0) {
+                int tw = widthPixels;
+                int th = heightPixels;
+                if (preserveAspectRatio) {
+                    double wf = widthPixels > 0 ? (double) widthPixels / bw : 9999.0;
+                    double hf = heightPixels > 0 ? (double) heightPixels / bh : 9999.0;
+                    double f = Math.min(wf, hf);
+                    tw = Math.max(1, (int) (f * bw));
+                    th = Math.max(1, (int) (f * bh));
+                } else {
+                    if (tw <= 0) tw = bw;
+                    if (th <= 0) th = bh;
+                }
+                if (tw != bw || th != bh) {
+                    result = Bitmap.createScaledBitmap(result, tw, th, true);
+                }
+            }
+            mCachedScaledFrameIndex = mCurrentFrameIndex;
+            mCachedScaledFrameVersion = mFrameVersion;
+            mCachedScaledKey = cacheKey;
+            mCachedScaledBitmap = result;
+            return result;
         }
 
         @Override
@@ -639,10 +695,10 @@ public final class TerminalEmulator {
     private int mKittyImagesTotalSize;
 
     /** The max number of images whose data is stored in {@link #mKittyImages}. */
-    private static final int KITTY_IMAGES__MAX_COUNT = 32;
+    private static final int KITTY_IMAGES__MAX_COUNT = 512;
 
     /** The max combined size in bytes of all the image data stored in {@link #mKittyImages}. */
-    private static final int KITTY_IMAGES__MAX_TOTAL_SIZE = 8 * 1024 * 1024;
+    private static final int KITTY_IMAGES__MAX_TOTAL_SIZE = 32 * 1024 * 1024;
 
 
 
@@ -780,6 +836,8 @@ public final class TerminalEmulator {
                 return DECSET_BIT_MOUSE_PROTOCOL_SGR;
             case 2004:
                 return DECSET_BIT_BRACKETED_PASTE_MODE;
+            case 2026:
+                return DECSET_BIT_SYNCHRONIZED_OUTPUT;
             default:
                 return -1;
             // throw new IllegalArgumentException("Unsupported decset: " + decsetBit);
@@ -930,6 +988,10 @@ public final class TerminalEmulator {
 
     public boolean isReverseVideo() {
         return isDecsetInternalBitSet(DECSET_BIT_REVERSE_VIDEO);
+    }
+
+    public boolean isSynchronizedOutput() {
+        return isDecsetInternalBitSet(DECSET_BIT_SYNCHRONIZED_OUTPUT);
     }
 
 
@@ -3213,8 +3275,18 @@ public final class TerminalEmulator {
             kittyImage.setImageId(imageId);
         }
 
+        byte[] decoded = kittyImage.getDecodedImage();
+        int pixelWidth = kittyImage.getPixelWidth();
+        int pixelHeight = kittyImage.getPixelHeight();
+        if (kittyImage.getFormat() == KittyImage.FORMAT__PNG) {
+            int[] pngDims = KittyImage.parsePngDimensions(decoded);
+            if (pngDims != null) {
+                pixelWidth = pngDims[0];
+                pixelHeight = pngDims[1];
+            }
+        }
         KittyStoredImage storedImage = new KittyStoredImage(kittyImage.getFormat(),
-            kittyImage.getDecodedImage(), kittyImage.getPixelWidth(), kittyImage.getPixelHeight(), imageNumber);
+            decoded, pixelWidth, pixelHeight, imageNumber);
 
         // The image is only stored if it can be referenced by an image id with an `a=p` command later.
         if (imageId != KittyImage.IMAGE_ID__NONE) {
@@ -3396,6 +3468,8 @@ public final class TerminalEmulator {
                 existing.mBitmap = canvasBitmap;
                 if (kittyImage.hasZIndex()) existing.mGapMs = Math.max(0, gapMs);
             }
+            storedImage.mFrameVersion++;
+            storedImage.mCachedScaledBitmap = null;
         }
     }
 
@@ -3470,6 +3544,8 @@ public final class TerminalEmulator {
             Rect srcRect = new Rect(sx, sy, sx + sw, sy + sh);
             Rect dstRect = new Rect(dx, dy, dx + sw, dy + sh);
             canvas.drawBitmap(src, srcRect, dstRect, null);
+            storedImage.mFrameVersion++;
+            storedImage.mCachedScaledBitmap = null;
         }
     }
 
@@ -3513,11 +3589,18 @@ public final class TerminalEmulator {
             case KittyImage.DELETE_MODE__NONE: // The `d` key defaults to `d=a`.
             case KittyImage.DELETE_MODE__ALL:
             case KittyImage.DELETE_MODE__ALL_AND_FREE_DATA:
-                // All the placements are deleted regardless of the image id passed as per the protocol.
+                // `d=a`/`d=A` deletes all placements visible on screen.
                 mScreen.deleteAllKittyImagePlacements();
                 mKittyVirtualPlacements.clear();
                 if (freeData) {
-                    clearKittyImages();
+                    Iterator<Map.Entry<Long, KittyStoredImage>> it = mKittyImages.entrySet().iterator();
+                    while (it.hasNext()) {
+                        Map.Entry<Long, KittyStoredImage> entry = it.next();
+                        if (!mScreen.hasAnyKittyPlacementForImage(entry.getKey())) {
+                            mKittyImagesTotalSize -= entry.getValue().mImage.length;
+                            it.remove();
+                        }
+                    }
                 }
                 break;
             case KittyImage.DELETE_MODE__ID:
