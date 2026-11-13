@@ -66,6 +66,8 @@ public final class TerminalView extends View {
     public static final int TERMINAL_CURSOR_BLINK_RATE_MIN = 100;
     public static final int TERMINAL_CURSOR_BLINK_RATE_MAX = 2000;
 
+    private final Runnable mKittyAnimInvalidator = this::invalidate;
+
     /** The top row of text to display. Ranges from -activeTranscriptRows to 0. */
     int mTopRow;
     int[] mDefaultSelectors = new int[]{-1,-1,-1,-1};
@@ -1033,6 +1035,12 @@ public final class TerminalView extends View {
 
             // render the text selection handles
             renderTextSelection();
+
+            removeCallbacks(mKittyAnimInvalidator);
+            int animDelay = mEmulator.getKittyImageNextFrameDelayMs();
+            if (animDelay > 0) {
+                postDelayed(mKittyAnimInvalidator, animDelay);
+            }
         }
     }
 

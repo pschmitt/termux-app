@@ -1,6 +1,10 @@
 package com.termux.terminal;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
@@ -80,6 +84,12 @@ public class KittyImage {
     public static final char ACTION__QUERY = 'q';
     /** `a=d` - Delete image placements as per the {@link #mDeleteMode} passed with the `d` key. */
     public static final char ACTION__DELETE = 'd';
+    /** `a=f` - Transmit animation frame data. */
+    public static final char ACTION__FRAME = 'f';
+    /** `a=a` - Control animation playback. */
+    public static final char ACTION__ANIMATE = 'a';
+    /** `a=c` - Compose one animation frame onto another. */
+    public static final char ACTION__COMPOSE = 'c';
 
     /** The default action if the `a` key is not passed. */
     public static final char ACTION__DEFAULT = ACTION__TRANSMIT;
@@ -117,6 +127,9 @@ public class KittyImage {
     /** `d=r` / `d=R` - Delete placements with image id in range `[x, y]`. */
     public static final char DELETE_MODE__RANGE = 'r';
     public static final char DELETE_MODE__RANGE_AND_FREE_DATA = 'R';
+    /** `d=z` / `d=Z` - Delete placements with z-index matching `z`. */
+    public static final char DELETE_MODE__Z_INDEX = 'z';
+    public static final char DELETE_MODE__Z_INDEX_AND_FREE_DATA = 'Z';
 
 
     /* The compression types for the `o` key. */
@@ -129,6 +142,12 @@ public class KittyImage {
 
     /** `t=d` - The image data is passed directly in the `base64` encoded command payload. */
     public static final char MEDIUM__DIRECT = 'd';
+    /** `t=f` - The payload is a `base64` encoded path to a file. */
+    public static final char MEDIUM__FILE = 'f';
+    /** `t=t` - The payload is a `base64` encoded path to a temporary file to delete after reading. */
+    public static final char MEDIUM__TEMP_FILE = 't';
+    /** `t=s` - The payload is a `base64` encoded POSIX shared memory object name. */
+    public static final char MEDIUM__SHARED_MEMORY = 's';
 
     /** The default transmission medium if the `t` key is not passed. */
     public static final char MEDIUM__DEFAULT = MEDIUM__DIRECT;
@@ -171,6 +190,10 @@ public class KittyImage {
     public static final String ERROR__EBADPNG = "EBADPNG";
     /** The image data exceeded the size limits of the terminal. */
     public static final String ERROR__ENOSPC = "ENOSPC";
+    /** The parent placement specified by `P`/`Q` does not exist. */
+    public static final String ERROR__ENOPARENT = "ENOPARENT";
+    /** An I/O error occurred while reading a file or shared memory object. */
+    public static final String ERROR__EIO = "EIO";
 
 
     /** The image id value for the `i` key if it was not passed. Image id `0` is not valid. */
@@ -301,6 +324,29 @@ public class KittyImage {
 
     /** Whether the cursor must not be moved after displaying the image as per the `C` key. */
     protected boolean mDoNotMoveCursor = false;
+
+    /** File/shm payload size (`S` key) and byte offset (`O` key). */
+    protected int mPayloadSize = -1;
+    protected long mPayloadOffset = 0;
+
+    /** Z-index (`z` key; also frame gap in ms for `a=f`/`a=a`). */
+    protected int mZIndex = 0;
+    protected boolean mHasZIndex = false;
+
+    /** Sub-cell pixel offsets (`X`, `Y` keys; also composition mode / bg color for `a=f`/`a=c`). */
+    protected long mOffsetX = 0;
+    protected long mOffsetY = 0;
+    protected boolean mHasOffsetX = false;
+    protected boolean mHasOffsetY = false;
+
+    /** Unicode placeholder flag (`U=1`). */
+    protected boolean mUnicodePlaceholder = false;
+
+    /** Relative placement parent (`P`, `Q`, `H`, `V` keys). */
+    protected long mParentImageId = IMAGE_ID__NONE;
+    protected long mParentPlacementId = 0;
+    protected int mParentOffsetCols = 0;
+    protected int mParentOffsetRows = 0;
 
     /** The error code and message to send in an error response if the command failed. */
     protected String mErrorCode;
@@ -457,6 +503,58 @@ public class KittyImage {
 
     public int getPixelWidth() {
         return mPixelWidth;
+    }
+
+    public int getColumns() {
+        return mColumns;
+    }
+
+    public int getRows() {
+        return mRows;
+    }
+
+    public int getZIndex() {
+        return mZIndex;
+    }
+
+    public boolean hasZIndex() {
+        return mHasZIndex;
+    }
+
+    public long getOffsetX() {
+        return mOffsetX;
+    }
+
+    public long getOffsetY() {
+        return mOffsetY;
+    }
+
+    public boolean hasOffsetX() {
+        return mHasOffsetX;
+    }
+
+    public boolean hasOffsetY() {
+        return mHasOffsetY;
+    }
+
+    public boolean isUnicodePlaceholder() {
+        return mUnicodePlaceholder;
+    }
+
+    public long getParentImageId() {
+        return mParentImageId;
+    }
+
+    public long getParentPlacementId() {
+        return mParentPlacementId;
+    }
+
+    public int getParentOffsetCols() {
+        return mParentOffsetCols;
+    }
+
+    public int getParentOffsetRows() {
+        return mParentOffsetRows;
     }
 
     public int getPixelHeight() {
@@ -692,10 +790,11 @@ public class KittyImage {
                     case ACTION__PUT:
                     case ACTION__QUERY:
                     case ACTION__DELETE:
+                    case ACTION__FRAME:
+                    case ACTION__ANIMATE:
+                    case ACTION__COMPOSE:
                         break;
                     default:
-                        // The `a=f` (animation frame), `a=a` (animate) and `a=c` (compose) actions
-                        // are valid protocol actions, but are not supported.
                         return setStateFailed(ERROR__ENOTSUP, "unsupported action");
                 }
                 break;
@@ -706,10 +805,8 @@ public class KittyImage {
             case 't': // The transmission medium.
                 if (argValue.length() != 1) return setStateFailed(ERROR__EINVAL, "invalid transmission medium");
                 mMedium = argValue.charAt(0);
-                if (mMedium != MEDIUM__DIRECT) {
-                    // Reading the image data from a file, a temporary file or shared memory is not
-                    // supported. Reading arbitrary files that the terminal has access to on behalf
-                    // of a client is a security concern.
+                if (mMedium != MEDIUM__DIRECT && mMedium != MEDIUM__FILE &&
+                    mMedium != MEDIUM__TEMP_FILE && mMedium != MEDIUM__SHARED_MEMORY) {
                     return setStateFailed(ERROR__ENOTSUP, "unsupported transmission medium");
                 }
                 break;
@@ -816,16 +913,71 @@ public class KittyImage {
                 mSourceHeight = (int) value;
                 break;
             }
+            case 'S': { // Size in bytes to read from file / shm.
+                long value = readNumberArg(argValue, 0, IMAGE_DATA__MAX_LENGTH);
+                if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid payload size");
+                mPayloadSize = (int) value;
+                break;
+            }
+            case 'O': { // Byte offset in file / shm.
+                long value = readNumberArg(argValue, 0, IMAGE_ID__MAX);
+                if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid payload offset");
+                mPayloadOffset = value;
+                break;
+            }
+            case 'z': { // Signed z-index (or frame gap in ms for animation).
+                Long value = readSignedNumberArg(argValue, Integer.MIN_VALUE, Integer.MAX_VALUE);
+                if (value == null) return setStateFailed(ERROR__EINVAL, "invalid z-index");
+                mZIndex = value.intValue();
+                mHasZIndex = true;
+                break;
+            }
+            case 'X': { // Sub-cell X pixel offset (or composition mode for animation).
+                long value = readNumberArg(argValue, 0, IMAGE_ID__MAX);
+                if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid X offset");
+                mOffsetX = value;
+                mHasOffsetX = true;
+                break;
+            }
+            case 'Y': { // Sub-cell Y pixel offset (or background color for animation).
+                long value = readNumberArg(argValue, 0, IMAGE_ID__MAX);
+                if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid Y offset");
+                mOffsetY = value;
+                mHasOffsetY = true;
+                break;
+            }
+            case 'U': { // Unicode placeholder flag.
+                long value = readNumberArg(argValue, 0, 1);
+                if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid unicode placeholder flag");
+                mUnicodePlaceholder = value == 1;
+                break;
+            }
+            case 'P': { // Parent image id for relative placement.
+                long value = readNumberArg(argValue, 1, IMAGE_ID__MAX);
+                if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid parent image id");
+                mParentImageId = value;
+                break;
+            }
+            case 'Q': { // Parent placement id for relative placement.
+                long value = readNumberArg(argValue, 0, PLACEMENT_ID__MAX);
+                if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid parent placement id");
+                mParentPlacementId = value;
+                break;
+            }
+            case 'H': { // Horizontal cell offset from parent placement.
+                Long value = readSignedNumberArg(argValue, -PLACEMENT_CELLS__MAX, PLACEMENT_CELLS__MAX);
+                if (value == null) return setStateFailed(ERROR__EINVAL, "invalid parent horizontal offset");
+                mParentOffsetCols = value.intValue();
+                break;
+            }
+            case 'V': { // Vertical cell offset from parent placement.
+                Long value = readSignedNumberArg(argValue, -PLACEMENT_CELLS__MAX, PLACEMENT_CELLS__MAX);
+                if (value == null) return setStateFailed(ERROR__EINVAL, "invalid parent vertical offset");
+                mParentOffsetRows = value.intValue();
+                break;
+            }
             default:
-                // The keys for unsupported features of the protocol are read but ignored, since a
-                // client is expected to pass them for images that can still be displayed. These are
-                // the `I` (image number), `z` (z-index) and `U` (unicode placeholder) keys, the `S`,
-                // `O`, `P` and `Q` keys for the transmission mediums and placement features that are
-                // not supported, and any key that is not part of the protocol at all.
-                // The `X` and `Y` keys, which offset the image by pixels inside the first cell it is
-                // displayed in, are also ignored, so an image will be aligned to the cell grid
-                // instead of being offset by up to one cell width and height.
-                // The values of the ignored keys are not validated since they are not used.
+                // Unknown keys are ignored per protocol.
                 break;
         }
         return true;
@@ -850,6 +1002,25 @@ public class KittyImage {
         }
 
         return (value < minValue || value > maxValue) ? -1 : value;
+    }
+
+    private static Long readSignedNumberArg(String argValue, long minValue, long maxValue) {
+        if (argValue.isEmpty() || argValue.length() > 11) return null;
+        int start = 0;
+        boolean negative = false;
+        if (argValue.charAt(0) == '-') {
+            negative = true;
+            start = 1;
+            if (argValue.length() == 1) return null;
+        }
+        long value = 0;
+        for (int i = start; i < argValue.length(); i++) {
+            char ch = argValue.charAt(i);
+            if (ch < '0' || ch > '9') return null;
+            value = (value * 10) + (ch - '0');
+        }
+        long signed = negative ? -value : value;
+        return (signed < minValue || signed > maxValue) ? null : signed;
     }
 
 
@@ -892,7 +1063,7 @@ public class KittyImage {
         // the limit can be checked before all of it has been received, and the buffer for it can be
         // allocated exactly once with the required size instead of being grown as more chunks are
         // received.
-        if (isRawFormat() && mImageData == null && mPixelWidth > 0 && mPixelHeight > 0) {
+        if (mMedium == MEDIUM__DIRECT && isRawFormat() && mImageData == null && mPixelWidth > 0 && mPixelHeight > 0) {
             long imageDataLength = (long) mPixelWidth * mPixelHeight * getBytesPerPixel(mFormat);
             if (imageDataLength > IMAGE_DATA__MAX_LENGTH) {
                 return setStateFailed(ERROR__ENOSPC, "image data exceeds max length " + IMAGE_DATA__MAX_LENGTH);
@@ -1035,6 +1206,10 @@ public class KittyImage {
             return setStateFailed(ERROR__EBADDATA, "empty image data");
         }
 
+        if (mMedium != MEDIUM__DIRECT) {
+            if (!loadFromMedium()) return false;
+        }
+
         if (mCompression == COMPRESSION__ZLIB) {
             if (!decompressZlib()) return false;
         }
@@ -1116,6 +1291,85 @@ public class KittyImage {
             return setStateFailed(ERROR__EBADDATA, "invalid zlib image data: " + e.getMessage());
         } finally {
             inflater.end();
+        }
+    }
+
+    private boolean loadFromMedium() {
+        String rawPath = new String(mImageData, 0, mImageDataLength, StandardCharsets.UTF_8);
+        int nulIndex = rawPath.indexOf('\0');
+        if (nulIndex >= 0) rawPath = rawPath.substring(0, nulIndex);
+        if (rawPath.isEmpty()) {
+            mImageData = null;
+            return setStateFailed(ERROR__EINVAL, "empty file path for transmission medium " + mMedium);
+        }
+
+        File file;
+        if (mMedium == MEDIUM__SHARED_MEMORY) {
+            File shmDir = new File("/dev/shm");
+            if (!shmDir.isDirectory()) {
+                mImageData = null;
+                return setStateFailed(ERROR__ENOTSUP, "shared memory is not available on this platform");
+            }
+            String shmName = rawPath.startsWith("/") ? rawPath.substring(1) : rawPath;
+            file = new File(shmDir, shmName);
+        } else {
+            file = new File(rawPath);
+        }
+
+        if (!file.exists() || !file.isFile()) {
+            mImageData = null;
+            return setStateFailed(ERROR__ENOENT, "image file not found: " + rawPath);
+        }
+
+        try (FileInputStream fis = new FileInputStream(file)) {
+            long skipped = 0;
+            while (skipped < mPayloadOffset) {
+                long n = fis.skip(mPayloadOffset - skipped);
+                if (n <= 0) {
+                    if (fis.read() < 0) break;
+                    n = 1;
+                }
+                skipped += n;
+            }
+            if (skipped < mPayloadOffset) {
+                mImageData = null;
+                return setStateFailed(ERROR__EINVAL, "payload offset exceeds file size");
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int remaining = (mPayloadSize >= 0) ? mPayloadSize : IMAGE_DATA__MAX_LENGTH;
+            while (remaining > 0) {
+                int toRead = Math.min(buf.length, remaining);
+                int read = fis.read(buf, 0, toRead);
+                if (read < 0) break;
+                if (out.size() + read > IMAGE_DATA__MAX_LENGTH) {
+                    mImageData = null;
+                    return setStateFailed(ERROR__ENOSPC, "image file data exceeds max length " + IMAGE_DATA__MAX_LENGTH);
+                }
+                out.write(buf, 0, read);
+                remaining -= read;
+            }
+
+            byte[] loaded = out.toByteArray();
+            if (loaded.length < 1) {
+                mImageData = null;
+                return setStateFailed(ERROR__EBADDATA, "empty image file data");
+            }
+            mImageData = loaded;
+            mImageDataLength = loaded.length;
+            return true;
+        } catch (IOException e) {
+            mImageData = null;
+            return setStateFailed(ERROR__EIO, "failed reading image file: " + e.getMessage());
+        } finally {
+            if (mMedium == MEDIUM__TEMP_FILE && rawPath.contains("tty-graphics-protocol")) {
+                //noinspection ResultOfMethodCallIgnored
+                file.delete();
+            } else if (mMedium == MEDIUM__SHARED_MEMORY && file.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                file.delete();
+            }
         }
     }
 
