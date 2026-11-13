@@ -497,7 +497,9 @@ public final class TerminalView extends View {
 
         mEmulator.clearScrollCounter();
 
-        invalidate();
+        if (!mEmulator.isSynchronizedOutput()) {
+            invalidate();
+        }
         if (mAccessibilityEnabled) setContentDescription(getText());
     }
 

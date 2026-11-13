@@ -757,14 +757,78 @@ public class KittyGraphicsTest extends TerminalTestCase {
             "\033_Gi=303;EINVAL:invalid source rectangle y\033\\");
     }
 
-    public void testSourceRectangleIsNotValidatedIfTheImageDimensionsAreNotKnown() {
-        // A `PNG` image can be transmitted without the `s` and `v` keys, in which case its dimensions
-        // are only known once it has been decoded, so the source rectangle can only be validated
-        // against the bitmap while creating it, which always fails in unit tests.
+    public void testSourceRectangleIsValidatedForPngFromIhdr() {
+        // `PNG_BASE64` is a 1x1 PNG. Its dimensions are parsed from the PNG IHDR chunk even when
+        // `s` and `v` are omitted, so out-of-bounds source rectangles are rejected with `EINVAL`.
         withTerminalSized(20, 4);
         enterString("\033_Ga=t,f=100,t=d,i=304,m=0,q=2;" + PNG_BASE64 + "\033\\");
         assertEnteringStringGivesResponse("\033_Ga=p,i=304,p=1,x=0,y=0,w=100,h=100,c=4,r=4,C=1\033\\",
+            "\033_Gi=304;EINVAL:source rectangle x 0 and width 100 exceed image width 1\033\\");
+        assertEnteringStringGivesResponse("\033_Ga=p,i=304,p=1,x=0,y=0,w=1,h=1,c=4,r=4,C=1\033\\",
             "\033_Gi=304;EBADPNG:displaying image failed\033\\");
+    }
+
+    public void testParsePngDimensions() {
+        byte[] pngBytes = java.util.Base64.getDecoder().decode(PNG_BASE64);
+        int[] dims = KittyImage.parsePngDimensions(pngBytes);
+        assertNotNull(dims);
+        assertEquals(1, dims[0]);
+        assertEquals(1, dims[1]);
+        assertNull(KittyImage.parsePngDimensions(new byte[] {1, 2, 3}));
+    }
+
+    public void testDeleteAllPreservesScrollbackPlacements() {
+        withTerminalSized(10, 3);
+        TerminalBuffer screen = mTerminal.getScreen();
+        screen.setChar(0, 0, '+', TextStyle.encodeTerminalBitmap(0, 0, 0));
+        TerminalBitmap tbScrollback = new TerminalBitmap(null, 0, null, 10, 20, 1, null);
+        tbScrollback.setKittyImage(501, 0, 1);
+        screen.addTerminalBitmap(tbScrollback);
+
+        // Scroll row 0 into transcript/scrollback.
+        enterString("\n\n\n");
+        screen.setChar(0, 0, '+', TextStyle.encodeTerminalBitmap(1, 0, 0));
+        TerminalBitmap tbVisible = new TerminalBitmap(null, 1, null, 10, 20, 1, null);
+        tbVisible.setKittyImage(502, 0, 1);
+        screen.addTerminalBitmap(tbVisible);
+
+        enterString("\033_Ga=d,d=a,q=2\033\\");
+
+        // Visible placement (502) is deleted, scrollback placement (501) is preserved.
+        assertFalse(screen.hasAnyKittyPlacementForImage(502));
+        assertTrue(screen.hasAnyKittyPlacementForImage(501));
+    }
+
+    public void testResizeClipsBitmapCellsInsteadOfWrapping() {
+        withTerminalSized(6, 3);
+        TerminalBuffer screen = mTerminal.getScreen();
+        for (int col = 0; col < 5; col++) {
+            screen.setChar(col, 0, '+', TextStyle.encodeTerminalBitmap(0, col, 0));
+        }
+        enterString("\r\na");
+
+        mTerminal.resize(3, 3, 20, 40);
+
+        // Bitmap cells on row 0 beyond column 2 must be clipped, not wrapped onto row 1.
+        for (int col = 0; col < 3; col++) {
+            assertTrue(TextStyle.isTerminalBitmap(screen.getStyleAt(0, col)));
+        }
+        assertFalse(TextStyle.isTerminalBitmap(screen.getStyleAt(1, 0)));
+        assertLinesAre("+++", "a  ", "   ");
+    }
+
+    public void testSynchronizedOutputDecsetAndDecrqm2026() {
+        withTerminalSized(20, 4);
+        assertFalse(mTerminal.isSynchronizedOutput());
+        assertEnteringStringGivesResponse("\033[?2026$p", "\033[?2026;2$y");
+
+        enterString("\033[?2026h");
+        assertTrue(mTerminal.isSynchronizedOutput());
+        assertEnteringStringGivesResponse("\033[?2026$p", "\033[?2026;1$y");
+
+        enterString("\033[?2026l");
+        assertFalse(mTerminal.isSynchronizedOutput());
+        assertEnteringStringGivesResponse("\033[?2026$p", "\033[?2026;2$y");
     }
 
 
@@ -1413,12 +1477,14 @@ public class KittyGraphicsTest extends TerminalTestCase {
     public void testOldestKittyImageDataIsEvictedWhenTooManyImagesAreTransmitted() {
         withTerminalSized(20, 4);
 
-        // At most 32 images are stored, so transmitting 33 images must evict the oldest one.
-        for (int imageId = 1; imageId <= 33; imageId++) {
+        // At most 512 images are stored, so transmitting 513 images must evict the oldest one.
+        for (int imageId = 1; imageId <= 513; imageId++) {
             enterString("\033_Ga=t,f=100,t=d,i=" + imageId + ",m=0,q=2;" + PNG_BASE64 + "\033\\");
         }
 
         assertEquals(-1, mTerminal.getKittyImageDataLength(1));
+        assertEquals(PNG_LENGTH, mTerminal.getKittyImageDataLength(2));
+        assertEquals(PNG_LENGTH, mTerminal.getKittyImageDataLength(513));
         assertEquals(PNG_LENGTH, mTerminal.getKittyImageDataLength(2));
         assertEquals(PNG_LENGTH, mTerminal.getKittyImageDataLength(33));
 

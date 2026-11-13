@@ -170,6 +170,7 @@ public class TerminalBitmap {
     protected long mKittyParentPlacementId = KittyImage.PLACEMENT_ID__NONE;
 
     public interface KittyAnimationSource {
+        boolean hasAnimationFrames();
         Bitmap getCurrentBitmap(int sourceX, int sourceY, int sourceWidth, int sourceHeight,
                                 int widthPixels, int heightPixels, boolean preserveAspectRatio);
         int getNextFrameDelayMs();
@@ -861,7 +862,7 @@ public class TerminalBitmap {
     }
 
     public Bitmap getActiveBitmap() {
-        if (mKittyAnimationSource != null) {
+        if (mKittyAnimationSource != null && mKittyAnimationSource.hasAnimationFrames()) {
             Bitmap frame = mKittyAnimationSource.getCurrentBitmap(
                 mKittySourceX, mKittySourceY, mKittySourceWidth, mKittySourceHeight,
                 mKittyWidthPixels, mKittyHeightPixels, mKittyPreserveAspectRatio);
