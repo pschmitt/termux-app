@@ -22,8 +22,16 @@ import com.termux.terminal.WcWidth;
  */
 public final class TerminalRenderer {
 
+    public enum TypefaceStyle {
+        NORMAL,
+        ITALIC,
+        BOLD,
+        BOLD_ITALIC
+    }
+
     final int mTextSize;
     final Typeface mTypeface;
+    private final Typeface[] mTypefaceByStyle = new Typeface[4];
     private final Paint mTextPaint = new Paint();
 
     /** The width of a single mono spaced character obtained by {@link Paint#measureText(String)} on a single 'X'. */
@@ -38,10 +46,19 @@ public final class TerminalRenderer {
     private final float[] asciiMeasures = new float[127];
 
     public TerminalRenderer(int textSize, Typeface typeface) {
-        mTextSize = textSize;
-        mTypeface = typeface;
+        this(textSize, typeface, null, null, null);
+    }
 
-        mTextPaint.setTypeface(typeface);
+    public TerminalRenderer(int textSize, Typeface normalTypeface, Typeface italicTypeface,
+                            Typeface boldTypeface, Typeface boldItalicTypeface) {
+        mTextSize = textSize;
+        mTypeface = normalTypeface != null ? normalTypeface : Typeface.MONOSPACE;
+        mTypefaceByStyle[TypefaceStyle.NORMAL.ordinal()] = mTypeface;
+        mTypefaceByStyle[TypefaceStyle.ITALIC.ordinal()] = italicTypeface;
+        mTypefaceByStyle[TypefaceStyle.BOLD.ordinal()] = boldTypeface;
+        mTypefaceByStyle[TypefaceStyle.BOLD_ITALIC.ordinal()] = boldItalicTypeface;
+
+        mTextPaint.setTypeface(mTypeface);
         mTextPaint.setAntiAlias(true);
         mTextPaint.setTextSize(textSize);
 
@@ -55,6 +72,10 @@ public final class TerminalRenderer {
             sb.setCharAt(0, (char) i);
             asciiMeasures[i] = mTextPaint.measureText(sb, 0, 1);
         }
+    }
+
+    public Typeface getTypeface(TypefaceStyle style) {
+        return mTypefaceByStyle[style.ordinal()];
     }
 
     /** Render the terminal to a canvas with at a specified row scroll, and an optional rectangular selection. */
@@ -263,9 +284,8 @@ public final class TerminalRenderer {
                 foreColor = 0xFF000000 + (red << 16) + (green << 8) + blue;
             }
 
-            mTextPaint.setFakeBoldText(bold);
+            prepareStyleOrFallback(bold, italic);
             mTextPaint.setUnderlineText(underline);
-            mTextPaint.setTextSkewX(italic ? -0.35f : 0.f);
             mTextPaint.setStrikeThruText(strikeThrough);
             mTextPaint.setColor(foreColor);
 
@@ -275,9 +295,58 @@ public final class TerminalRenderer {
             } else {
                 canvas.drawText(text, startCharIndex, runWidthChars, left, y - mFontLineSpacingAndAscent, mTextPaint);
             }
+            if (bold || italic) prepareStyleOrFallback(false, false);
         }
 
         if (savedMatrix) canvas.restore();
+    }
+
+    private void prepareStyleOrFallback(boolean bold, boolean italic) {
+        Typeface italicTypeface = mTypefaceByStyle[TypefaceStyle.ITALIC.ordinal()];
+        Typeface boldTypeface = mTypefaceByStyle[TypefaceStyle.BOLD.ordinal()];
+        Typeface boldItalicTypeface = mTypefaceByStyle[TypefaceStyle.BOLD_ITALIC.ordinal()];
+
+        if (bold && italic) {
+            if (boldItalicTypeface != null) {
+                mTextPaint.setTypeface(boldItalicTypeface);
+                mTextPaint.setFakeBoldText(false);
+                mTextPaint.setTextSkewX(0.f);
+            } else if (italicTypeface != null) {
+                mTextPaint.setTypeface(italicTypeface);
+                mTextPaint.setFakeBoldText(true);
+                mTextPaint.setTextSkewX(0.f);
+            } else if (boldTypeface != null) {
+                mTextPaint.setTypeface(boldTypeface);
+                mTextPaint.setFakeBoldText(false);
+                mTextPaint.setTextSkewX(-0.35f);
+            } else {
+                mTextPaint.setTypeface(mTypeface);
+                mTextPaint.setFakeBoldText(true);
+                mTextPaint.setTextSkewX(-0.35f);
+            }
+        } else if (italic) {
+            if (italicTypeface != null) {
+                mTextPaint.setTypeface(italicTypeface);
+                mTextPaint.setTextSkewX(0.f);
+            } else {
+                mTextPaint.setTypeface(mTypeface);
+                mTextPaint.setTextSkewX(-0.35f);
+            }
+            mTextPaint.setFakeBoldText(false);
+        } else if (bold) {
+            if (boldTypeface != null) {
+                mTextPaint.setTypeface(boldTypeface);
+                mTextPaint.setFakeBoldText(false);
+            } else {
+                mTextPaint.setTypeface(mTypeface);
+                mTextPaint.setFakeBoldText(true);
+            }
+            mTextPaint.setTextSkewX(0.f);
+        } else {
+            mTextPaint.setTypeface(mTypeface);
+            mTextPaint.setFakeBoldText(false);
+            mTextPaint.setTextSkewX(0.f);
+        }
     }
 
     public float getFontWidth() {

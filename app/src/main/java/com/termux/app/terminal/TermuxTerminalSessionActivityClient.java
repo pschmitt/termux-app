@@ -510,11 +510,25 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             }
             updateBackgroundColor();
 
-            final Typeface newTypeface = (fontFile.exists() && fontFile.length() > 0) ? Typeface.createFromFile(fontFile) : Typeface.MONOSPACE;
-            mActivity.getTerminalView().setTypeface(newTypeface);
+            final Typeface normalTypeface = loadTypeface(fontFile, Typeface.MONOSPACE);
+            final Typeface italicTypeface = loadTypeface(TermuxConstants.TERMUX_ITALIC_FONT_FILE, null);
+            final Typeface boldTypeface = loadTypeface(TermuxConstants.TERMUX_BOLD_FONT_FILE, null);
+            final Typeface boldItalicTypeface = loadTypeface(TermuxConstants.TERMUX_BOLD_ITALIC_FONT_FILE, null);
+            mActivity.getTerminalView().setTypeface(normalTypeface, italicTypeface, boldTypeface, boldItalicTypeface);
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error in checkForFontAndColors()", e);
         }
+    }
+
+    private Typeface loadTypeface(File fontFile, Typeface fallback) {
+        if (fontFile.exists() && fontFile.length() > 0) {
+            try {
+                return Typeface.createFromFile(fontFile);
+            } catch (RuntimeException e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Error loading font file: " + fontFile.getAbsolutePath(), e);
+            }
+        }
+        return fallback;
     }
 
     public void updateBackgroundColor() {
