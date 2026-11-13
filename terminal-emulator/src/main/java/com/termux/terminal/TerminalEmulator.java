@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.Stack;
 
 /**
@@ -426,11 +427,15 @@ public final class TerminalEmulator {
         /** The width and height in pixels of the image data, only set for the raw formats. */
         final int mPixelWidth, mPixelHeight;
 
-        KittyStoredImage(int format, byte[] image, int pixelWidth, int pixelHeight) {
+        /** The non-unique image number passed with the `I` key, or {@link KittyImage#IMAGE_NUMBER__NONE}. */
+        final long mImageNumber;
+
+        KittyStoredImage(int format, byte[] image, int pixelWidth, int pixelHeight, long imageNumber) {
             mFormat = format;
             mImage = image;
             mPixelWidth = pixelWidth;
             mPixelHeight = pixelHeight;
+            mImageNumber = imageNumber;
         }
 
     }
@@ -441,6 +446,7 @@ public final class TerminalEmulator {
      * {@link #KITTY_IMAGES__MAX_COUNT} or {@link #KITTY_IMAGES__MAX_TOTAL_SIZE} is exceeded.
      */
     private final LinkedHashMap<Long, KittyStoredImage> mKittyImages = new LinkedHashMap<>();
+    private long mNextKittyImageId = 1;
 
     /** The combined size in bytes of all the image data stored in {@link #mKittyImages}. */
     private int mKittyImagesTotalSize;
@@ -2997,11 +3003,22 @@ public final class TerminalEmulator {
 
     /** Do a kitty graphics `a=t` or `a=T` command. */
     private void doKittyGraphicsTransmit(KittyImage kittyImage) {
+        long imageId = kittyImage.getImageId();
+        long imageNumber = kittyImage.getImageNumber();
+        if (imageId != KittyImage.IMAGE_ID__NONE && imageNumber != KittyImage.IMAGE_NUMBER__NONE) {
+            kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "cannot specify both image id and image number");
+            return;
+        }
+
         if (!kittyImage.finishImage()) return;
 
-        long imageId = kittyImage.getImageId();
+        if (imageId == KittyImage.IMAGE_ID__NONE && imageNumber != KittyImage.IMAGE_NUMBER__NONE) {
+            imageId = allocateKittyImageId();
+            kittyImage.setImageId(imageId);
+        }
+
         KittyStoredImage storedImage = new KittyStoredImage(kittyImage.getFormat(),
-            kittyImage.getDecodedImage(), kittyImage.getPixelWidth(), kittyImage.getPixelHeight());
+            kittyImage.getDecodedImage(), kittyImage.getPixelWidth(), kittyImage.getPixelHeight(), imageNumber);
 
         // The image is only stored if it can be referenced by an image id with an `a=p` command later.
         if (imageId != KittyImage.IMAGE_ID__NONE) {
@@ -3019,12 +3036,31 @@ public final class TerminalEmulator {
      */
     private void doKittyGraphicsPut(KittyImage kittyImage) {
         long imageId = kittyImage.getImageId();
-        if (imageId == KittyImage.IMAGE_ID__NONE) {
+        long imageNumber = kittyImage.getImageNumber();
+        if (imageId != KittyImage.IMAGE_ID__NONE && imageNumber != KittyImage.IMAGE_NUMBER__NONE) {
+            kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "cannot specify both image id and image number");
+            return;
+        }
+
+        KittyStoredImage storedImage = null;
+        if (imageId != KittyImage.IMAGE_ID__NONE) {
+            storedImage = mKittyImages.get(imageId);
+        } else if (imageNumber != KittyImage.IMAGE_NUMBER__NONE) {
+            long matchedId = KittyImage.IMAGE_ID__NONE;
+            for (Map.Entry<Long, KittyStoredImage> entry : mKittyImages.entrySet()) {
+                if (entry.getValue().mImageNumber == imageNumber) {
+                    matchedId = entry.getKey();
+                    storedImage = entry.getValue();
+                }
+            }
+            if (matchedId != KittyImage.IMAGE_ID__NONE) {
+                kittyImage.setImageId(matchedId);
+            }
+        } else {
             kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "missing image id");
             return;
         }
 
-        KittyStoredImage storedImage = mKittyImages.get(imageId);
         if (storedImage == null) {
             kittyImage.setStateFailed(KittyImage.ERROR__ENOENT, "no image transmitted for image id");
             return;
@@ -3049,7 +3085,7 @@ public final class TerminalEmulator {
             mCursorCol, mCursorRow, mCellWidthPixels, mCellHeightPixels,
             kittyImage.getWidthPixels(mCellWidthPixels), kittyImage.getHeightPixels(mCellHeightPixels),
             kittyImage.shouldPreserveAspectRatio(),
-            kittyImage.getImageId(), kittyImage.getPlacementId());
+            kittyImage.getImageId(), storedImage.mImageNumber, kittyImage.getPlacementId());
 
         // A bitmap always covers at least one column if it was created successfully.
         if (cursorDelta[1] < 1) {
@@ -3067,18 +3103,19 @@ public final class TerminalEmulator {
     /** Do a kitty graphics `a=d` command. */
     private void doKittyGraphicsDelete(KittyImage kittyImage) {
         char deleteMode = kittyImage.getDeleteMode();
+        boolean freeData = Character.isUpperCase(deleteMode);
         switch (deleteMode) {
             case KittyImage.DELETE_MODE__NONE: // The `d` key defaults to `d=a`.
             case KittyImage.DELETE_MODE__ALL:
             case KittyImage.DELETE_MODE__ALL_AND_FREE_DATA:
                 // All the placements are deleted regardless of the image id passed as per the protocol.
                 mScreen.deleteAllKittyImagePlacements();
-                if (deleteMode == KittyImage.DELETE_MODE__ALL_AND_FREE_DATA) {
+                if (freeData) {
                     clearKittyImages();
                 }
                 break;
             case KittyImage.DELETE_MODE__ID:
-            case KittyImage.DELETE_MODE__ID_AND_FREE_DATA:
+            case KittyImage.DELETE_MODE__ID_AND_FREE_DATA: {
                 long imageId = kittyImage.getImageId();
                 if (imageId == KittyImage.IMAGE_ID__NONE) {
                     kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "missing image id");
@@ -3088,13 +3125,92 @@ public final class TerminalEmulator {
                 // Deleting an image that does not exist is not an error as per the protocol. Only
                 // the placement passed with the `p` key is deleted if it is passed.
                 mScreen.deleteKittyImagePlacements(imageId, kittyImage.getPlacementId());
-                if (deleteMode == KittyImage.DELETE_MODE__ID_AND_FREE_DATA) {
+                if (freeData) {
                     removeKittyImage(imageId);
                 }
                 break;
+            }
+            case KittyImage.DELETE_MODE__IMAGE_NUMBER:
+            case KittyImage.DELETE_MODE__IMAGE_NUMBER_AND_FREE_DATA: {
+                long imageNumber = kittyImage.getImageNumber();
+                if (imageNumber == KittyImage.IMAGE_NUMBER__NONE) {
+                    kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "missing image number");
+                    return;
+                }
+                mScreen.deleteKittyImagePlacementsByImageNumber(imageNumber, kittyImage.getPlacementId());
+                if (freeData) {
+                    removeKittyImagesByNumber(imageNumber);
+                }
+                break;
+            }
+            case KittyImage.DELETE_MODE__CURSOR:
+            case KittyImage.DELETE_MODE__CURSOR_AND_FREE_DATA: {
+                Set<Long> deletedIds = mScreen.deleteKittyImagePlacementsAt(mCursorCol, mCursorRow);
+                if (freeData) {
+                    for (Long id : deletedIds) removeKittyImage(id);
+                }
+                break;
+            }
+            case KittyImage.DELETE_MODE__CELL:
+            case KittyImage.DELETE_MODE__CELL_AND_FREE_DATA: {
+                int col = kittyImage.hasSourceX() ? (int) Math.min(kittyImage.getRawX(), Integer.MAX_VALUE) - 1 : 0;
+                int row = kittyImage.hasSourceY() ? (int) Math.min(kittyImage.getRawY(), Integer.MAX_VALUE) - 1 : 0;
+                if (col < 0 || row < 0) {
+                    kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "invalid cell coordinates");
+                    return;
+                }
+                Set<Long> deletedIds = mScreen.deleteKittyImagePlacementsAt(col, row);
+                if (freeData) {
+                    for (Long id : deletedIds) removeKittyImage(id);
+                }
+                break;
+            }
+            case KittyImage.DELETE_MODE__COLUMN:
+            case KittyImage.DELETE_MODE__COLUMN_AND_FREE_DATA: {
+                int col = kittyImage.hasSourceX() ? (int) Math.min(kittyImage.getRawX(), Integer.MAX_VALUE) - 1 : 0;
+                if (col < 0) {
+                    kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "invalid column coordinate");
+                    return;
+                }
+                Set<Long> deletedIds = mScreen.deleteKittyImagePlacementsAt(col, -1);
+                if (freeData) {
+                    for (Long id : deletedIds) removeKittyImage(id);
+                }
+                break;
+            }
+            case KittyImage.DELETE_MODE__ROW:
+            case KittyImage.DELETE_MODE__ROW_AND_FREE_DATA: {
+                int row = kittyImage.hasSourceY() ? (int) Math.min(kittyImage.getRawY(), Integer.MAX_VALUE) - 1 : 0;
+                if (row < 0) {
+                    kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "invalid row coordinate");
+                    return;
+                }
+                Set<Long> deletedIds = mScreen.deleteKittyImagePlacementsAt(-1, row);
+                if (freeData) {
+                    for (Long id : deletedIds) removeKittyImage(id);
+                }
+                break;
+            }
+            case KittyImage.DELETE_MODE__RANGE:
+            case KittyImage.DELETE_MODE__RANGE_AND_FREE_DATA: {
+                if (!kittyImage.hasSourceX() || !kittyImage.hasSourceY()) {
+                    kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "missing id range");
+                    return;
+                }
+                long startId = kittyImage.getRawX();
+                long endId = kittyImage.getRawY();
+                if (startId < 1 || endId < startId) {
+                    kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "invalid id range");
+                    return;
+                }
+                mScreen.deleteKittyImagePlacementsByIdRange(startId, endId);
+                if (freeData) {
+                    removeKittyImagesByIdRange(startId, endId);
+                }
+                break;
+            }
             default:
-                // The `d=n`, `d=c`, `d=p`, `d=q`, `d=r`, `d=x`, `d=y` and `d=z` delete modes require
-                // image numbers or coordinates, which are not supported.
+                // The `d=z` delete mode requires z-index, which is not supported.
                 kittyImage.setStateFailed(KittyImage.ERROR__ENOTSUP, "unsupported delete mode");
                 break;
         }
@@ -3103,23 +3219,61 @@ public final class TerminalEmulator {
     /**
      * Send the response for a kitty graphics command as per the quiet level passed with its `q` key.
      *
-     * The success response is `ESC _ G i=<id> ; OK ST` and the error response is
-     * `ESC _ G i=<id> ; <error code> : <error message> ST`.
+     * The success response is `ESC _ G i=<id>[,I=<number>] ; OK ST` and the error response is
+     * `ESC _ G i=<id>[,I=<number>] ; <error code> : <error message> ST`.
      */
     private void respondToKittyGraphicsCommand(KittyImage kittyImage) {
-        // A response cannot be matched with the command that caused it without an image id, so none
-        // is sent, like kitty does.
+        // A response cannot be matched with the command that caused it without an image id or number.
         long imageId = kittyImage.getImageId();
-        if (imageId == KittyImage.IMAGE_ID__NONE) return;
+        long imageNumber = kittyImage.getImageNumber();
+        if (imageId == KittyImage.IMAGE_ID__NONE && imageNumber == KittyImage.IMAGE_NUMBER__NONE) return;
 
         int quiet = kittyImage.getQuiet();
+        String idPart = "i=" + imageId + (imageNumber != KittyImage.IMAGE_NUMBER__NONE ? ",I=" + imageNumber : "");
 
         if (!kittyImage.isFailed()) {
             if (quiet >= KittyImage.QUIET__SUCCESS) return;
-            mSession.write("\033_Gi=" + imageId + ";OK\033\\");
+            mSession.write("\033_G" + idPart + ";OK\033\\");
         } else {
             if (quiet >= KittyImage.QUIET__ALL) return;
-            mSession.write("\033_Gi=" + imageId + ";" + kittyImage.getErrorCode() + ":" + kittyImage.getErrorMessage() + "\033\\");
+            mSession.write("\033_G" + idPart + ";" + kittyImage.getErrorCode() + ":" + kittyImage.getErrorMessage() + "\033\\");
+        }
+    }
+
+    private long allocateKittyImageId() {
+        while (mKittyImages.containsKey(mNextKittyImageId) || mNextKittyImageId == KittyImage.IMAGE_ID__NONE) {
+            mNextKittyImageId++;
+            if (mNextKittyImageId > KittyImage.IMAGE_ID__MAX) {
+                mNextKittyImageId = 1;
+            }
+        }
+        long id = mNextKittyImageId++;
+        if (mNextKittyImageId > KittyImage.IMAGE_ID__MAX) {
+            mNextKittyImageId = 1;
+        }
+        return id;
+    }
+
+    private void removeKittyImagesByNumber(long imageNumber) {
+        Iterator<Map.Entry<Long, KittyStoredImage>> iterator = mKittyImages.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<Long, KittyStoredImage> entry = iterator.next();
+            if (entry.getValue().mImageNumber == imageNumber) {
+                mKittyImagesTotalSize -= entry.getValue().mImage.length;
+                iterator.remove();
+            }
+        }
+    }
+
+    private void removeKittyImagesByIdRange(long startId, long endId) {
+        Iterator<Map.Entry<Long, KittyStoredImage>> iterator = mKittyImages.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<Long, KittyStoredImage> entry = iterator.next();
+            long id = entry.getKey();
+            if (id >= startId && id <= endId) {
+                mKittyImagesTotalSize -= entry.getValue().mImage.length;
+                iterator.remove();
+            }
         }
     }
 

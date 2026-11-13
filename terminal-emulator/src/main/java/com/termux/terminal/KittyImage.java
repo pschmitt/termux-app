@@ -1,6 +1,9 @@
 package com.termux.terminal;
 
+import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
 
 /**
  * A kitty graphics protocol image received via an `APC _G` command.
@@ -96,6 +99,30 @@ public class KittyImage {
      */
     public static final char DELETE_MODE__ID = 'i';
     public static final char DELETE_MODE__ID_AND_FREE_DATA = 'I';
+    /** `d=n` / `d=N` - Delete placements by image number passed with the `I` key. */
+    public static final char DELETE_MODE__IMAGE_NUMBER = 'n';
+    public static final char DELETE_MODE__IMAGE_NUMBER_AND_FREE_DATA = 'N';
+    /** `d=c` / `d=C` - Delete placements intersecting the current cursor position. */
+    public static final char DELETE_MODE__CURSOR = 'c';
+    public static final char DELETE_MODE__CURSOR_AND_FREE_DATA = 'C';
+    /** `d=p` / `d=P` - Delete placements intersecting cell `(x, y)` (1-based). */
+    public static final char DELETE_MODE__CELL = 'p';
+    public static final char DELETE_MODE__CELL_AND_FREE_DATA = 'P';
+    /** `d=x` / `d=X` - Delete placements intersecting column `x` (1-based). */
+    public static final char DELETE_MODE__COLUMN = 'x';
+    public static final char DELETE_MODE__COLUMN_AND_FREE_DATA = 'X';
+    /** `d=y` / `d=Y` - Delete placements intersecting row `y` (1-based). */
+    public static final char DELETE_MODE__ROW = 'y';
+    public static final char DELETE_MODE__ROW_AND_FREE_DATA = 'Y';
+    /** `d=r` / `d=R` - Delete placements with image id in range `[x, y]`. */
+    public static final char DELETE_MODE__RANGE = 'r';
+    public static final char DELETE_MODE__RANGE_AND_FREE_DATA = 'R';
+
+
+    /* The compression types for the `o` key. */
+
+    public static final char COMPRESSION__NONE = 0;
+    public static final char COMPRESSION__ZLIB = 'z';
 
 
     /* The transmission mediums for the `t` key. */
@@ -151,6 +178,12 @@ public class KittyImage {
 
     /** The max value for the `i` key, since image ids are 32-bit unsigned integers. */
     public static final long IMAGE_ID__MAX = 4294967295L;
+
+    /** The image number value for the `I` key if it was not passed. Image number `0` is not valid. */
+    public static final long IMAGE_NUMBER__NONE = 0;
+
+    /** The max value for the `I` key, since image numbers are 32-bit unsigned integers. */
+    public static final long IMAGE_NUMBER__MAX = 4294967295L;
 
     /** The placement id value for the `p` key if it was not passed. Placement id `0` is not valid. */
     public static final long PLACEMENT_ID__NONE = 0;
@@ -217,11 +250,17 @@ public class KittyImage {
     /** The transmission medium passed with the `t` key. */
     protected char mMedium = MEDIUM__DEFAULT;
 
+    /** The compression type passed with the `o` key. */
+    protected char mCompression = COMPRESSION__NONE;
+
     /** The image format passed with the `f` key. */
     protected int mFormat = FORMAT__DEFAULT;
 
     /** The image id passed with the `i` key. */
     protected long mImageId = IMAGE_ID__NONE;
+
+    /** The image number passed with the `I` key. */
+    protected long mImageNumber = IMAGE_NUMBER__NONE;
 
     /** The placement id passed with the `p` key. */
     protected long mPlacementId = PLACEMENT_ID__NONE;
@@ -253,6 +292,10 @@ public class KittyImage {
      */
     protected int mSourceX = 0;
     protected int mSourceY = 0;
+    protected long mRawX = 0;
+    protected long mRawY = 0;
+    protected boolean mHasSourceX = false;
+    protected boolean mHasSourceY = false;
     protected int mSourceWidth = -1;
     protected int mSourceHeight = -1;
 
@@ -348,8 +391,32 @@ public class KittyImage {
         return mImageId;
     }
 
+    public void setImageId(long imageId) {
+        mImageId = imageId;
+    }
+
+    public long getImageNumber() {
+        return mImageNumber;
+    }
+
     public long getPlacementId() {
         return mPlacementId;
+    }
+
+    public boolean hasSourceX() {
+        return mHasSourceX;
+    }
+
+    public boolean hasSourceY() {
+        return mHasSourceY;
+    }
+
+    public long getRawX() {
+        return mRawX;
+    }
+
+    public long getRawY() {
+        return mRawY;
     }
 
 
@@ -430,6 +497,12 @@ public class KittyImage {
      * {@link #getErrorCode()} will be set.
      */
     public synchronized boolean validateSourceRectangle(int imageWidth, int imageHeight) {
+        if (mRawX > PIXEL_DIMENSION__MAX) {
+            return setStateFailed(ERROR__EINVAL, "source rectangle x " + mRawX + " exceeds max " + PIXEL_DIMENSION__MAX);
+        }
+        if (mRawY > PIXEL_DIMENSION__MAX) {
+            return setStateFailed(ERROR__EINVAL, "source rectangle y " + mRawY + " exceeds max " + PIXEL_DIMENSION__MAX);
+        }
         if (imageWidth < 1 || imageHeight < 1) return true;
 
         if (mSourceX >= imageWidth) {
@@ -589,6 +662,14 @@ public class KittyImage {
             if (index < argsLength && apcArgs.charAt(index) == ',') index++;
         }
 
+        if (!isFailed() && mAction != ACTION__DELETE) {
+            if (mHasSourceX && (mRawX < 0 || mRawX > PIXEL_DIMENSION__MAX)) {
+                setStateFailed(ERROR__EINVAL, "invalid source rectangle x");
+            } else if (mHasSourceY && (mRawY < 0 || mRawY > PIXEL_DIMENSION__MAX)) {
+                setStateFailed(ERROR__EINVAL, "invalid source rectangle y");
+            }
+        }
+
         if (isFailed()) {
             return -1;
         }
@@ -633,10 +714,11 @@ public class KittyImage {
                 }
                 break;
             case 'o': // The compression.
-                if (argValue.length() != 1 || argValue.charAt(0) != 'z') {
+                if (argValue.length() != 1 || argValue.charAt(0) != COMPRESSION__ZLIB) {
                     return setStateFailed(ERROR__EINVAL, "invalid compression");
                 }
-                return setStateFailed(ERROR__ENOTSUP, "unsupported compression");
+                mCompression = COMPRESSION__ZLIB;
+                break;
             case 'f': { // The image format.
                 long value = readNumberArg(argValue, 0, FORMAT__PNG);
                 if (value != FORMAT__RGB && value != FORMAT__RGBA && value != FORMAT__PNG) {
@@ -649,6 +731,12 @@ public class KittyImage {
                 long value = readNumberArg(argValue, 1, IMAGE_ID__MAX);
                 if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid image id");
                 mImageId = value;
+                break;
+            }
+            case 'I': { // The image number.
+                long value = readNumberArg(argValue, 1, IMAGE_NUMBER__MAX);
+                if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid image number");
+                mImageNumber = value;
                 break;
             }
             case 'p': { // The placement id.
@@ -700,16 +788,20 @@ public class KittyImage {
                 mDoNotMoveCursor = value == 1;
                 break;
             }
-            case 'x': { // The x coordinate in pixels of the source rectangle.
-                long value = readNumberArg(argValue, 0, PIXEL_DIMENSION__MAX);
+            case 'x': { // The x coordinate in pixels of the source rectangle (or cell/range for a=d).
+                long value = readNumberArg(argValue, 0, IMAGE_ID__MAX);
                 if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid source rectangle x");
-                mSourceX = (int) value;
+                mRawX = value;
+                mSourceX = (int) Math.min(value, Integer.MAX_VALUE);
+                mHasSourceX = true;
                 break;
             }
-            case 'y': { // The y coordinate in pixels of the source rectangle.
-                long value = readNumberArg(argValue, 0, PIXEL_DIMENSION__MAX);
+            case 'y': { // The y coordinate in pixels of the source rectangle (or cell/range for a=d).
+                long value = readNumberArg(argValue, 0, IMAGE_ID__MAX);
                 if (value < 0) return setStateFailed(ERROR__EINVAL, "invalid source rectangle y");
-                mSourceY = (int) value;
+                mRawY = value;
+                mSourceY = (int) Math.min(value, Integer.MAX_VALUE);
+                mHasSourceY = true;
                 break;
             }
             case 'w': { // The width in pixels of the source rectangle.
@@ -796,17 +888,20 @@ public class KittyImage {
             return false;
         }
 
-        // The exact length of the image data is known in advance for the raw formats, so the limit
-        // can be checked before all of it has been received, and the buffer for it can be allocated
-        // exactly once with the required size instead of being grown as more chunks are received.
+        // The exact length of the image data is known in advance for uncompressed raw formats, so
+        // the limit can be checked before all of it has been received, and the buffer for it can be
+        // allocated exactly once with the required size instead of being grown as more chunks are
+        // received.
         if (isRawFormat() && mImageData == null && mPixelWidth > 0 && mPixelHeight > 0) {
             long imageDataLength = (long) mPixelWidth * mPixelHeight * getBytesPerPixel(mFormat);
             if (imageDataLength > IMAGE_DATA__MAX_LENGTH) {
                 return setStateFailed(ERROR__ENOSPC, "image data exceeds max length " + IMAGE_DATA__MAX_LENGTH);
             }
 
-            mImageDataExpectedLength = (int) imageDataLength;
-            if (!ensureImageDataCapacity(mImageDataExpectedLength)) return false;
+            if (mCompression == COMPRESSION__NONE) {
+                mImageDataExpectedLength = (int) imageDataLength;
+                if (!ensureImageDataCapacity(mImageDataExpectedLength)) return false;
+            }
         }
 
         // An empty payload can be received as well, so the state is changed even if no character of
@@ -940,6 +1035,10 @@ public class KittyImage {
             return setStateFailed(ERROR__EBADDATA, "empty image data");
         }
 
+        if (mCompression == COMPRESSION__ZLIB) {
+            if (!decompressZlib()) return false;
+        }
+
         // The pixel dimensions of raw image data are not part of the data itself, so they must be
         // passed with the `s` and `v` keys and must match the length of the data exactly.
         if (isRawFormat()) {
@@ -949,6 +1048,13 @@ public class KittyImage {
                 return setStateFailed(ERROR__EINVAL, "missing pixel dimensions for" +
                     " image data of length " + imageDataLength);
             }
+
+            long expectedLength = (long) mPixelWidth * mPixelHeight * getBytesPerPixel(mFormat);
+            if (expectedLength > IMAGE_DATA__MAX_LENGTH) {
+                mImageData = null;
+                return setStateFailed(ERROR__ENOSPC, "image data exceeds max length " + IMAGE_DATA__MAX_LENGTH);
+            }
+            mImageDataExpectedLength = (int) expectedLength;
 
             if (mImageDataLength != mImageDataExpectedLength) {
                 int imageDataLength = mImageDataLength;
@@ -974,6 +1080,43 @@ public class KittyImage {
 
         setState(ImageState.IMAGE_DECODED);
         return true;
+    }
+
+    private boolean decompressZlib() {
+        Inflater inflater = new Inflater();
+        try {
+            inflater.setInput(mImageData, 0, mImageDataLength);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            while (!inflater.finished()) {
+                int count = inflater.inflate(buf);
+                if (count == 0) {
+                    if (inflater.needsInput() || inflater.needsDictionary()) {
+                        mImageData = null;
+                        return setStateFailed(ERROR__EBADDATA, "incomplete zlib image data");
+                    }
+                    break;
+                }
+                if (out.size() + count > IMAGE_DATA__MAX_LENGTH) {
+                    mImageData = null;
+                    return setStateFailed(ERROR__ENOSPC, "decompressed image data exceeds max length " + IMAGE_DATA__MAX_LENGTH);
+                }
+                out.write(buf, 0, count);
+            }
+            byte[] decompressed = out.toByteArray();
+            if (decompressed.length < 1) {
+                mImageData = null;
+                return setStateFailed(ERROR__EBADDATA, "empty decompressed image data");
+            }
+            mImageData = decompressed;
+            mImageDataLength = decompressed.length;
+            return true;
+        } catch (DataFormatException e) {
+            mImageData = null;
+            return setStateFailed(ERROR__EBADDATA, "invalid zlib image data: " + e.getMessage());
+        } finally {
+            inflater.end();
+        }
     }
 
 

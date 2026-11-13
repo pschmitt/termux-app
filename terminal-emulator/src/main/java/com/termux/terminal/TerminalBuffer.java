@@ -734,7 +734,7 @@ public final class TerminalBuffer {
                                                              int sourceWidth, int sourceHeight,
                                                              int x, int y, int cellW, int cellH,
                                                              int width, int height, boolean shouldPreserveAspectRatio,
-                                                             long kittyImageId, long kittyPlacementId) {
+                                                             long kittyImageId, long kittyImageNumber, long kittyPlacementId) {
         int bitmapNum = getFreeTerminalBitmapNum();
         if (bitmapNum < TERMINAL_BITMAP__NUM_START) {
             Logger.logError(mClient, LOG_TAG, "Cannot create more than " + TERMINAL_BITMAP__NUM_END + " bitmaps");
@@ -748,7 +748,7 @@ public final class TerminalBuffer {
         if (terminalBitmap == null || terminalBitmap.getBitmap() == null) {
             return new int[] {0, 0};
         }
-        terminalBitmap.setKittyImage(kittyImageId, kittyPlacementId);
+        terminalBitmap.setKittyImage(kittyImageId, kittyImageNumber, kittyPlacementId);
         addTerminalBitmap(terminalBitmap);
 
         doTerminalBitmapsGC(30000);
@@ -781,6 +781,93 @@ public final class TerminalBuffer {
         deleteKittyImagePlacements(KittyImage.IMAGE_ID__NONE, KittyImage.PLACEMENT_ID__NONE, true);
     }
 
+    /**
+     * Delete all kitty graphics placements whose image number matches {@code kittyImageNumber}.
+     *
+     * @return Returns the set of deleted kitty image ids.
+     */
+    public synchronized Set<Long> deleteKittyImagePlacementsByImageNumber(long kittyImageNumber, long kittyPlacementId) {
+        Set<Long> deletedImageIds = new HashSet<>();
+        if (mTerminalBitmaps.isEmpty()) return deletedImageIds;
+
+        Set<Integer> bitmapsToRemove = new HashSet<>();
+        for (Map.Entry<Integer, TerminalBitmap> entry : mTerminalBitmaps.entrySet()) {
+            TerminalBitmap bitmap = entry.getValue();
+            if (!bitmap.isKittyImage()) continue;
+            if (bitmap.getKittyImageNumber() == kittyImageNumber &&
+                (kittyPlacementId == KittyImage.PLACEMENT_ID__NONE ||
+                    bitmap.getKittyPlacementId() == kittyPlacementId)) {
+                bitmapsToRemove.add(entry.getKey());
+                if (bitmap.getKittyImageId() != KittyImage.IMAGE_ID__NONE) {
+                    deletedImageIds.add(bitmap.getKittyImageId());
+                }
+            }
+        }
+
+        removeKittyBitmapsFromLines(bitmapsToRemove);
+        return deletedImageIds;
+    }
+
+    /**
+     * Delete all kitty graphics placements whose image id is within {@code [startId, endId]}.
+     *
+     * @return Returns the set of deleted kitty image ids.
+     */
+    public synchronized Set<Long> deleteKittyImagePlacementsByIdRange(long startId, long endId) {
+        Set<Long> deletedImageIds = new HashSet<>();
+        if (mTerminalBitmaps.isEmpty()) return deletedImageIds;
+
+        Set<Integer> bitmapsToRemove = new HashSet<>();
+        for (Map.Entry<Integer, TerminalBitmap> entry : mTerminalBitmaps.entrySet()) {
+            TerminalBitmap bitmap = entry.getValue();
+            if (!bitmap.isKittyImage()) continue;
+            long id = bitmap.getKittyImageId();
+            if (id >= startId && id <= endId) {
+                bitmapsToRemove.add(entry.getKey());
+                deletedImageIds.add(id);
+            }
+        }
+
+        removeKittyBitmapsFromLines(bitmapsToRemove);
+        return deletedImageIds;
+    }
+
+    /**
+     * Delete all kitty graphics placements intersecting the given 0-based screen {@code col} and/or
+     * {@code row}. Pass {@code -1} for {@code col} or {@code row} as a wildcard.
+     *
+     * @return Returns the set of deleted kitty image ids.
+     */
+    public synchronized Set<Long> deleteKittyImagePlacementsAt(int col, int row) {
+        Set<Long> deletedImageIds = new HashSet<>();
+        if (mTerminalBitmaps.isEmpty()) return deletedImageIds;
+
+        int startRow = (row >= 0) ? row : 0;
+        int endRow = (row >= 0) ? Math.min(row + 1, mScreenRows) : mScreenRows;
+        int startCol = (col >= 0) ? col : 0;
+        int endCol = (col >= 0) ? Math.min(col + 1, mColumns) : mColumns;
+
+        Set<Integer> bitmapsToRemove = new HashSet<>();
+        for (int r = startRow; r < endRow; r++) {
+            TerminalRow line = mLines[externalToInternalRow(r)];
+            if (line == null || !line.mHasTerminalBitmap) continue;
+            for (int c = startCol; c < endCol; c++) {
+                int bitmapNum = TextStyle.getTerminalBitmapNum(line.getStyle(c));
+                if (bitmapNum < TERMINAL_BITMAP__NUM_START) continue;
+                TerminalBitmap bitmap = mTerminalBitmaps.get(bitmapNum);
+                if (bitmap != null && bitmap.isKittyImage()) {
+                    bitmapsToRemove.add(bitmapNum);
+                    if (bitmap.getKittyImageId() != KittyImage.IMAGE_ID__NONE) {
+                        deletedImageIds.add(bitmap.getKittyImageId());
+                    }
+                }
+            }
+        }
+
+        removeKittyBitmapsFromLines(bitmapsToRemove);
+        return deletedImageIds;
+    }
+
     private synchronized void deleteKittyImagePlacements(long kittyImageId, long kittyPlacementId, boolean allImages) {
         if (mTerminalBitmaps.isEmpty()) return;
 
@@ -797,6 +884,10 @@ public final class TerminalBuffer {
             bitmapsToRemove.add(terminalBitmap.getKey());
         }
 
+        removeKittyBitmapsFromLines(bitmapsToRemove);
+    }
+
+    private void removeKittyBitmapsFromLines(Set<Integer> bitmapsToRemove) {
         if (bitmapsToRemove.isEmpty()) return;
 
         // Clear the cells of the screen and the transcript that the placements were rendered in.
