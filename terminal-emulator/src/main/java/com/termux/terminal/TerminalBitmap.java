@@ -157,6 +157,9 @@ public class TerminalBitmap {
     /** The kitty graphics image id this bitmap is a placement of, if {@link #mIsKittyImage}. */
     protected long mKittyImageId = KittyImage.IMAGE_ID__NONE;
 
+    /** The kitty graphics image number this bitmap is a placement of, if {@link #mIsKittyImage}. */
+    protected long mKittyImageNumber = KittyImage.IMAGE_NUMBER__NONE;
+
     /** The kitty graphics placement id of this bitmap, if {@link #mIsKittyImage}. */
     protected long mKittyPlacementId = KittyImage.PLACEMENT_ID__NONE;
 
@@ -774,14 +777,19 @@ public class TerminalBitmap {
         return mKittyImageId;
     }
 
+    public long getKittyImageNumber() {
+        return mKittyImageNumber;
+    }
+
     public long getKittyPlacementId() {
         return mKittyPlacementId;
     }
 
     /** Mark this bitmap as a placement of a kitty graphics image. */
-    public void setKittyImage(long kittyImageId, long kittyPlacementId) {
+    public void setKittyImage(long kittyImageId, long kittyImageNumber, long kittyPlacementId) {
         mIsKittyImage = true;
         mKittyImageId = kittyImageId;
+        mKittyImageNumber = kittyImageNumber;
         mKittyPlacementId = kittyPlacementId;
     }
 

@@ -87,10 +87,10 @@ public class KittyGraphicsTest extends TerminalTestCase {
             "\033_Gi=31,a=q,t=d,f=32;" + RGBA_BASE64_1X1 + "\033\\",
             "\033_Gi=31;EINVAL:missing pixel dimensions for image data of length 4\033\\");
 
-        // Compressed image data is not supported.
+        // Zlib compressed image data (`o=z`) with invalid zlib stream returns `EBADDATA`.
         assertEnteringStringGivesResponse(
             "\033_Gi=31,s=1,v=1,a=q,t=d,f=24,o=z;AAAA\033\\",
-            "\033_Gi=31;ENOTSUP:unsupported compression\033\\");
+            "\033_Gi=31;EBADDATA:invalid zlib image data: unknown compression method\033\\");
 
         // The image data must be valid `base64`.
         assertEnteringStringGivesResponse(
@@ -131,17 +131,17 @@ public class KittyGraphicsTest extends TerminalTestCase {
 
         // `q` not passed, so respond.
         assertEnteringStringGivesResponse(
-            "\033_Ga=t,f=100,t=d,i=2,m=0,o=z;" + PNG_BASE64 + "\033\\",
-            "\033_Gi=2;ENOTSUP:unsupported compression\033\\");
+            "\033_Ga=t,f=100,t=f,i=2,m=0;L3RtcC9pbWc=\033\\",
+            "\033_Gi=2;ENOTSUP:unsupported transmission medium\033\\");
 
         // `q=1` only suppresses success responses, so still respond.
         assertEnteringStringGivesResponse(
-            "\033_Ga=t,f=100,t=d,i=2,m=0,o=z,q=1;" + PNG_BASE64 + "\033\\",
-            "\033_Gi=2;ENOTSUP:unsupported compression\033\\");
+            "\033_Ga=t,f=100,t=f,i=2,m=0,q=1;L3RtcC9pbWc=\033\\",
+            "\033_Gi=2;ENOTSUP:unsupported transmission medium\033\\");
 
         // `q=2` suppresses success and error responses.
         assertEnteringStringGivesResponse(
-            "\033_Ga=t,f=100,t=d,i=2,m=0,o=z,q=2;" + PNG_BASE64 + "\033\\", "");
+            "\033_Ga=t,f=100,t=f,i=2,m=0,q=2;L3RtcC9pbWc=\033\\", "");
     }
 
     public void testResponseDoesNotDependOnTheOrderOfTheControlDataKeys() {
@@ -149,12 +149,12 @@ public class KittyGraphicsTest extends TerminalTestCase {
         // required to send the response are read regardless of the order the keys are passed in.
         withTerminalSized(10, 5);
 
-        assertEnteringStringGivesResponse("\033_Gq=2,o=z,i=3,a=t,f=100,m=0;" + PNG_BASE64 + "\033\\", "");
-        assertEnteringStringGivesResponse("\033_Go=z,q=2,i=3,a=t,f=100,m=0;" + PNG_BASE64 + "\033\\", "");
-        assertEnteringStringGivesResponse("\033_Go=z,i=3,q=2,a=t,f=100,m=0;" + PNG_BASE64 + "\033\\", "");
+        assertEnteringStringGivesResponse("\033_Gq=2,t=f,i=3,a=t,f=100,m=0;L3RtcC9pbWc=\033\\", "");
+        assertEnteringStringGivesResponse("\033_Gt=f,q=2,i=3,a=t,f=100,m=0;L3RtcC9pbWc=\033\\", "");
+        assertEnteringStringGivesResponse("\033_Gt=f,i=3,q=2,a=t,f=100,m=0;L3RtcC9pbWc=\033\\", "");
 
-        assertEnteringStringGivesResponse("\033_Go=z,i=3,a=t,f=100,m=0;" + PNG_BASE64 + "\033\\",
-            "\033_Gi=3;ENOTSUP:unsupported compression\033\\");
+        assertEnteringStringGivesResponse("\033_Gt=f,i=3,a=t,f=100,m=0;L3RtcC9pbWc=\033\\",
+            "\033_Gi=3;ENOTSUP:unsupported transmission medium\033\\");
     }
 
 
@@ -805,9 +805,9 @@ public class KittyGraphicsTest extends TerminalTestCase {
         assertEnteringStringGivesResponse("\033_Ga=T,f=100,t=s,i=13,m=0;L3RtcC9pbWc=\033\\",
             "\033_Gi=13;ENOTSUP:unsupported transmission medium\033\\");
 
-        // `zlib` compressed image data is not supported.
-        assertEnteringStringGivesResponse("\033_Ga=T,f=100,t=d,o=z,i=13,m=0;" + PNG_BASE64 + "\033\\",
-            "\033_Gi=13;ENOTSUP:unsupported compression\033\\");
+        // Invalid compression type.
+        assertEnteringStringGivesResponse("\033_Ga=T,f=100,t=d,o=x,i=13,m=0;" + PNG_BASE64 + "\033\\",
+            "\033_Gi=13;EINVAL:invalid compression\033\\");
 
         // An image format that is not part of the protocol at all.
         assertEnteringStringGivesResponse("\033_Ga=T,f=50,t=d,i=13,m=0;" + PNG_BASE64 + "\033\\",
@@ -965,7 +965,7 @@ public class KittyGraphicsTest extends TerminalTestCase {
             INITIAL_CELL_WIDTH_PIXELS, INITIAL_CELL_HEIGHT_PIXELS, /* scrollLines */ 1,
             new int[] {1, columns});
         if (isKittyImage) {
-            terminalBitmap.setKittyImage(imageId, placementId);
+            terminalBitmap.setKittyImage(imageId, KittyImage.IMAGE_NUMBER__NONE, placementId);
         }
         screen.addTerminalBitmap(terminalBitmap);
 
@@ -1208,11 +1208,65 @@ public class KittyGraphicsTest extends TerminalTestCase {
     public void testUnsupportedDeleteModeRespondsError() {
         withTerminalSized(20, 4);
 
-        // The delete modes that require image numbers, placement ids or coordinates.
-        assertEnteringStringGivesResponse("\033_Ga=d,d=n,i=22\033\\",
-            "\033_Gi=22;ENOTSUP:unsupported delete mode\033\\");
+        // The delete mode `d=z` requires z-index, which is not supported.
         assertEnteringStringGivesResponse("\033_Ga=d,d=z,i=22\033\\",
             "\033_Gi=22;ENOTSUP:unsupported delete mode\033\\");
+    }
+
+    public void testZlibCompressionDecompressesRawAndPng() throws Exception {
+        withTerminalSized(20, 4);
+
+        byte[] rawRgb = new byte[] { 10, 20, 30, 40, 50, 60 };
+        java.util.zip.Deflater deflater = new java.util.zip.Deflater();
+        deflater.setInput(rawRgb);
+        deflater.finish();
+        byte[] buf = new byte[128];
+        int len = deflater.deflate(buf);
+        deflater.end();
+        byte[] compressed = java.util.Arrays.copyOf(buf, len);
+        String b64 = java.util.Base64.getEncoder().encodeToString(compressed);
+
+        assertEnteringStringGivesResponse("\033_Ga=t,f=24,s=2,v=1,t=d,o=z,i=41;" + b64 + "\033\\",
+            "\033_Gi=41;OK\033\\");
+        assertEquals(6, mTerminal.getKittyImageDataLength(41));
+
+        // Dimension mismatch after decompression returns EINVAL.
+        assertEnteringStringGivesResponse("\033_Ga=t,f=24,s=3,v=1,t=d,o=z,i=42;" + b64 + "\033\\",
+            "\033_Gi=42;EINVAL:image data of length 6 does not match the 9 bytes required for pixel dimensions 3x1\033\\");
+    }
+
+    public void testImageNumberAndDeleteByNumberAndRange() {
+        withTerminalSized(20, 4);
+
+        assertEnteringStringGivesResponse("\033_Ga=t,f=24,s=1,v=1,t=d,I=77;" + RGB_BASE64_1X1 + "\033\\",
+            "\033_Gi=1,I=77;OK\033\\");
+        assertEquals(3, mTerminal.getKittyImageDataLength(1));
+
+        assertEnteringStringGivesResponse("\033_Ga=t,f=24,s=1,v=1,t=d,I=78;" + RGB_BASE64_1X1 + "\033\\",
+            "\033_Gi=2,I=78;OK\033\\");
+        assertEquals(3, mTerminal.getKittyImageDataLength(2));
+
+        // Delete by image number (d=N) frees stored image data.
+        assertEnteringStringGivesResponse("\033_Ga=d,d=N,I=77\033\\",
+            "\033_Gi=0,I=77;OK\033\\");
+        assertEquals(-1, mTerminal.getKittyImageDataLength(1));
+        assertEquals(3, mTerminal.getKittyImageDataLength(2));
+
+        // Delete by range (d=R) frees stored image data in [x, y].
+        assertEnteringStringGivesResponse("\033_Ga=d,d=R,x=2,y=5,i=99\033\\",
+            "\033_Gi=99;OK\033\\");
+        assertEquals(-1, mTerminal.getKittyImageDataLength(2));
+    }
+
+    public void testDeleteByCursorCellColumnAndRow() {
+        withTerminalSized(20, 4);
+
+        assertEnteringStringGivesResponse("\033_Ga=d,d=c,i=50\033\\", "\033_Gi=50;OK\033\\");
+        assertEnteringStringGivesResponse("\033_Ga=d,d=p,x=1,y=1,i=50\033\\", "\033_Gi=50;OK\033\\");
+        assertEnteringStringGivesResponse("\033_Ga=d,d=x,x=1,i=50\033\\", "\033_Gi=50;OK\033\\");
+        assertEnteringStringGivesResponse("\033_Ga=d,d=y,y=1,i=50\033\\", "\033_Gi=50;OK\033\\");
+        assertEnteringStringGivesResponse("\033_Ga=d,d=p,x=0,y=1,i=50\033\\",
+            "\033_Gi=50;EINVAL:invalid cell coordinates\033\\");
     }
 
 
