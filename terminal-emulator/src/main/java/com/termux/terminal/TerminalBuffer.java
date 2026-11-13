@@ -582,7 +582,7 @@ public final class TerminalBuffer {
 
     public synchronized Bitmap getSixelBitmap(long style) {
         TerminalBitmap terminalBitmap = getTerminalBitmap(style);
-        return terminalBitmap != null ? terminalBitmap.mBitmap : null;
+        return terminalBitmap != null ? terminalBitmap.getActiveBitmap() : null;
     }
 
 
@@ -735,6 +735,23 @@ public final class TerminalBuffer {
                                                              int x, int y, int cellW, int cellH,
                                                              int width, int height, boolean shouldPreserveAspectRatio,
                                                              long kittyImageId, long kittyImageNumber, long kittyPlacementId) {
+        return addTerminalBitmapForKittyImage(format, image, pixelWidth, pixelHeight,
+            sourceX, sourceY, sourceWidth, sourceHeight, x, y, cellW, cellH,
+            width, height, shouldPreserveAspectRatio,
+            kittyImageId, kittyImageNumber, kittyPlacementId,
+            0, 0, 0, KittyImage.IMAGE_ID__NONE, KittyImage.PLACEMENT_ID__NONE, null);
+    }
+
+    public synchronized int[] addTerminalBitmapForKittyImage(int format, byte[] image,
+                                                             int pixelWidth, int pixelHeight,
+                                                             int sourceX, int sourceY,
+                                                             int sourceWidth, int sourceHeight,
+                                                             int x, int y, int cellW, int cellH,
+                                                             int width, int height, boolean shouldPreserveAspectRatio,
+                                                             long kittyImageId, long kittyImageNumber, long kittyPlacementId,
+                                                             int zIndex, int offsetX, int offsetY,
+                                                             long parentImageId, long parentPlacementId,
+                                                             TerminalBitmap.KittyAnimationSource animSource) {
         int bitmapNum = getFreeTerminalBitmapNum();
         if (bitmapNum < TERMINAL_BITMAP__NUM_START) {
             Logger.logError(mClient, LOG_TAG, "Cannot create more than " + TERMINAL_BITMAP__NUM_END + " bitmaps");
@@ -749,6 +766,11 @@ public final class TerminalBuffer {
             return new int[] {0, 0};
         }
         terminalBitmap.setKittyImage(kittyImageId, kittyImageNumber, kittyPlacementId);
+        terminalBitmap.setKittyPlacementMeta(zIndex, offsetX, offsetY, parentImageId, parentPlacementId);
+        if (animSource != null) {
+            terminalBitmap.setKittyAnimationSource(animSource,
+                sourceX, sourceY, sourceWidth, sourceHeight, width, height, shouldPreserveAspectRatio);
+        }
         addTerminalBitmap(terminalBitmap);
 
         doTerminalBitmapsGC(30000);
@@ -868,6 +890,57 @@ public final class TerminalBuffer {
         return deletedImageIds;
     }
 
+    public synchronized Set<Long> deleteKittyImagePlacementsByZIndex(int zIndex) {
+        Set<Long> deletedImageIds = new HashSet<>();
+        if (mTerminalBitmaps.isEmpty()) return deletedImageIds;
+
+        Set<Integer> bitmapsToRemove = new HashSet<>();
+        for (Map.Entry<Integer, TerminalBitmap> entry : mTerminalBitmaps.entrySet()) {
+            TerminalBitmap bitmap = entry.getValue();
+            if (!bitmap.isKittyImage()) continue;
+            if (bitmap.getKittyZIndex() == zIndex) {
+                bitmapsToRemove.add(entry.getKey());
+                if (bitmap.getKittyImageId() != KittyImage.IMAGE_ID__NONE) {
+                    deletedImageIds.add(bitmap.getKittyImageId());
+                }
+            }
+        }
+
+        removeKittyBitmapsFromLines(bitmapsToRemove);
+        return deletedImageIds;
+    }
+
+    /** Find the top-left 0-based {@code (screenRow, col)} of a kitty placement, or {@code null}. */
+    public synchronized int[] findKittyPlacementOrigin(long imageId, long placementId) {
+        if (mTerminalBitmaps.isEmpty()) return null;
+        int targetBitmapNum = -1;
+        for (Map.Entry<Integer, TerminalBitmap> entry : mTerminalBitmaps.entrySet()) {
+            TerminalBitmap bitmap = entry.getValue();
+            if (!bitmap.isKittyImage()) continue;
+            if (bitmap.getKittyImageId() == imageId &&
+                (placementId == KittyImage.PLACEMENT_ID__NONE || bitmap.getKittyPlacementId() == placementId)) {
+                targetBitmapNum = entry.getKey();
+                break;
+            }
+        }
+        if (targetBitmapNum < TERMINAL_BITMAP__NUM_START) return null;
+
+        for (int r = 0; r < mScreenRows; r++) {
+            TerminalRow line = mLines[externalToInternalRow(r)];
+            if (line == null || !line.mHasTerminalBitmap) continue;
+            for (int c = 0; c < mColumns; c++) {
+                long style = line.getStyle(c);
+                if (TextStyle.isTerminalBitmap(style) &&
+                    TextStyle.getTerminalBitmapNum(style) == targetBitmapNum &&
+                    TextStyle.getTerminalBitmapX(style) == 0 &&
+                    TextStyle.getTerminalBitmapY(style) == 0) {
+                    return new int[] { r, c };
+                }
+            }
+        }
+        return null;
+    }
+
     private synchronized void deleteKittyImagePlacements(long kittyImageId, long kittyPlacementId, boolean allImages) {
         if (mTerminalBitmaps.isEmpty()) return;
 
@@ -889,6 +962,29 @@ public final class TerminalBuffer {
 
     private void removeKittyBitmapsFromLines(Set<Integer> bitmapsToRemove) {
         if (bitmapsToRemove.isEmpty()) return;
+
+        // Cascade-delete any relative child placements anchored to removed placements.
+        boolean added;
+        do {
+            added = false;
+            for (Map.Entry<Integer, TerminalBitmap> entry : mTerminalBitmaps.entrySet()) {
+                if (bitmapsToRemove.contains(entry.getKey())) continue;
+                TerminalBitmap candidate = entry.getValue();
+                if (!candidate.isKittyImage()) continue;
+                long pImg = candidate.getKittyParentImageId();
+                if (pImg == KittyImage.IMAGE_ID__NONE) continue;
+                long pPlc = candidate.getKittyParentPlacementId();
+                for (Integer removedNum : bitmapsToRemove) {
+                    TerminalBitmap removed = mTerminalBitmaps.get(removedNum);
+                    if (removed != null && removed.getKittyImageId() == pImg &&
+                        (pPlc == KittyImage.PLACEMENT_ID__NONE || removed.getKittyPlacementId() == pPlc)) {
+                        bitmapsToRemove.add(entry.getKey());
+                        added = true;
+                        break;
+                    }
+                }
+            }
+        } while (added);
 
         // Clear the cells of the screen and the transcript that the placements were rendered in.
         for (TerminalRow line : mLines) {

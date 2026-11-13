@@ -1,11 +1,20 @@
 package com.termux.terminal;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.Rect;
 import android.util.Base64;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -416,7 +425,7 @@ public final class TerminalEmulator {
      * The image data transmitted for a kitty graphics image id, which is kept so that the image can
      * be displayed again with an `a=p` command without transmitting it again.
      */
-    private static final class KittyStoredImage {
+    private static final class KittyStoredImage implements TerminalBitmap.KittyAnimationSource {
 
         /** The image format the image data was transmitted with, check {@link KittyImage#getFormat()}. */
         final int mFormat;
@@ -430,6 +439,18 @@ public final class TerminalEmulator {
         /** The non-unique image number passed with the `I` key, or {@link KittyImage#IMAGE_NUMBER__NONE}. */
         final long mImageNumber;
 
+        /** Lazily decoded base bitmap for animation & Unicode placeholder rendering. */
+        Bitmap mDecodedBitmap;
+
+        /** Extra animation frames (index 0 = frame 2, index 1 = frame 3, ...). */
+        final List<KittyAnimationFrame> mFrames = new ArrayList<>();
+        int mBaseFrameGapMs = 0;
+        int mAnimState = 1; // 1 = stopped, 2 = wait/loading, 3 = running
+        int mCurrentFrameIndex = 0; // 0 = base frame, 1+ = mFrames.get(idx - 1)
+        long mLoopCount = 1; // 0 = stop, 1 = infinite, N > 1 = N - 1 loops
+        long mLoopsRemaining = 0;
+        long mLastFrameTimeMs = 0;
+
         KittyStoredImage(int format, byte[] image, int pixelWidth, int pixelHeight, long imageNumber) {
             mFormat = format;
             mImage = image;
@@ -438,6 +459,171 @@ public final class TerminalEmulator {
             mImageNumber = imageNumber;
         }
 
+        synchronized Bitmap getOrDecodeBaseBitmap() {
+            if (mDecodedBitmap != null) return mDecodedBitmap;
+            mDecodedBitmap = decodeKittyBitmap(mFormat, mImage, mPixelWidth, mPixelHeight);
+            return mDecodedBitmap;
+        }
+
+        synchronized Bitmap getFrameBitmap(int oneBasedFrame) {
+            if (oneBasedFrame <= 1) return getOrDecodeBaseBitmap();
+            int idx = oneBasedFrame - 2;
+            if (idx >= 0 && idx < mFrames.size()) {
+                return mFrames.get(idx).mBitmap;
+            }
+            return null;
+        }
+
+        synchronized int getFrameGapMs(int zeroBasedFrameIndex) {
+            if (zeroBasedFrameIndex <= 0) return mBaseFrameGapMs;
+            int idx = zeroBasedFrameIndex - 1;
+            if (idx >= 0 && idx < mFrames.size()) {
+                return mFrames.get(idx).mGapMs;
+            }
+            return 0;
+        }
+
+        synchronized void setFrameGapMs(int oneBasedFrame, int gapMs) {
+            if (oneBasedFrame <= 1) {
+                mBaseFrameGapMs = Math.max(0, gapMs);
+            } else {
+                int idx = oneBasedFrame - 2;
+                if (idx >= 0 && idx < mFrames.size()) {
+                    mFrames.get(idx).mGapMs = Math.max(0, gapMs);
+                }
+            }
+        }
+
+        synchronized int getTotalFrames() {
+            return 1 + mFrames.size();
+        }
+
+        private void advanceAnimationLocked() {
+            int total = getTotalFrames();
+            if (mAnimState != 3 || total <= 1) return;
+            long now = System.currentTimeMillis();
+            if (mLastFrameTimeMs == 0) {
+                mLastFrameTimeMs = now;
+                return;
+            }
+            int gap = getFrameGapMs(mCurrentFrameIndex);
+            if (gap <= 0) gap = 40;
+            while (now - mLastFrameTimeMs >= gap) {
+                mLastFrameTimeMs += gap;
+                int next = mCurrentFrameIndex + 1;
+                if (next >= total) {
+                    if (mLoopCount == 1) {
+                        next = 0;
+                    } else if (mLoopsRemaining > 1) {
+                        mLoopsRemaining--;
+                        next = 0;
+                    } else {
+                        mAnimState = 1;
+                        mCurrentFrameIndex = total - 1;
+                        return;
+                    }
+                }
+                mCurrentFrameIndex = next;
+                gap = getFrameGapMs(mCurrentFrameIndex);
+                if (gap <= 0) gap = 40;
+            }
+        }
+
+        @Override
+        public synchronized Bitmap getCurrentBitmap(int sourceX, int sourceY, int sourceWidth, int sourceHeight,
+                                                    int widthPixels, int heightPixels, boolean preserveAspectRatio) {
+            advanceAnimationLocked();
+            return getFrameBitmap(mCurrentFrameIndex + 1);
+        }
+
+        @Override
+        public synchronized int getNextFrameDelayMs() {
+            if (mAnimState != 3 || getTotalFrames() <= 1) return -1;
+            int gap = getFrameGapMs(mCurrentFrameIndex);
+            if (gap <= 0) gap = 40;
+            long elapsed = Math.max(0, System.currentTimeMillis() - mLastFrameTimeMs);
+            return (int) Math.max(1, gap - elapsed);
+        }
+    }
+
+    private static final class KittyAnimationFrame {
+        Bitmap mBitmap;
+        int mGapMs;
+
+        KittyAnimationFrame(Bitmap bitmap, int gapMs) {
+            mBitmap = bitmap;
+            mGapMs = Math.max(0, gapMs);
+        }
+    }
+
+    /** Virtual placement created with `U=1` for Unicode placeholders (`U+10EEEE`). */
+    public static final class KittyVirtualPlacement {
+        public final long mImageId;
+        public final long mPlacementId;
+        public final long mImageNumber;
+        public final int mCols;
+        public final int mRows;
+        public final int mSourceX;
+        public final int mSourceY;
+        public final int mSourceWidth;
+        public final int mSourceHeight;
+        public final int mWidthPixels;
+        public final int mHeightPixels;
+        public final boolean mPreserveAspectRatio;
+        public final int mZIndex;
+        public final int mOffsetX;
+        public final int mOffsetY;
+
+        KittyVirtualPlacement(long imageId, long placementId, long imageNumber, int cols, int rows,
+                              int sourceX, int sourceY, int sourceWidth, int sourceHeight,
+                              int widthPixels, int heightPixels, boolean preserveAspectRatio,
+                              int zIndex, int offsetX, int offsetY) {
+            mImageId = imageId;
+            mPlacementId = placementId;
+            mImageNumber = imageNumber;
+            mCols = cols;
+            mRows = rows;
+            mSourceX = sourceX;
+            mSourceY = sourceY;
+            mSourceWidth = sourceWidth;
+            mSourceHeight = sourceHeight;
+            mWidthPixels = widthPixels;
+            mHeightPixels = heightPixels;
+            mPreserveAspectRatio = preserveAspectRatio;
+            mZIndex = zIndex;
+            mOffsetX = offsetX;
+            mOffsetY = offsetY;
+        }
+    }
+
+    private static Bitmap decodeKittyBitmap(int format, byte[] image, int pixelWidth, int pixelHeight) {
+        if (image == null || image.length == 0) return null;
+        if (format == KittyImage.FORMAT__PNG) {
+            return BitmapFactory.decodeByteArray(image, 0, image.length);
+        }
+        if (pixelWidth <= 0 || pixelHeight <= 0) return null;
+        int bpp = KittyImage.getBytesPerPixel(format);
+        if (bpp <= 0 || image.length < pixelWidth * pixelHeight * bpp) return null;
+        int[] colors = new int[pixelWidth * pixelHeight];
+        if (bpp == 4) {
+            for (int i = 0; i < colors.length; i++) {
+                int off = i * 4;
+                int r = image[off] & 0xFF;
+                int g = image[off + 1] & 0xFF;
+                int b = image[off + 2] & 0xFF;
+                int a = image[off + 3] & 0xFF;
+                colors[i] = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+        } else {
+            for (int i = 0; i < colors.length; i++) {
+                int off = i * 3;
+                int r = image[off] & 0xFF;
+                int g = image[off + 1] & 0xFF;
+                int b = image[off + 2] & 0xFF;
+                colors[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
+            }
+        }
+        return Bitmap.createBitmap(colors, pixelWidth, pixelHeight, Bitmap.Config.ARGB_8888);
     }
 
     /**
@@ -446,6 +632,7 @@ public final class TerminalEmulator {
      * {@link #KITTY_IMAGES__MAX_COUNT} or {@link #KITTY_IMAGES__MAX_TOTAL_SIZE} is exceeded.
      */
     private final LinkedHashMap<Long, KittyStoredImage> mKittyImages = new LinkedHashMap<>();
+    private final LinkedHashMap<String, KittyVirtualPlacement> mKittyVirtualPlacements = new LinkedHashMap<>();
     private long mNextKittyImageId = 1;
 
     /** The combined size in bytes of all the image data stored in {@link #mKittyImages}. */
@@ -2979,6 +3166,15 @@ public final class TerminalEmulator {
             case KittyImage.ACTION__DELETE:
                 doKittyGraphicsDelete(kittyImage);
                 break;
+            case KittyImage.ACTION__FRAME:
+                doKittyGraphicsFrame(kittyImage);
+                break;
+            case KittyImage.ACTION__ANIMATE:
+                doKittyGraphicsAnimate(kittyImage);
+                break;
+            case KittyImage.ACTION__COMPOSE:
+                doKittyGraphicsCompose(kittyImage);
+                break;
             default:
                 kittyImage.setStateFailed(KittyImage.ERROR__ENOTSUP, "unsupported action");
                 break;
@@ -3078,14 +3274,54 @@ public final class TerminalEmulator {
             return;
         }
 
+        if (kittyImage.isUnicodePlaceholder()) {
+            long imageId = kittyImage.getImageId();
+            if (imageId == KittyImage.IMAGE_ID__NONE) {
+                kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "virtual placement requires image id");
+                return;
+            }
+            long placementId = kittyImage.getPlacementId();
+            if (placementId == KittyImage.PLACEMENT_ID__NONE) placementId = 0;
+            String key = imageId + ":" + placementId;
+            mKittyVirtualPlacements.put(key, new KittyVirtualPlacement(
+                imageId, placementId, storedImage.mImageNumber,
+                kittyImage.getColumns(), kittyImage.getRows(),
+                kittyImage.getSourceX(), kittyImage.getSourceY(),
+                kittyImage.getSourceWidth(), kittyImage.getSourceHeight(),
+                kittyImage.getWidthPixels(mCellWidthPixels), kittyImage.getHeightPixels(mCellHeightPixels),
+                kittyImage.shouldPreserveAspectRatio(),
+                kittyImage.getZIndex(), (int) kittyImage.getOffsetX(), (int) kittyImage.getOffsetY()
+            ));
+            return;
+        }
+
+        long parentImageId = kittyImage.getParentImageId();
+        long parentPlacementId = kittyImage.getParentPlacementId();
+        int placeCol = mCursorCol;
+        int placeRow = mCursorRow;
+        if (parentImageId != KittyImage.IMAGE_ID__NONE) {
+            int[] parentOrigin = mScreen.findKittyPlacementOrigin(parentImageId, parentPlacementId);
+            if (parentOrigin == null) {
+                kittyImage.setStateFailed(KittyImage.ERROR__ENOPARENT, "parent placement not found");
+                return;
+            }
+            placeRow = parentOrigin[0] + kittyImage.getParentOffsetRows();
+            placeCol = parentOrigin[1] + kittyImage.getParentOffsetCols();
+            if (placeCol < 0 || placeCol >= mColumns || placeRow < 0 || placeRow >= mRows) {
+                return;
+            }
+        }
+
         int[] cursorDelta = mScreen.addTerminalBitmapForKittyImage(storedImage.mFormat, storedImage.mImage,
             storedImage.mPixelWidth, storedImage.mPixelHeight,
             kittyImage.getSourceX(), kittyImage.getSourceY(),
             kittyImage.getSourceWidth(), kittyImage.getSourceHeight(),
-            mCursorCol, mCursorRow, mCellWidthPixels, mCellHeightPixels,
+            placeCol, placeRow, mCellWidthPixels, mCellHeightPixels,
             kittyImage.getWidthPixels(mCellWidthPixels), kittyImage.getHeightPixels(mCellHeightPixels),
             kittyImage.shouldPreserveAspectRatio(),
-            kittyImage.getImageId(), storedImage.mImageNumber, kittyImage.getPlacementId());
+            kittyImage.getImageId(), storedImage.mImageNumber, kittyImage.getPlacementId(),
+            kittyImage.getZIndex(), (int) kittyImage.getOffsetX(), (int) kittyImage.getOffsetY(),
+            parentImageId, parentPlacementId, storedImage);
 
         // A bitmap always covers at least one column if it was created successfully.
         if (cursorDelta[1] < 1) {
@@ -3094,10 +3330,179 @@ public final class TerminalEmulator {
         }
 
         // The `C=1` key requires the cursor to be left where it was, which clients that position the
-        // cursor themselves before displaying an image rely on.
-        if (kittyImage.shouldMoveCursor()) {
+        // cursor themselves before displaying an image rely on. Relative placements also do not move cursor.
+        if (kittyImage.shouldMoveCursor() && parentImageId == KittyImage.IMAGE_ID__NONE) {
             moveCursorAfterTerminalBitmap(cursorDelta);
         }
+    }
+
+    /** Do a kitty graphics `a=f` command to transmit or edit an animation frame. */
+    private void doKittyGraphicsFrame(KittyImage kittyImage) {
+        KittyStoredImage storedImage = resolveKittyStoredImage(kittyImage);
+        if (storedImage == null) return;
+
+        if (!kittyImage.finishImage()) return;
+
+        Bitmap frameData = decodeKittyBitmap(kittyImage.getFormat(), kittyImage.getDecodedImage(),
+            kittyImage.getPixelWidth(), kittyImage.getPixelHeight());
+        if (frameData == null) {
+            kittyImage.setStateFailed(KittyImage.ERROR__EBADPNG, "invalid frame image data");
+            return;
+        }
+
+        Bitmap baseBitmap = storedImage.getOrDecodeBaseBitmap();
+        if (baseBitmap == null) {
+            kittyImage.setStateFailed(KittyImage.ERROR__EBADPNG, "invalid base image data");
+            return;
+        }
+
+        int targetFrame = kittyImage.getRows(); // r= (1-based; 0 = append new frame)
+        int sourceFrame = kittyImage.getColumns(); // c= (1-based; 0 = none/blank)
+        int gapMs = kittyImage.hasZIndex() ? kittyImage.getZIndex() : 0;
+        int destX = (int) kittyImage.getOffsetX(); // X= in frame? Wait: in a=f, x=/y= is dest offset on canvas, X= is composition mode (0=alpha blend, 1=overwrite)
+        // Per kitty spec for a=f: x= and y= are left/top pixel offset on canvas; X= is composition mode (0=blend, 1=overwrite); Y= is background color.
+        int canvasX = kittyImage.getSourceX();
+        int canvasY = kittyImage.getSourceY();
+        boolean overwrite = kittyImage.getOffsetX() == 1;
+        int bgColor = (int) kittyImage.getOffsetY();
+
+        synchronized (storedImage) {
+            Bitmap canvasBitmap;
+            if (sourceFrame > 0) {
+                Bitmap src = storedImage.getFrameBitmap(sourceFrame);
+                canvasBitmap = (src != null) ? src.copy(Bitmap.Config.ARGB_8888, true)
+                    : Bitmap.createBitmap(baseBitmap.getWidth(), baseBitmap.getHeight(), Bitmap.Config.ARGB_8888);
+            } else {
+                canvasBitmap = Bitmap.createBitmap(baseBitmap.getWidth(), baseBitmap.getHeight(), Bitmap.Config.ARGB_8888);
+                if (bgColor != 0) {
+                    canvasBitmap.eraseColor(bgColor);
+                }
+            }
+
+            Canvas canvas = new Canvas(canvasBitmap);
+            Paint paint = new Paint();
+            if (overwrite) {
+                paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+            }
+            canvas.drawBitmap(frameData, canvasX, canvasY, paint);
+
+            if (targetFrame <= 0 || targetFrame > storedImage.getTotalFrames()) {
+                storedImage.mFrames.add(new KittyAnimationFrame(canvasBitmap, gapMs));
+            } else if (targetFrame == 1) {
+                storedImage.mDecodedBitmap = canvasBitmap;
+                if (kittyImage.hasZIndex()) storedImage.mBaseFrameGapMs = Math.max(0, gapMs);
+            } else {
+                KittyAnimationFrame existing = storedImage.mFrames.get(targetFrame - 2);
+                existing.mBitmap = canvasBitmap;
+                if (kittyImage.hasZIndex()) existing.mGapMs = Math.max(0, gapMs);
+            }
+        }
+    }
+
+    /** Do a kitty graphics `a=a` command to control animation playback. */
+    private void doKittyGraphicsAnimate(KittyImage kittyImage) {
+        KittyStoredImage storedImage = resolveKittyStoredImage(kittyImage);
+        if (storedImage == null) return;
+
+        synchronized (storedImage) {
+            int state = kittyImage.getPixelWidth(); // s= (1=stop, 2=loading/wait, 3=loop/run)
+            if (state >= 1 && state <= 3) {
+                storedImage.mAnimState = state;
+                if (state == 3) {
+                    storedImage.mLastFrameTimeMs = System.currentTimeMillis();
+                }
+            }
+
+            int loopCount = kittyImage.getPixelHeight(); // v= (0=stop, 1=infinite, N=N-1 loops)
+            if (loopCount > 0) {
+                storedImage.mLoopCount = loopCount;
+                storedImage.mLoopsRemaining = loopCount;
+            }
+
+            int currentFrame = kittyImage.getColumns(); // c= (1-based)
+            if (currentFrame >= 1 && currentFrame <= storedImage.getTotalFrames()) {
+                storedImage.mCurrentFrameIndex = currentFrame - 1;
+                storedImage.mLastFrameTimeMs = System.currentTimeMillis();
+            }
+
+            int targetFrame = kittyImage.getRows(); // r= (1-based)
+            if (targetFrame >= 1 && kittyImage.hasZIndex()) {
+                storedImage.setFrameGapMs(targetFrame, kittyImage.getZIndex());
+            }
+        }
+    }
+
+    /** Do a kitty graphics `a=c` command to compose pixels from one animation frame onto another. */
+    private void doKittyGraphicsCompose(KittyImage kittyImage) {
+        KittyStoredImage storedImage = resolveKittyStoredImage(kittyImage);
+        if (storedImage == null) return;
+
+        int srcFrame = kittyImage.getRows(); // r= (1-based)
+        int dstFrame = kittyImage.getColumns(); // c= (1-based)
+        if (srcFrame < 1 || dstFrame < 1) {
+            kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "missing source or destination frame");
+            return;
+        }
+
+        synchronized (storedImage) {
+            Bitmap src = storedImage.getFrameBitmap(srcFrame);
+            Bitmap dst = storedImage.getFrameBitmap(dstFrame);
+            if (src == null || dst == null) {
+                kittyImage.setStateFailed(KittyImage.ERROR__ENOENT, "animation frame not found");
+                return;
+            }
+            if (!dst.isMutable()) {
+                dst = dst.copy(Bitmap.Config.ARGB_8888, true);
+                if (dstFrame == 1) storedImage.mDecodedBitmap = dst;
+                else storedImage.mFrames.get(dstFrame - 2).mBitmap = dst;
+            }
+
+            int sx = kittyImage.getSourceX();
+            int sy = kittyImage.getSourceY();
+            int sw = kittyImage.getSourceWidth();
+            int sh = kittyImage.getSourceHeight();
+            if (sw <= 0) sw = src.getWidth() - sx;
+            if (sh <= 0) sh = src.getHeight() - sy;
+            int dx = (int) kittyImage.getOffsetX();
+            int dy = (int) kittyImage.getOffsetY();
+
+            Canvas canvas = new Canvas(dst);
+            Rect srcRect = new Rect(sx, sy, sx + sw, sy + sh);
+            Rect dstRect = new Rect(dx, dy, dx + sw, dy + sh);
+            canvas.drawBitmap(src, srcRect, dstRect, null);
+        }
+    }
+
+    private KittyStoredImage resolveKittyStoredImage(KittyImage kittyImage) {
+        long imageId = kittyImage.getImageId();
+        long imageNumber = kittyImage.getImageNumber();
+        if (imageId != KittyImage.IMAGE_ID__NONE && imageNumber != KittyImage.IMAGE_NUMBER__NONE) {
+            kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "cannot specify both image id and image number");
+            return null;
+        }
+        KittyStoredImage storedImage = null;
+        if (imageId != KittyImage.IMAGE_ID__NONE) {
+            storedImage = mKittyImages.get(imageId);
+        } else if (imageNumber != KittyImage.IMAGE_NUMBER__NONE) {
+            long matchedId = KittyImage.IMAGE_ID__NONE;
+            for (Map.Entry<Long, KittyStoredImage> entry : mKittyImages.entrySet()) {
+                if (entry.getValue().mImageNumber == imageNumber) {
+                    matchedId = entry.getKey();
+                    storedImage = entry.getValue();
+                }
+            }
+            if (matchedId != KittyImage.IMAGE_ID__NONE) {
+                kittyImage.setImageId(matchedId);
+            }
+        } else {
+            kittyImage.setStateFailed(KittyImage.ERROR__EINVAL, "missing image id");
+            return null;
+        }
+        if (storedImage == null) {
+            kittyImage.setStateFailed(KittyImage.ERROR__ENOENT, "no image transmitted for image id");
+            return null;
+        }
+        return storedImage;
     }
 
     /** Do a kitty graphics `a=d` command. */
@@ -3110,6 +3515,7 @@ public final class TerminalEmulator {
             case KittyImage.DELETE_MODE__ALL_AND_FREE_DATA:
                 // All the placements are deleted regardless of the image id passed as per the protocol.
                 mScreen.deleteAllKittyImagePlacements();
+                mKittyVirtualPlacements.clear();
                 if (freeData) {
                     clearKittyImages();
                 }
@@ -3125,6 +3531,7 @@ public final class TerminalEmulator {
                 // Deleting an image that does not exist is not an error as per the protocol. Only
                 // the placement passed with the `p` key is deleted if it is passed.
                 mScreen.deleteKittyImagePlacements(imageId, kittyImage.getPlacementId());
+                removeKittyVirtualPlacementsById(imageId, kittyImage.getPlacementId());
                 if (freeData) {
                     removeKittyImage(imageId);
                 }
@@ -3138,6 +3545,7 @@ public final class TerminalEmulator {
                     return;
                 }
                 mScreen.deleteKittyImagePlacementsByImageNumber(imageNumber, kittyImage.getPlacementId());
+                removeKittyVirtualPlacementsByNumber(imageNumber, kittyImage.getPlacementId());
                 if (freeData) {
                     removeKittyImagesByNumber(imageNumber);
                 }
@@ -3204,16 +3612,95 @@ public final class TerminalEmulator {
                     return;
                 }
                 mScreen.deleteKittyImagePlacementsByIdRange(startId, endId);
+                removeKittyVirtualPlacementsByIdRange(startId, endId);
                 if (freeData) {
                     removeKittyImagesByIdRange(startId, endId);
                 }
                 break;
             }
+            case KittyImage.DELETE_MODE__Z_INDEX:
+            case KittyImage.DELETE_MODE__Z_INDEX_AND_FREE_DATA: {
+                int zIndex = kittyImage.getZIndex();
+                Set<Long> deletedIds = mScreen.deleteKittyImagePlacementsByZIndex(zIndex);
+                removeKittyVirtualPlacementsByZIndex(zIndex, deletedIds);
+                if (freeData) {
+                    for (Long id : deletedIds) removeKittyImage(id);
+                }
+                break;
+            }
             default:
-                // The `d=z` delete mode requires z-index, which is not supported.
                 kittyImage.setStateFailed(KittyImage.ERROR__ENOTSUP, "unsupported delete mode");
                 break;
         }
+    }
+
+    private void removeKittyVirtualPlacementsById(long imageId, long placementId) {
+        Iterator<Map.Entry<String, KittyVirtualPlacement>> it = mKittyVirtualPlacements.entrySet().iterator();
+        while (it.hasNext()) {
+            KittyVirtualPlacement vp = it.next().getValue();
+            if (vp.mImageId == imageId && (placementId == KittyImage.PLACEMENT_ID__NONE || vp.mPlacementId == placementId)) {
+                it.remove();
+            }
+        }
+    }
+
+    private void removeKittyVirtualPlacementsByNumber(long imageNumber, long placementId) {
+        Iterator<Map.Entry<String, KittyVirtualPlacement>> it = mKittyVirtualPlacements.entrySet().iterator();
+        while (it.hasNext()) {
+            KittyVirtualPlacement vp = it.next().getValue();
+            if (vp.mImageNumber == imageNumber && (placementId == KittyImage.PLACEMENT_ID__NONE || vp.mPlacementId == placementId)) {
+                it.remove();
+            }
+        }
+    }
+
+    private void removeKittyVirtualPlacementsByIdRange(long startId, long endId) {
+        Iterator<Map.Entry<String, KittyVirtualPlacement>> it = mKittyVirtualPlacements.entrySet().iterator();
+        while (it.hasNext()) {
+            KittyVirtualPlacement vp = it.next().getValue();
+            if (vp.mImageId >= startId && vp.mImageId <= endId) {
+                it.remove();
+            }
+        }
+    }
+
+    private void removeKittyVirtualPlacementsByZIndex(int zIndex, Set<Long> deletedIds) {
+        Iterator<Map.Entry<String, KittyVirtualPlacement>> it = mKittyVirtualPlacements.entrySet().iterator();
+        while (it.hasNext()) {
+            KittyVirtualPlacement vp = it.next().getValue();
+            if (vp.mZIndex == zIndex) {
+                deletedIds.add(vp.mImageId);
+                it.remove();
+            }
+        }
+    }
+
+    public KittyVirtualPlacement getKittyVirtualPlacement(long imageId, long placementId) {
+        KittyVirtualPlacement exact = mKittyVirtualPlacements.get(imageId + ":" + placementId);
+        if (exact != null) return exact;
+        if (placementId == 0) {
+            for (KittyVirtualPlacement vp : mKittyVirtualPlacements.values()) {
+                if (vp.mImageId == imageId) return vp;
+            }
+        }
+        return null;
+    }
+
+    public Bitmap getKittyImageBitmap(long imageId) {
+        KittyStoredImage stored = mKittyImages.get(imageId);
+        if (stored == null) return null;
+        return stored.getCurrentBitmap(0, 0, -1, -1, -1, -1, true);
+    }
+
+    public int getKittyImageNextFrameDelayMs() {
+        int minDelay = -1;
+        for (KittyStoredImage img : mKittyImages.values()) {
+            int delay = img.getNextFrameDelayMs();
+            if (delay > 0 && (minDelay < 0 || delay < minDelay)) {
+                minDelay = delay;
+            }
+        }
+        return minDelay;
     }
 
     /**

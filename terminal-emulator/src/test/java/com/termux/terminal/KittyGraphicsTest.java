@@ -70,7 +70,7 @@ public class KittyGraphicsTest extends TerminalTestCase {
         withTerminalSized(10, 5);
         assertEnteringStringGivesResponse(
             "\033_Gi=31,s=1,v=1,a=q,t=f,f=24;L3RtcC9pbWc=\033\\",
-            "\033_Gi=31;ENOTSUP:unsupported transmission medium\033\\");
+            "\033_Gi=31;ENOENT:image file not found: /tmp/img\033\\");
     }
 
     public void testCapabilityQueryValidatesTheImageData() {
@@ -132,12 +132,12 @@ public class KittyGraphicsTest extends TerminalTestCase {
         // `q` not passed, so respond.
         assertEnteringStringGivesResponse(
             "\033_Ga=t,f=100,t=f,i=2,m=0;L3RtcC9pbWc=\033\\",
-            "\033_Gi=2;ENOTSUP:unsupported transmission medium\033\\");
+            "\033_Gi=2;ENOENT:image file not found: /tmp/img\033\\");
 
         // `q=1` only suppresses success responses, so still respond.
         assertEnteringStringGivesResponse(
             "\033_Ga=t,f=100,t=f,i=2,m=0,q=1;L3RtcC9pbWc=\033\\",
-            "\033_Gi=2;ENOTSUP:unsupported transmission medium\033\\");
+            "\033_Gi=2;ENOENT:image file not found: /tmp/img\033\\");
 
         // `q=2` suppresses success and error responses.
         assertEnteringStringGivesResponse(
@@ -154,7 +154,7 @@ public class KittyGraphicsTest extends TerminalTestCase {
         assertEnteringStringGivesResponse("\033_Gt=f,i=3,q=2,a=t,f=100,m=0;L3RtcC9pbWc=\033\\", "");
 
         assertEnteringStringGivesResponse("\033_Gt=f,i=3,a=t,f=100,m=0;L3RtcC9pbWc=\033\\",
-            "\033_Gi=3;ENOTSUP:unsupported transmission medium\033\\");
+            "\033_Gi=3;ENOENT:image file not found: /tmp/img\033\\");
     }
 
 
@@ -632,14 +632,14 @@ public class KittyGraphicsTest extends TerminalTestCase {
         assertEnteringStringGivesResponse("\033_Ga=X,i=11;\033\\",
             "\033_Gi=11;ENOTSUP:unsupported action\033\\");
 
-        // The `a=f` (frame), `a=a` (animate) and `a=c` (compose) actions are valid protocol actions,
-        // but are not supported.
+        // The `a=f` (frame), `a=a` (animate) and `a=c` (compose) actions are supported and require
+        // a previously transmitted image.
         assertEnteringStringGivesResponse("\033_Ga=f,i=11;\033\\",
-            "\033_Gi=11;ENOTSUP:unsupported action\033\\");
+            "\033_Gi=11;ENOENT:no image transmitted for image id\033\\");
         assertEnteringStringGivesResponse("\033_Ga=a,i=11;\033\\",
-            "\033_Gi=11;ENOTSUP:unsupported action\033\\");
+            "\033_Gi=11;ENOENT:no image transmitted for image id\033\\");
         assertEnteringStringGivesResponse("\033_Ga=c,i=11;\033\\",
-            "\033_Gi=11;ENOTSUP:unsupported action\033\\");
+            "\033_Gi=11;ENOENT:no image transmitted for image id\033\\");
 
         enterString("ok").assertLinesAre("ok                  ", "                    ",
             "                    ", "                    ");
@@ -797,13 +797,13 @@ public class KittyGraphicsTest extends TerminalTestCase {
     public void testUnsupportedTransmissionMediumsAndCompressionRespondError() {
         withTerminalSized(20, 4);
 
-        // Reading image data from a file, a temporary file or shared memory is not supported.
-        assertEnteringStringGivesResponse("\033_Ga=T,f=100,t=f,i=13,m=0;L3RtcC9pbWc=\033\\",
-            "\033_Gi=13;ENOTSUP:unsupported transmission medium\033\\");
-        assertEnteringStringGivesResponse("\033_Ga=T,f=100,t=t,i=13,m=0;L3RtcC9pbWc=\033\\",
-            "\033_Gi=13;ENOTSUP:unsupported transmission medium\033\\");
-        assertEnteringStringGivesResponse("\033_Ga=T,f=100,t=s,i=13,m=0;L3RtcC9pbWc=\033\\",
-            "\033_Gi=13;ENOTSUP:unsupported transmission medium\033\\");
+        // Missing file / temp file / shared memory path returns ENOENT.
+        enterString("\033_Ga=T,f=100,t=f,i=13,m=0;L3RtcC9ub3Rfc2VlbjEyMzQ1\033\\");
+        assertTrue(mOutput.getOutputAndClear().startsWith("\033_Gi=13;ENOENT:"));
+        enterString("\033_Ga=T,f=100,t=t,i=13,m=0;L3RtcC9ub3Rfc2VlbjEyMzQ1\033\\");
+        assertTrue(mOutput.getOutputAndClear().startsWith("\033_Gi=13;ENOENT:"));
+        enterString("\033_Ga=T,f=100,t=s,i=13,m=0;L3RtcC9ub3Rfc2VlbjEyMzQ1\033\\");
+        assertTrue(mOutput.getOutputAndClear().startsWith("\033_Gi=13;ENOENT:"));
 
         // Invalid compression type.
         assertEnteringStringGivesResponse("\033_Ga=T,f=100,t=d,o=x,i=13,m=0;" + PNG_BASE64 + "\033\\",
@@ -1208,9 +1208,81 @@ public class KittyGraphicsTest extends TerminalTestCase {
     public void testUnsupportedDeleteModeRespondsError() {
         withTerminalSized(20, 4);
 
-        // The delete mode `d=z` requires z-index, which is not supported.
-        assertEnteringStringGivesResponse("\033_Ga=d,d=z,i=22\033\\",
+        assertEnteringStringGivesResponse("\033_Ga=d,d=k,i=22\033\\",
             "\033_Gi=22;ENOTSUP:unsupported delete mode\033\\");
+    }
+
+    public void testDeleteByZIndex() {
+        withTerminalSized(20, 4);
+        enterString("\033_Ga=t,f=24,s=1,v=1,t=d,i=61,q=2;" + RGB_BASE64_1X1 + "\033\\");
+        enterString("\033_Ga=t,f=24,s=1,v=1,t=d,i=62,q=2;" + RGB_BASE64_1X1 + "\033\\");
+        enterString("\033_Ga=p,i=61,p=1,U=1,c=2,r=2,z=-5,q=2\033\\");
+        enterString("\033_Ga=p,i=62,p=1,U=1,c=2,r=2,z=5,q=2\033\\");
+        assertNotNull(mTerminal.getKittyVirtualPlacement(61, 1));
+        assertNotNull(mTerminal.getKittyVirtualPlacement(62, 1));
+
+        assertEnteringStringGivesResponse("\033_Ga=d,d=Z,z=-5,i=61\033\\", "\033_Gi=61;OK\033\\");
+        assertNull(mTerminal.getKittyVirtualPlacement(61, 1));
+        assertEquals(-1, mTerminal.getKittyImageDataLength(61));
+        assertNotNull(mTerminal.getKittyVirtualPlacement(62, 1));
+        assertEquals(3, mTerminal.getKittyImageDataLength(62));
+    }
+
+    public void testFileAndTempFileTransmissionMediums() throws Exception {
+        withTerminalSized(20, 4);
+        java.io.File tempFile = java.io.File.createTempFile("tty-graphics-protocol-test-", ".bin");
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile)) {
+            fos.write(new byte[] { 1, 2, 3, 4, 5, 6 });
+        }
+        String pathB64 = java.util.Base64.getEncoder().encodeToString(
+            tempFile.getAbsolutePath().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // t=f with O=3,S=3 reads 3 bytes from offset 3 and keeps the file.
+        assertEnteringStringGivesResponse("\033_Ga=t,f=24,s=1,v=1,t=f,O=3,S=3,i=71;" + pathB64 + "\033\\",
+            "\033_Gi=71;OK\033\\");
+        assertEquals(3, mTerminal.getKittyImageDataLength(71));
+        assertTrue(tempFile.exists());
+
+        // t=t deletes the file because its path contains tty-graphics-protocol.
+        assertEnteringStringGivesResponse("\033_Ga=t,f=24,s=1,v=1,t=t,O=0,S=3,i=72;" + pathB64 + "\033\\",
+            "\033_Gi=72;OK\033\\");
+        assertEquals(3, mTerminal.getKittyImageDataLength(72));
+        assertFalse(tempFile.exists());
+    }
+
+    public void testVirtualPlacementUnicodePlaceholder() {
+        withTerminalSized(20, 4);
+        enterString("\033_Ga=t,f=24,s=1,v=1,t=d,i=81,q=2;" + RGB_BASE64_1X1 + "\033\\");
+        enterString("\033[2;3H");
+        assertCursorAt(1, 2);
+
+        // U=1 virtual placement does not move cursor or write bitmap cells.
+        assertEnteringStringGivesResponse("\033_Ga=p,i=81,p=3,U=1,c=4,r=2,z=-2,X=2,Y=3\033\\",
+            "\033_Gi=81;OK\033\\");
+        assertCursorAt(1, 2);
+        TerminalEmulator.KittyVirtualPlacement vp = mTerminal.getKittyVirtualPlacement(81, 3);
+        assertNotNull(vp);
+        assertEquals(4, vp.mCols);
+        assertEquals(2, vp.mRows);
+        assertEquals(-2, vp.mZIndex);
+        assertEquals(2, vp.mOffsetX);
+        assertEquals(3, vp.mOffsetY);
+    }
+
+    public void testRelativePlacementMissingParentReturnsEnoparent() {
+        withTerminalSized(20, 4);
+        enterString("\033_Ga=t,f=24,s=1,v=1,t=d,i=91,q=2;" + RGB_BASE64_1X1 + "\033\\");
+        assertEnteringStringGivesResponse("\033_Ga=p,i=91,p=1,P=999,Q=1,H=1,V=1\033\\",
+            "\033_Gi=91;ENOPARENT:parent placement not found\033\\");
+    }
+
+    public void testAnimationActions() {
+        withTerminalSized(20, 4);
+        enterString("\033_Ga=t,f=24,s=1,v=1,t=d,i=101,q=2;" + RGB_BASE64_1X1 + "\033\\");
+        assertEnteringStringGivesResponse("\033_Ga=a,i=101,s=3,v=1,r=1,z=50\033\\",
+            "\033_Gi=101;OK\033\\");
+        assertEnteringStringGivesResponse("\033_Ga=c,i=101,r=1,c=99\033\\",
+            "\033_Gi=101;ENOENT:animation frame not found\033\\");
     }
 
     public void testZlibCompressionDecompressesRawAndPng() throws Exception {

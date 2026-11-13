@@ -163,6 +163,27 @@ public class TerminalBitmap {
     /** The kitty graphics placement id of this bitmap, if {@link #mIsKittyImage}. */
     protected long mKittyPlacementId = KittyImage.PLACEMENT_ID__NONE;
 
+    protected int mKittyZIndex = 0;
+    protected int mKittyOffsetX = 0;
+    protected int mKittyOffsetY = 0;
+    protected long mKittyParentImageId = KittyImage.IMAGE_ID__NONE;
+    protected long mKittyParentPlacementId = KittyImage.PLACEMENT_ID__NONE;
+
+    public interface KittyAnimationSource {
+        Bitmap getCurrentBitmap(int sourceX, int sourceY, int sourceWidth, int sourceHeight,
+                                int widthPixels, int heightPixels, boolean preserveAspectRatio);
+        int getNextFrameDelayMs();
+    }
+
+    protected KittyAnimationSource mKittyAnimationSource;
+    protected int mKittySourceX = 0;
+    protected int mKittySourceY = 0;
+    protected int mKittySourceWidth = -1;
+    protected int mKittySourceHeight = -1;
+    protected int mKittyWidthPixels = -1;
+    protected int mKittyHeightPixels = -1;
+    protected boolean mKittyPreserveAspectRatio = true;
+
 
     protected TerminalBitmap(TerminalSessionClient client, int bitmapNum, Bitmap bitmap,
                              int cellWidth, int cellHeight,
@@ -791,6 +812,62 @@ public class TerminalBitmap {
         mKittyImageId = kittyImageId;
         mKittyImageNumber = kittyImageNumber;
         mKittyPlacementId = kittyPlacementId;
+    }
+
+    public void setKittyPlacementMeta(int zIndex, int offsetX, int offsetY,
+                                      long parentImageId, long parentPlacementId) {
+        mKittyZIndex = zIndex;
+        mKittyOffsetX = offsetX;
+        mKittyOffsetY = offsetY;
+        mKittyParentImageId = parentImageId;
+        mKittyParentPlacementId = parentPlacementId;
+    }
+
+    public int getKittyZIndex() {
+        return mKittyZIndex;
+    }
+
+    public int getKittyOffsetX() {
+        return mKittyOffsetX;
+    }
+
+    public int getKittyOffsetY() {
+        return mKittyOffsetY;
+    }
+
+    public long getKittyParentImageId() {
+        return mKittyParentImageId;
+    }
+
+    public long getKittyParentPlacementId() {
+        return mKittyParentPlacementId;
+    }
+
+    public void setKittyAnimationSource(KittyAnimationSource source,
+                                        int sourceX, int sourceY, int sourceWidth, int sourceHeight,
+                                        int widthPixels, int heightPixels, boolean preserveAspectRatio) {
+        mKittyAnimationSource = source;
+        mKittySourceX = sourceX;
+        mKittySourceY = sourceY;
+        mKittySourceWidth = sourceWidth;
+        mKittySourceHeight = sourceHeight;
+        mKittyWidthPixels = widthPixels;
+        mKittyHeightPixels = heightPixels;
+        mKittyPreserveAspectRatio = preserveAspectRatio;
+    }
+
+    public int getKittyAnimationNextFrameDelayMs() {
+        return mKittyAnimationSource != null ? mKittyAnimationSource.getNextFrameDelayMs() : 0;
+    }
+
+    public Bitmap getActiveBitmap() {
+        if (mKittyAnimationSource != null) {
+            Bitmap frame = mKittyAnimationSource.getCurrentBitmap(
+                mKittySourceX, mKittySourceY, mKittySourceWidth, mKittySourceHeight,
+                mKittyWidthPixels, mKittyHeightPixels, mKittyPreserveAspectRatio);
+            if (frame != null) return frame;
+        }
+        return mBitmap;
     }
 
 
