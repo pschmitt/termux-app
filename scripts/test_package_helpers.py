@@ -1,0 +1,36 @@
+import importlib.util
+from pathlib import Path
+import tempfile
+import unittest
+
+spec = importlib.util.spec_from_file_location("helpers", Path(__file__).with_name("package-helpers.py"))
+helpers = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(helpers)
+spec = importlib.util.spec_from_file_location("bootstrap", Path(__file__).with_name("build-aarch64-bootstrap.py"))
+bootstrap = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bootstrap)
+
+
+class HelperPackageTests(unittest.TestCase):
+    def test_bootstrap_package_roundtrip_and_reproducibility(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            files = {"bin/am": (b"#!/system/bin/sh\n", 0o755, None)}
+            helpers.package(out, "helper", "1+termuxpp1", "all", "", files, True)
+            path = out / "helper_1+termuxpp1_all.deb"
+            original = path.read_bytes()
+            deb = bootstrap.Deb(str(path))
+            self.assertEqual(deb.name, "helper")
+            tree = bootstrap.Tree()
+            bootstrap.install_deb(tree, deb, False, False)
+            self.assertEqual(bootstrap.verify_tree(tree, ["helper"]), [])
+            self.assertEqual(tree.files["bin/am"][1], 0o755)
+            helpers.package(out, "helper", "1+termuxpp1", "all", "", files, True)
+            self.assertEqual(original, path.read_bytes())
+
+    def test_device_package_is_not_accepted_as_bootstrap_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            helpers.package(out, "helper", "1", "all", "", {"bin/am": (b"x", 0o755, None)}, False)
+            with self.assertRaises(bootstrap.BootstrapError):
+                bootstrap.Deb(str(out / "helper_1_all.deb"))
