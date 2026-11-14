@@ -57,10 +57,10 @@ public class UpdatesPreferencesIconsTest {
         SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
         UpdatesPreferencesFragment fragment = open(activity);
 
-        for (String key : new String[]{"update_app_core", "update_app_api", "update_app_tasker"}) {
+        for (String key : new String[]{"update_app_core", "update_app_api", "update_app_tasker", "update_shizuku"}) {
             Assert.assertEquals(key, R.layout.ui_preference_row_app, fragment.findPreference(key).getLayoutResource());
         }
-        for (String key : new String[]{"update_shizuku", "update_check"}) {
+        for (String key : new String[]{"update_channel", "update_warning", "update_check"}) {
             Assert.assertEquals(key, R.layout.ui_preference_row, fragment.findPreference(key).getLayoutResource());
         }
     }
@@ -77,6 +77,27 @@ public class UpdatesPreferencesIconsTest {
         Assert.assertTrue("a bundled stand-in", missing instanceof LayerDrawable);
         Assert.assertTrue(UpdatesPreferencesFragment.appIcon(activity, UpdateTarget.CORE, false)
             instanceof LayerDrawable);
+    }
+
+    @Test
+    public void shizukuRowShowsTheManagersOwnIconWhenInstalledAndAStandInOtherwise() {
+        SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
+        String manager = com.termux.app.update.ShizukuInstaller.MANAGER_PACKAGE;
+
+        UpdatesPreferencesFragment fragment = open(activity);
+        Assert.assertTrue("a stand-in while Shizuku is missing",
+            fragment.findPreference("update_shizuku").getIcon() instanceof LayerDrawable);
+
+        PackageInfo info = new PackageInfo();
+        info.packageName = manager;
+        info.applicationInfo = new ApplicationInfo();
+        info.applicationInfo.packageName = manager;
+        Shadows.shadowOf(activity.getPackageManager()).installPackage(info);
+        Shadows.shadowOf(activity.getPackageManager()).setApplicationIcon(manager, new ColorDrawable(Color.CYAN));
+
+        Drawable icon = UpdatesPreferencesFragment.installedIconOrStandIn(activity, manager, true,
+            R.drawable.ui_ic_power);
+        Assert.assertTrue("the Shizuku manager's own icon", icon instanceof ColorDrawable);
     }
 
 }

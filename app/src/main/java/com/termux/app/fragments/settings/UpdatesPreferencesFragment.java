@@ -63,6 +63,7 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
     private boolean shizukuListening;
     @Nullable private CharSequence previousTitle;
     /** Whether the icon currently set on each app row is the installed app's own, to set it only when that changes. */
+    @Nullable private Boolean shizukuIconInstalled;
     private final Boolean[] appIconInstalled = new Boolean[UpdateTarget.values().length];
 
     @Override
@@ -109,6 +110,7 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
             activity.setTitle(R.string.termux_updates_title);
         }
         java.util.Arrays.fill(appIconInstalled, null);
+        shizukuIconInstalled = null;
         controller.addListener(this);
         try {
             Shizuku.addBinderReceivedListener(binderReceived);
@@ -196,6 +198,7 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
         Preference shizuku = findPreference("update_shizuku");
         if (context == null || shizuku == null) return;
         shizuku.setSummary(shizukuSummary(ShizukuInstaller.state(context)));
+        updateShizukuIcon(context, shizuku);
         renderAll();
     }
 
@@ -245,30 +248,54 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
         app.setIcon(appIcon(context, target, installed));
     }
 
+    /** The Shizuku row shows the Shizuku manager's own icon when it is installed. */
+    private void updateShizukuIcon(@NonNull Context context, @NonNull Preference shizuku) {
+        boolean installed = isInstalled(context, ShizukuInstaller.MANAGER_PACKAGE);
+        if (shizukuIconInstalled != null && shizukuIconInstalled == installed) return;
+        shizukuIconInstalled = installed;
+        shizuku.setIcon(installedIconOrStandIn(context, ShizukuInstaller.MANAGER_PACKAGE, installed,
+            R.drawable.ui_ic_power));
+    }
+
+    private static boolean isInstalled(@NonNull Context context, @NonNull String packageName) {
+        try {
+            context.getPackageManager().getPackageInfo(packageName, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
+            return false;
+        }
+    }
+
     @NonNull
     static Drawable appIcon(@NonNull Context context, @NonNull UpdateTarget target, boolean installed) {
+        return installedIconOrStandIn(context, target.packageName, installed, fallbackGlyph(target));
+    }
+
+    @NonNull
+    static Drawable installedIconOrStandIn(@NonNull Context context, @NonNull String packageName,
+                                           boolean installed, @DrawableRes int glyph) {
         if (installed) {
             try {
-                Drawable icon = context.getPackageManager().getApplicationIcon(target.packageName);
+                Drawable icon = context.getPackageManager().getApplicationIcon(packageName);
                 if (icon != null) return icon;
             } catch (PackageManager.NameNotFoundException ignored) {
                 // Fall through to the stand-in.
             }
         }
-        return fallbackAppIcon(context, target);
+        return standInIcon(context, glyph);
     }
 
     @NonNull
-    private static Drawable fallbackAppIcon(@NonNull Context context, @NonNull UpdateTarget target) {
+    private static Drawable standInIcon(@NonNull Context context, @DrawableRes int glyphRes) {
         Drawable container = ContextCompat.getDrawable(context, R.drawable.ui_icon_container);
-        Drawable glyph = ContextCompat.getDrawable(context, fallbackGlyph(target));
+        Drawable glyph = ContextCompat.getDrawable(context, glyphRes);
         if (container == null || glyph == null) throw new IllegalStateException("Missing bundled icon");
         glyph = DrawableCompat.wrap(glyph.mutate());
         DrawableCompat.setTint(glyph, ContextCompat.getColor(context, R.color.ui_on_container));
         LayerDrawable layers = new LayerDrawable(new Drawable[]{container.mutate(), glyph});
         int inset = Math.round(8 * context.getResources().getDisplayMetrics().density);
         layers.setLayerInset(1, inset, inset, inset, inset);
-        // Dimmed, as the row is disabled while the app is missing.
+        // Dimmed: the app is missing.
         layers.setAlpha(128);
         return layers;
     }

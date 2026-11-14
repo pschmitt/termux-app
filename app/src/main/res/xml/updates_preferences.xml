@@ -15,6 +15,7 @@
             app:useSimpleSummaryProvider="true" />
 
         <Preference
+            android:layout="@layout/ui_preference_row_app"
             app:icon="@drawable/ui_ic_power"
             app:key="update_shizuku"
             app:title="@string/termux_update_shizuku_title" />
