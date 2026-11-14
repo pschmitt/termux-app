@@ -268,6 +268,13 @@ public final class TerminalEmulator {
      * See http://www.xfree86.org/current/ctlseqs.html#The%20Alternate%20Screen%20Buffer
      */
     final TerminalBuffer mAltBuffer;
+    /**
+     * The `OSC 8` hyperlink that is applied to the text that is written, or `null` if there is none.
+     * It is set by {@code OSC 8 ; params ; URI ST} and ended by an `OSC 8` with an empty URI, and is
+     * dropped on a terminal reset and when switching between the main and alternate screen.
+     * Setting it only attaches the link to the cells that are written afterwards, nothing is opened.
+     */
+    private TerminalHyperlink mCurrentHyperlink;
     /** The current screen buffer, pointing at either {@link #mMainBuffer} or {@link #mAltBuffer}. */
     private TerminalBuffer mScreen;
 
@@ -2213,6 +2220,8 @@ public final class TerminalEmulator {
                     boolean resized = !(newScreen.mColumns == mColumns && newScreen.mScreenRows == mRows);
                     if (setting) saveCursor();
                     mScreen = newScreen;
+                    // A link that is open on one screen does not continue on the other one.
+                    mCurrentHyperlink = null;
                     if (!setting) {
                         int col = mSavedStateMain.mSavedCursorCol;
                         int row = mSavedStateMain.mSavedCursorRow;
@@ -4044,6 +4053,31 @@ public final class TerminalEmulator {
     }
 
     /**
+     * Handle the `params;URI` part of an `OSC 8` hyperlink command.
+     * <p>
+     * The URI is validated by {@link TerminalHyperlink#parse(String, String)}. If it is not acceptable,
+     * or the command is malformed, the text that follows is shown without a link, so it never gets
+     * the link that was set before. The size of the command is limited by
+     * {@link #mTerminalControlArgsMaxLength}.
+     */
+    private void doOscHyperlink(String paramsAndUri) {
+        int separator = paramsAndUri.indexOf(';');
+        if (separator < 0) {
+            mCurrentHyperlink = null;
+            return;
+        }
+        String params = paramsAndUri.substring(0, separator);
+        String uri = paramsAndUri.substring(separator + 1);
+        // An empty URI ends the link, an unacceptable one results in null as well.
+        mCurrentHyperlink = TerminalHyperlink.parse(params, uri);
+    }
+
+    /** The `OSC 8` hyperlink that new text gets, or `null`. */
+    public TerminalHyperlink getCurrentHyperlink() {
+        return mCurrentHyperlink;
+    }
+
+    /**
      * Do {@link #ESC_OSC}. Check its docs for more info.
      *
      * This handles Set Text Parameters commands.
@@ -4147,6 +4181,11 @@ public final class TerminalEmulator {
                         }
                     }
                 }
+                break;
+            case 8:
+                // OSC 8 ; params ; URI ST. Hyperlinks, an empty URI ends the link.
+                // https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+                doOscHyperlink(textParameter);
                 break;
             case 52: // Manipulate Selection Data. Skip the optional first selection parameter(s).
                 int startIndex = textParameter.indexOf(";") + 1;
@@ -4718,6 +4757,8 @@ public final class TerminalEmulator {
         // TODO: Check if there are thread synchronization issues with mCursorCol and mCursorRow, possibly causing others bugs too.
         if (column < 0) column = 0;
         mScreen.setChar(column, mCursorRow, codePoint, getStyle());
+        if (mCurrentHyperlink != null && displayWidth > 0)
+            mScreen.setHyperlink(column, mCursorRow, displayWidth, mCurrentHyperlink);
 
         if (autoWrap && displayWidth > 0)
             mAboutToAutoWrap = (mCursorCol == mRightMargin - displayWidth);
@@ -4812,6 +4853,7 @@ public final class TerminalEmulator {
         mITermImage = null;
         mKittyImage = null;
         clearKittyImages();
+        mCurrentHyperlink = null;
     }
 
     public String getSelectedText(int x1, int y1, int x2, int y2) {

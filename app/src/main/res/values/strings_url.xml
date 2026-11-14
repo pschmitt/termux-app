@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="title_open_hyperlink">Open this link?</string>
+    <string name="msg_open_hyperlink_concealing">The text of this link does not show where it leads to. Only open it if you trust the address.\n\nShown text:\n%1$s\n\nAddress:\n%2$s</string>
+    <string name="action_open_hyperlink">Open</string>
+    <string name="action_copy_hyperlink">Copy address</string>
+    <string name="msg_hyperlink_copied_to_clipboard">Address copied to clipboard</string>
+    <!-- An OSC 8 link in the list of URLs: the text that is shown in the terminal, then the address. -->
+    <string name="item_select_url_hyperlink">%1$s → %2$s</string>
+
+</resources>

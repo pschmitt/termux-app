@@ -1,7 +1,10 @@
 package com.termux.terminal;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
@@ -66,6 +69,20 @@ public final class TerminalBuffer {
      * The bitmap number end for {@link #mTerminalBitmaps} keys.
      */
     public static final int TERMINAL_BITMAP__NUM_END = Integer.MAX_VALUE;
+
+    /** The max number of spans that {@link #getHyperlinkSpans()} returns. */
+    public static final int MAX_HYPERLINK_SPANS = 2000;
+
+    /** The max number of rows that are joined to get the label of a hyperlink. */
+    private static final int MAX_HYPERLINK_LABEL_ROWS = 64;
+
+    /** The `OSC 8` hyperlinks that the cells of {@link #mLines} refer to by id. */
+    private final TerminalHyperlinkRegistry mHyperlinks = new TerminalHyperlinkRegistry();
+    /** The last link for which {@link #internHyperlink(TerminalHyperlink)} was called, and its id (`0` if it did not fit). */
+    private TerminalHyperlink mLastInternedHyperlink;
+    private int mLastInternedHyperlinkId;
+    /** Number of times a full table is not pruned again, so that a flood of links does not rescan all cells for each of them. */
+    private int mHyperlinkPruneBackoff;
 
 
 
@@ -403,6 +420,15 @@ public final class TerminalBuffer {
                     int offsetDueToCombiningChar = ((displayWidth <= 0 && currentOutputExternalColumn > 0) ? 1 : 0);
                     int outputColumn = currentOutputExternalColumn - offsetDueToCombiningChar;
                     setChar(outputColumn, currentOutputExternalRow, codePoint, styleAtCol);
+                    if (displayWidth > 0) {
+                        // The ids are of this buffer so they are valid for the new rows as well.
+                        int linkId = oldLine.getLinkId(currentOldCol);
+                        if (linkId != 0) {
+                            TerminalRow newLine = mLines[externalToInternalRow(currentOutputExternalRow)];
+                            newLine.setLinkId(outputColumn, linkId);
+                            if (displayWidth == 2) newLine.setLinkId(outputColumn + 1, linkId);
+                        }
+                    }
 
                     if (displayWidth > 0) {
                         if (oldCursorRow == externalOldRow && oldCursorColumn == currentOldCol) {
@@ -429,6 +455,9 @@ public final class TerminalBuffer {
 
             cursor[0] = newCursorColumn;
             cursor[1] = newCursorRow;
+
+            // The old rows are gone, release the links that are not on the screen anymore.
+            pruneHyperlinks();
         }
 
         // Handle cursor scrolling off screen:
@@ -583,6 +612,172 @@ public final class TerminalBuffer {
         }
         mActiveTranscriptRows = 0;
         clearTerminalBitmaps();
+        pruneHyperlinks();
+    }
+
+    /**
+     * Set the `OSC 8` hyperlink of the cells of a character that has just been written with
+     * {@link #setChar(int, int, int, long)}. This only stores the link, nothing is opened.
+     * If there are too many links, the cell is left without a link.
+     *
+     * @param column The column of the character, which is the first one if it is wide.
+     * @param row    The row on the screen, from `0`.
+     * @param width  The display width of the character, `1` or `2`.
+     * @param link   The link, or `null` to remove it.
+     */
+    public void setHyperlink(int column, int row, int width, TerminalHyperlink link) {
+        if (row < 0 || row >= mScreenRows || column < 0 || column >= mColumns) return;
+        int id = internHyperlink(link);
+        TerminalRow line = mLines[externalToInternalRow(row)];
+        if (line == null) return;
+        for (int i = 0; i < width; i++) line.setLinkId(column + i, id);
+    }
+
+    /** Get the id of a link in {@link #mHyperlinks}, pruning unused links if the table is full. Returns `0` if it does not fit. */
+    private int internHyperlink(TerminalHyperlink link) {
+        if (link == null) return 0;
+        if (link == mLastInternedHyperlink) return mLastInternedHyperlinkId;
+
+        int id = mHyperlinks.intern(link);
+        if (id == 0) {
+            if (mHyperlinkPruneBackoff > 0) {
+                mHyperlinkPruneBackoff--;
+            } else {
+                int released = pruneHyperlinks();
+                id = mHyperlinks.intern(link);
+                // If hardly anything could be released, scanning again for the next links would not help.
+                if (released < TerminalHyperlinkRegistry.MAX_LINKS / 8) mHyperlinkPruneBackoff = 256;
+            }
+        }
+        mLastInternedHyperlink = link;
+        mLastInternedHyperlinkId = id;
+        return id;
+    }
+
+    /**
+     * Release the links that no cell of the buffer refers to anymore. Returns the number of released links.
+     * Every row of {@link #mLines} is checked, also the ones that are not part of the transcript anymore.
+     */
+    private int pruneHyperlinks() {
+        // The cached id may be of a link that is released here.
+        mLastInternedHyperlink = null;
+        mLastInternedHyperlinkId = 0;
+        if (mHyperlinks.size() == 0) return 0;
+
+        boolean[] used = new boolean[mHyperlinks.getMaxId() + 1];
+        final TerminalRow[] lines = mLines;
+        for (TerminalRow line : lines) {
+            if (line != null) line.markUsedLinkIds(used);
+        }
+        return mHyperlinks.retainOnly(used);
+    }
+
+    /** Get the `OSC 8` hyperlink at a cell, or `null`. The row is external, from {@code -getActiveTranscriptRows()}. */
+    public TerminalHyperlink getHyperlinkAt(int externalRow, int column) {
+        if (externalRow < -mActiveTranscriptRows || externalRow >= mScreenRows || column < 0 || column >= mColumns) return null;
+        TerminalRow line = mLines[externalToInternalRow(externalRow)];
+        return (line == null) ? null : mHyperlinks.get(line.getLinkId(column));
+    }
+
+    /**
+     * Get the text that is displayed for the hyperlink at a cell, which is all the cells of the same
+     * link on that row and on the rows directly above and below it (as an application that wraps
+     * lines itself ends the link on each row). Returns `null` if there is no link at the cell.
+     */
+    public String getHyperlinkLabelAt(int externalRow, int column) {
+        if (externalRow < -mActiveTranscriptRows || externalRow >= mScreenRows || column < 0 || column >= mColumns) return null;
+        TerminalRow tapped = mLines[externalToInternalRow(externalRow)];
+        if (tapped == null) return null;
+        final int id = tapped.getLinkId(column);
+        if (mHyperlinks.get(id) == null) return null;
+
+        int top = externalRow;
+        while (top > -mActiveTranscriptRows && externalRow - top < MAX_HYPERLINK_LABEL_ROWS && rowHasLinkId(top - 1, id)) top--;
+        int bottom = externalRow;
+        while (bottom < mScreenRows - 1 && bottom - externalRow < MAX_HYPERLINK_LABEL_ROWS && rowHasLinkId(bottom + 1, id)) bottom++;
+
+        StringBuilder label = new StringBuilder();
+        for (int row = top; row <= bottom; row++) {
+            TerminalRow line = mLines[externalToInternalRow(row)];
+            int runStart = -1;
+            for (int x = 0; x <= mColumns; x++) {
+                boolean inLink = x < mColumns && line.getLinkId(x) == id;
+                if (inLink && runStart < 0) {
+                    runStart = x;
+                } else if (!inLink && runStart >= 0) {
+                    appendRowText(label, line, runStart, x);
+                    runStart = -1;
+                }
+            }
+        }
+        return label.toString();
+    }
+
+    private boolean rowHasLinkId(int externalRow, int id) {
+        TerminalRow line = mLines[externalToInternalRow(externalRow)];
+        if (line == null || !line.hasLinkIds()) return false;
+        for (int x = 0; x < mColumns; x++) {
+            if (line.getLinkId(x) == id) return true;
+        }
+        return false;
+    }
+
+    private void appendRowText(StringBuilder builder, TerminalRow line, int x1, int x2) {
+        int start = line.findStartOfColumn(x1);
+        int end = (x2 >= mColumns) ? line.getSpaceUsed() : line.findStartOfColumn(x2);
+        if (end > start) builder.append(line.mText, start, end - start);
+    }
+
+    /**
+     * Get all the `OSC 8` hyperlinks in the transcript and on the screen, in the order they appear
+     * (the latest {@link #MAX_HYPERLINK_SPANS} if there are more). The cells of one link on adjacent
+     * rows are one span.
+     */
+    public List<TerminalHyperlink.Span> getHyperlinkSpans() {
+        ArrayDeque<TerminalHyperlink.Span> spans = new ArrayDeque<>();
+        // The last span and its (id, last row) so that the next row can be added to it.
+        StringBuilder currentLabel = null;
+        TerminalHyperlink currentLink = null;
+        int currentId = 0, currentStartRow = 0, currentStartColumn = 0, currentLastRow = 0;
+
+        for (int row = -mActiveTranscriptRows; row < mScreenRows; row++) {
+            TerminalRow line = mLines[externalToInternalRow(row)];
+            if (line == null || !line.hasLinkIds()) continue;
+
+            int runId = 0, runStart = -1;
+            for (int x = 0; x <= mColumns; x++) {
+                int id = (x < mColumns) ? line.getLinkId(x) : 0;
+                if (runStart >= 0 && id == runId) continue;
+
+                if (runStart >= 0) {
+                    // The run [runStart, x) ended.
+                    TerminalHyperlink link = mHyperlinks.get(runId);
+                    if (link != null) {
+                        if (currentLink != null && currentId == runId && currentLastRow >= row - 1) {
+                            currentLastRow = row;
+                        } else {
+                            if (currentLink != null) {
+                                spans.addLast(new TerminalHyperlink.Span(currentLink, currentLabel.toString(), currentStartRow, currentStartColumn));
+                                if (spans.size() > MAX_HYPERLINK_SPANS) spans.removeFirst();
+                            }
+                            currentLink = link;
+                            currentId = runId;
+                            currentLabel = new StringBuilder();
+                            currentStartRow = currentLastRow = row;
+                            currentStartColumn = runStart;
+                        }
+                        appendRowText(currentLabel, line, runStart, x);
+                    }
+                }
+                runId = id;
+                runStart = (id != 0) ? x : -1;
+            }
+        }
+        if (currentLink != null) {
+            spans.addLast(new TerminalHyperlink.Span(currentLink, currentLabel.toString(), currentStartRow, currentStartColumn));
+            if (spans.size() > MAX_HYPERLINK_SPANS) spans.removeFirst();
+        }
+        return new ArrayList<>(spans);
     }
 
 

@@ -46,13 +46,15 @@ import com.termux.shared.termux.data.TermuxUrlUtils;
 import com.termux.shared.view.KeyboardUtils;
 import com.termux.shared.view.ViewUtils;
 import com.termux.terminal.KeyHandler;
+import com.termux.terminal.TerminalBuffer;
 import com.termux.terminal.TerminalEmulator;
+import com.termux.terminal.TerminalHyperlink;
 import com.termux.terminal.TerminalSession;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -195,14 +197,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
 
         if (mActivity.getProperties().shouldOpenTerminalTranscriptURLOnClick()) {
             int[] columnAndRow = mActivity.getTerminalView().getColumnAndRow(e, true);
-            String wordAtTap = term.getScreen().getWordAtLocation(columnAndRow[0], columnAndRow[1]);
-            LinkedHashSet<CharSequence> urlSet = TermuxUrlUtils.extractUrls(wordAtTap);
-
-            if (!urlSet.isEmpty()) {
-                String url = (String) urlSet.iterator().next();
-                ShareUtils.openUrl(mActivity, url);
-                return;
-            }
+            if (openUrlAt(term, columnAndRow[0], columnAndRow[1])) return;
         }
 
         // A touch tap acts (soft keyboard, session switch, sidebar) even while a terminal
@@ -212,6 +207,83 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         TerminalGestureAction singleTapAction = mActivity.getProperties().getTerminalSingleTapAction();
         if (shouldActOnSingleTapUp(e, getMaxTapActionCount(), singleTapAction))
             performGestureAction(singleTapAction, mActivity.getProperties().getTerminalTapKeys(1));
+    }
+
+    /** How many rows above and below a tapped row are searched for the rest of a URL that was broken over rows. */
+    private static final int URL_TAP_WINDOW_ROWS = TermuxUrlUtils.MAX_CONTINUATION_ROWS + 2;
+
+    /**
+     * Open the link at a cell of the terminal: the `OSC 8` hyperlink of the cell, else the URL in the
+     * text there, including a URL that the application has broken over several rows.
+     * <p>
+     * Nothing is opened for a cell without a link. A hyperlink whose text does not show its address
+     * has to be confirmed first, see {@link #openHyperlink(TerminalHyperlink, String)}.
+     *
+     * @param row The external row, which is negative for the transcript.
+     * @return Returns `true` if there was a link at the cell.
+     */
+    private boolean openUrlAt(@NonNull TerminalEmulator term, int column, int row) {
+        TerminalBuffer screen = term.getScreen();
+
+        TerminalHyperlink hyperlink = screen.getHyperlinkAt(row, column);
+        if (hyperlink != null) {
+            openHyperlink(hyperlink, screen.getHyperlinkLabelAt(row, column));
+            return true;
+        }
+
+        String url = findTextUrlAt(screen, term.mColumns, column, row);
+        if (url == null) return false;
+        ShareUtils.openUrl(mActivity, url);
+        return true;
+    }
+
+    /** Get the URL in the text of the terminal at a cell, see {@link TermuxUrlUtils#findUrlAtOffset(String, int, int)}. */
+    @Nullable
+    static String findTextUrlAt(@NonNull TerminalBuffer screen, int columns, int column, int row) {
+        // A blank cell is never part of a URL.
+        String cell = screen.getSelectedText(column, row, column, row, false);
+        if (cell == null || cell.trim().isEmpty()) return null;
+
+        int firstRow = Math.max(-screen.getActiveTranscriptRows(), row - URL_TAP_WINDOW_ROWS);
+        int lastRow = row + URL_TAP_WINDOW_ROWS; // Clamped to the screen by getSelectedText().
+
+        // The text of the rows around the tap, with the rows that the terminal wrapped itself joined.
+        // The text from the first row up to the cell is the start of the same text, so its length
+        // is the offset of the cell.
+        String text = screen.getSelectedText(0, firstRow, columns, lastRow, true, false);
+        String textUpToCell = screen.getSelectedText(0, firstRow, column, row, true, false);
+        if (text == null || textUpToCell == null || textUpToCell.isEmpty()) return null;
+        return TermuxUrlUtils.findUrlAtOffset(text, columns, textUpToCell.length() - 1);
+    }
+
+    /**
+     * Open an `OSC 8` hyperlink that was tapped. If the text that is shown for it is not its address
+     * (which is the point of such links, but also how a link can disguise where it leads), the
+     * address is shown and has to be confirmed.
+     */
+    private void openHyperlink(@NonNull TerminalHyperlink hyperlink, @Nullable String label) {
+        final String uri = hyperlink.getUri();
+        if (!hyperlink.isLabelConcealingTarget(label)) {
+            ShareUtils.openUrl(mActivity, uri);
+            return;
+        }
+
+        new AlertDialog.Builder(mActivity)
+            .setTitle(R.string.title_open_hyperlink)
+            .setMessage(mActivity.getString(R.string.msg_open_hyperlink_concealing, getLabelForDisplay(label), uri))
+            .setPositiveButton(R.string.action_open_hyperlink, (dialog, which) -> ShareUtils.openUrl(mActivity, uri))
+            .setNeutralButton(R.string.action_copy_hyperlink, (dialog, which) ->
+                ShareUtils.copyTextToClipboard(mActivity, uri, mActivity.getString(R.string.msg_hyperlink_copied_to_clipboard)))
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
+    }
+
+    /** The text of a link on one line and of a bounded length. */
+    @NonNull
+    private static String getLabelForDisplay(@Nullable String label) {
+        if (label == null) return "";
+        String oneLine = label.replaceAll("\\s+", " ").trim();
+        return oneLine.length() > 120 ? oneLine.substring(0, 120) + "\u2026" : oneLine;
     }
 
     /**
@@ -809,20 +881,38 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         TerminalSession session = mActivity.getCurrentSession();
         if (session == null) return;
 
-        String text = ShellUtils.getTerminalSessionTranscriptText(session, true, true);
+        TerminalEmulator emulator = session.getEmulator();
+        if (emulator == null) return;
+        TerminalBuffer screen = emulator.getScreen();
 
-        LinkedHashSet<CharSequence> urlSet = TermuxUrlUtils.extractUrls(text);
-        if (urlSet.isEmpty()) {
+        // Rows that the terminal wrapped itself are joined, the ones an application broke are joined
+        // by extractUrls() if they look like one URL.
+        // The key is what is listed, the value the address to copy or open.
+        final Map<String, String> addressOfItem = new LinkedHashMap<>();
+        for (CharSequence url : TermuxUrlUtils.extractUrls(screen.getTranscriptText(), emulator.mColumns))
+            addressOfItem.put(url.toString(), url.toString());
+
+        // The `OSC 8` hyperlinks come last, so that they are listed first. A link whose text is not its
+        // address is listed with both, so that the address is known before it is copied or opened.
+        for (TerminalHyperlink.Span span : screen.getHyperlinkSpans()) {
+            String uri = span.link.getUri();
+            String item = span.link.isLabelConcealingTarget(span.label)
+                ? mActivity.getString(R.string.item_select_url_hyperlink, getLabelForDisplay(span.label), uri) : uri;
+            if (!addressOfItem.containsKey(item)) addressOfItem.put(item, uri);
+        }
+        List<CharSequence> items = new ArrayList<>(addressOfItem.keySet());
+
+        if (items.isEmpty()) {
             new AlertDialog.Builder(mActivity).setMessage(R.string.title_select_url_none_found).show();
             return;
         }
 
-        final CharSequence[] urls = urlSet.toArray(new CharSequence[0]);
+        final CharSequence[] urls = items.toArray(new CharSequence[0]);
         Collections.reverse(Arrays.asList(urls)); // Latest first.
 
         // Click to copy url to clipboard:
         final AlertDialog dialog = new AlertDialog.Builder(mActivity).setItems(urls, (di, which) -> {
-            String url = (String) urls[which];
+            String url = addressOfItem.get(urls[which].toString());
             ShareUtils.copyTextToClipboard(mActivity, url, mActivity.getString(R.string.msg_select_url_copied_to_clipboard));
         }).setTitle(R.string.title_select_url_dialog).create();
 
@@ -831,7 +921,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             ListView lv = dialog.getListView(); // this is a ListView with your "buds" in it
             lv.setOnItemLongClickListener((parent, view, position, id) -> {
                 dialog.dismiss();
-                String url = (String) urls[position];
+                String url = addressOfItem.get(urls[position].toString());
                 ShareUtils.openUrl(mActivity, url);
                 return true;
             });

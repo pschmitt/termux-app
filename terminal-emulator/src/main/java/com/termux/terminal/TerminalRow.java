@@ -51,6 +51,13 @@ public final class TerminalRow {
     boolean mHasNonOneWidthOrSurrogateChars;
     /** If this row has a {@link TerminalBitmap}. Used for performance only. */
     public boolean mHasTerminalBitmap;
+    /**
+     * The `OSC 8` hyperlink id of each cell in the row, see {@link TerminalHyperlinkRegistry}. `0` is no
+     * link. This is `null` until a link is set on the row, so that rows without links cost nothing.
+     * The id of a cell is dropped when it is overwritten or cleared, and is copied together with the
+     * text by {@link #copyInterval(TerminalRow, int, int, int)}.
+     */
+    private int[] mLinkIds;
 
     /** Construct a blank row (containing only whitespace, ' ') with a specified style. */
     public TerminalRow(int columns, long style) {
@@ -67,6 +74,7 @@ public final class TerminalRow {
         final int x2 = line.findStartOfColumn(sourceX2);
         boolean startingFromSecondHalfOfWideChar = (sourceX1 > 0 && line.wideDisplayCharacterStartingAt(sourceX1 - 1));
         final char[] sourceChars = (this == line) ? Arrays.copyOf(line.mText, line.mText.length) : line.mText;
+        final int[] sourceLinkIds = (this == line && line.mLinkIds != null) ? line.mLinkIds.clone() : line.mLinkIds;
         int latestNonCombiningWidth = 0;
         for (int i = x1; i < x2; i++) {
             char sourceChar = sourceChars[i];
@@ -83,7 +91,50 @@ public final class TerminalRow {
                 latestNonCombiningWidth = w;
             }
             setChar(destinationX, codePoint, line.getStyle(sourceX1));
+            if (sourceLinkIds != null && w > 0) {
+                // setChar() has dropped the link of the destination, carry the one of the source.
+                int linkId = (sourceX1 >= 0 && sourceX1 < sourceLinkIds.length) ? sourceLinkIds[sourceX1] : 0;
+                if (linkId != 0) {
+                    setLinkId(destinationX, linkId);
+                    if (w == 2 && destinationX + 1 < mColumns) setLinkId(destinationX + 1, linkId);
+                }
+            }
         }
+    }
+
+    /** Get the `OSC 8` hyperlink id of the cell, `0` if it has none. */
+    public int getLinkId(int column) {
+        return (mLinkIds == null || column < 0 || column >= mColumns) ? 0 : mLinkIds[column];
+    }
+
+    /** Set the `OSC 8` hyperlink id of a cell, use `0` to remove it. */
+    void setLinkId(int column, int linkId) {
+        if (column < 0 || column >= mColumns) return;
+        if (mLinkIds == null) {
+            if (linkId == 0) return;
+            mLinkIds = new int[mColumns];
+        }
+        mLinkIds[column] = linkId;
+    }
+
+    /** Check if any cell of the row might have a hyperlink, used to skip rows quickly. */
+    boolean hasLinkIds() {
+        return mLinkIds != null;
+    }
+
+    /** Mark all the ids that are used by cells of this row in {@code used}. */
+    void markUsedLinkIds(boolean[] used) {
+        if (mLinkIds == null) return;
+        for (int id : mLinkIds) {
+            if (id > 0 && id < used.length) used[id] = true;
+        }
+    }
+
+    /** Remove the links of the cells, but keep the text. */
+    private void clearLinkIds(int column, int count) {
+        if (mLinkIds == null) return;
+        int end = Math.min(column + count, mColumns);
+        for (int i = Math.max(column, 0); i < end; i++) mLinkIds[i] = 0;
     }
 
     public int getSpaceUsed() {
@@ -149,6 +200,7 @@ public final class TerminalRow {
         mSpaceUsed = mColumns;
         mHasNonOneWidthOrSurrogateChars = false;
         mHasTerminalBitmap = false;
+        mLinkIds = null;
     }
 
     // https://github.com/steven676/Android-Terminal-Emulator/commit/9a47042620bec87617f0b4f5d50568535668fe26
@@ -163,6 +215,12 @@ public final class TerminalRow {
         }
 
         final int newCodePointDisplayWidth = WcWidth.width(codePoint);
+
+        // A cell that gets new (non combining) content no longer belongs to the hyperlink it had.
+        // A wide character covers the next cell as well.
+        if (mLinkIds != null && newCodePointDisplayWidth > 0) {
+            clearLinkIds(columnToSet, newCodePointDisplayWidth);
+        }
 
         // Fast path when we don't have any chars with width != 1
         if (!mHasNonOneWidthOrSurrogateChars) {
@@ -192,6 +250,10 @@ public final class TerminalRow {
         char[] text = mText;
         final int oldStartOfColumnIndex = findStartOfColumn(columnToSet);
         final int oldCodePointDisplayWidth = WcWidth.width(text, oldStartOfColumnIndex);
+
+        // Overwriting the first half of a wide character leaves a space in its second half, which
+        // must not keep the link of the wide character.
+        if (!newIsCombining && oldCodePointDisplayWidth == 2) clearLinkIds(columnToSet, 2);
 
         // Get the number of elements in the mText array this column uses now
         int oldCharactersUsedForColumn;
