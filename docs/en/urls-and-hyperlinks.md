@@ -11,8 +11,8 @@ Opening a link is always something you do: nothing is ever opened when a program
 
 ## Tapping a link
 
-The tap opens links only while `terminal-onclick-url-open` is not set to `false` (the setting that
-already existed for URLs in the text). A tap on
+The tap opens links only when `terminal-onclick-url-open` is set to `true` in `termux.properties`
+(the setting that already existed for URLs in the text; it is off by default). A tap on
 
 - a hyperlink opens its address. If the text that is shown for the link is not its address, a
   dialog shows both and asks first (*Open*, *Copy address* or *Cancel*);

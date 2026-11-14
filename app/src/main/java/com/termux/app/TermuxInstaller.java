@@ -204,6 +204,15 @@ final class TermuxInstaller {
                                                 TermuxConstants.TERMUX_INTERNAL_PRIVATE_APP_DATA_DIR_PATH);
                                             modified = true;
                                         }
+                                        if ("bin/termux-reload-settings".equals(zipEntryName)) {
+                                            String adapted = adaptReloadSettingsScript(text,
+                                                TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY.ACTION_RELOAD_STYLE,
+                                                TermuxConstants.TERMUX_PACKAGE_NAME);
+                                            if (!adapted.equals(text)) {
+                                                text = adapted;
+                                                modified = true;
+                                            }
+                                        }
                                         if ("bin/login".equals(zipEntryName) && text.contains("export LD_PRELOAD=\"")) {
                                             text = text.replace("export LD_PRELOAD=\"",
                                                 "export LD_PRELOAD=\"${TERMUX_PKG_REDIRECT_SO:+$TERMUX_PKG_REDIRECT_SO:}");
@@ -280,6 +289,17 @@ final class TermuxInstaller {
                 }
             }
         }.start();
+    }
+
+    /**
+     * The stock {@code termux-reload-settings} helper hardcodes the stock reload broadcast
+     * ({@code -a "com.termux.app.reload_style" "com.termux"}), which is a silent no-op for a fork with
+     * another package name. Point it at this app's action and package. Returns the text unchanged when
+     * the stock identity is in use or the helper does not have the expected form.
+     */
+    static String adaptReloadSettingsScript(String text, String reloadStyleAction, String packageName) {
+        String stock = "-a \"com.termux.app.reload_style\" \"com.termux\"";
+        return text.replace(stock, "-a \"" + reloadStyleAction + "\" \"" + packageName + "\"");
     }
 
     public static void showBootstrapErrorDialog(Activity activity, Runnable whenDone, String message) {
