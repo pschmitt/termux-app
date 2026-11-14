@@ -47,7 +47,11 @@ untrusted**; production builds require the same private key as the core.
 
 The plug-in appears separately from stock Termux in Tasker. Existing tasks
 must reselect the TermuxPP plug-in: saved upstream package references are not
-migrated automatically. Scripts live in TermuxPP's `~/.termux/tasker`.
+migrated automatically. Scripts live in TermuxPP's `~/.config/termuxpp/tasker`. A relative
+`Executable` is looked up in `~/.config/termuxpp/tasker`, then
+`~/.config/termux/tasker`, then `~/.termux/tasker`; the first directory that has
+the file wins, and all three count as the scripts directory for the
+`allow-external-apps` check.
 
 Plug-in hosts such as Tasker only request the stock `com.termux.permission.RUN_COMMAND`
 permission and cannot be granted `dev.pschmitt.termux.permission.RUN_COMMAND`. The

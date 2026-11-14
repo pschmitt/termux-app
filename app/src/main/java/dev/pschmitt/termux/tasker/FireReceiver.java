@@ -13,6 +13,7 @@ import com.termux.shared.errors.Error;
 import com.termux.shared.file.filesystem.FileType;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.shell.command.ExecutionCommand;
+import com.termux.shared.termux.TermuxConfigDirs;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
 import com.termux.shared.file.FileUtils;
@@ -104,7 +105,8 @@ public final class FireReceiver extends BroadcastReceiver {
         }
 
         // Get canonical path of executable
-        executionCommand.executable = TermuxFileUtils.getCanonicalPath(executionCommand.executable, TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATH, true);
+        // Relative paths are looked up in ~/.config/termuxpp/tasker, ~/.config/termux/tasker and ~/.termux/tasker (in that order)
+        executionCommand.executable = TermuxConfigDirs.resolveScriptCanonicalPath(executionCommand.executable, TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATHS_LIST);
 
 
         // If executable is not in TermuxConstants#TERMUX_TASKER_SCRIPTS_DIR_PATH and
@@ -123,7 +125,7 @@ public final class FireReceiver extends BroadcastReceiver {
         // RESULT_CODE_FAILED to plugin host app
         // Setting of read and execute permissions are only done if executable is under TermuxConstants#TERMUX_TASKER_SCRIPTS_DIR_PATH
         error = FileUtils.validateRegularFileExistenceAndPermissions("executable", executionCommand.executable,
-                TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATH,
+                TermuxConfigDirs.getMatchedDirPath(executionCommand.executable, TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATHS_LIST),
                 FileUtils.APP_EXECUTABLE_FILE_PERMISSIONS,
                 true, true,
                 false);

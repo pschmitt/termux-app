@@ -518,7 +518,7 @@ public class PluginUtils {
 
         String errmsg = null;
 
-        if (!FileUtils.isPathInDirPath(executable, TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATH, true) &&
+        if (!FileUtils.isPathInDirPaths(executable, TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATHS_LIST, true) &&
                 !SharedProperties.isPropertyValueTrue(context,
                         SharedProperties.getPropertiesFileFromList(TermuxConstants.TERMUX_PROPERTIES_FILE_PATHS_LIST, LOG_TAG),
                         TermuxConstants.PROP_ALLOW_EXTERNAL_APPS, true)) {

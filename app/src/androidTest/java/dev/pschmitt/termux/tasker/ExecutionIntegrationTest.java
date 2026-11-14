@@ -28,7 +28,7 @@ public class ExecutionIntegrationTest {
     @Test
     public void orderedPluginCommandReturnsOutputAndExitStatus() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        File directory = new File("/data/data/dev.pschmitt.termux/files/home/.termux/tasker");
+        File directory = new File("/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/tasker");
         assertTrue(directory.isDirectory() || directory.mkdirs());
         File script = new File(directory, "termuxpp-integration-" + UUID.randomUUID());
         String action = context.getPackageName() + ".TEST_RESULT." + UUID.randomUUID();

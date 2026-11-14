@@ -13,6 +13,7 @@ import com.termux.shared.data.IntentUtils;
 import com.termux.shared.errors.Error;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.models.TextIOInfo;
+import com.termux.shared.termux.TermuxConfigDirs;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
 import com.termux.shared.file.FileUtils;
@@ -386,7 +387,7 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
             executableDefined = false;
         }
 
-        executable = TermuxFileUtils.getCanonicalPath(executable, TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATH, true);
+        executable = TermuxConfigDirs.resolveScriptCanonicalPath(executable, TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATHS_LIST);
 
         // If executable text contains a variable, then no need to set absolute path or validate the path
         if (PluginUtils.isPluginHostAppVariableContainingString(executable)) {
@@ -403,7 +404,7 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
             // TermuxConstants#TERMUX_TASKER_SCRIPTS_DIR_PATH since FireReceiver
             // will automatically set permissions on execution.
             Error error = FileUtils.validateRegularFileExistenceAndPermissions("executable", executable,
-                    TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATH,
+                    TermuxConfigDirs.getMatchedDirPath(executable, TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATHS_LIST),
                     FileUtils.APP_EXECUTABLE_FILE_PERMISSIONS,false, false,
                     true);
             if (error != null) {
@@ -423,6 +424,19 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
         setExecutablePathTextDropdownList(executable);
     }
 
+    /** List the scripts of all tasker script directories (canonical first, so it wins on duplicates). */
+    private File[] listTaskerScripts() {
+        java.util.Map<String, File> scripts = new java.util.LinkedHashMap<>();
+        for (String dirPath : TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATHS_LIST) {
+            File[] dirFiles = new File(dirPath).listFiles();
+            if (dirFiles == null) continue;
+            for (File dirFile : dirFiles) {
+                if (!scripts.containsKey(dirFile.getName())) scripts.put(dirFile.getName(), dirFile);
+            }
+        }
+        return scripts.isEmpty() ? null : scripts.values().toArray(new File[0]);
+    }
+
     private void setExecutablePathTextDropdownList(String executable) {
         if (mExecutablePathText == null) return;
 
@@ -440,7 +454,7 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
         // If executable is null, empty or executable parent is not a directory, then show files
         // in TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR
         if (executable == null || executable.isEmpty() || executableParentFile == null || !executableParentFile.isDirectory()) {
-            files = TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR.listFiles();
+            files = listTaskerScripts();
         }
         // If executable is a substring of TermuxConstants.TERMUX_FILES_DIR_PATH, then show
         // files in TermuxConstants.TERMUX_FILES_DIR_PATH
