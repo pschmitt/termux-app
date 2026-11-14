@@ -25,10 +25,10 @@
 #define TERMUX_API_PACKAGE_VERSION "0.60.0"
 
 #ifndef PREFIX
-# define PREFIX "/data/data/com.termux/files/usr"
+# define PREFIX "/data/data/dev.pschmitt.termux/files/usr"
 #endif
 
-#define LISTEN_SOCKET_ADDRESS "com.termux.api://listen"
+#define LISTEN_SOCKET_ADDRESS "dev.pschmitt.termux.api://listen"
 
 _Noreturn void contact_plugin(int argc, char** argv,
                                  char* input_address_string,
@@ -361,7 +361,7 @@ _Noreturn void exec_am_broadcast_v2(int argc, char** argv,
     child_argv[2] = "--user";
     child_argv[3] = "0";
     child_argv[4] = "-n";
-    child_argv[5] = "com.termux.api/.TermuxApiReceiver";
+    child_argv[5] = "dev.pschmitt.termux.api/.TermuxApiReceiver";
     child_argv[6] = "--es";
     // Input/output are reversed for the java process (our output is its input):
     child_argv[7] = "socket_input";

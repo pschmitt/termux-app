@@ -98,7 +98,7 @@ install(
 INSTALL(CODE "execute_process( \
   COMMAND ${CMAKE_COMMAND} -E create_symlink \
   termux-api-broadcast \
-  ${CMAKE_INSTALL_PREFIX}/libexec/termux-api \
+  \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/libexec/termux-api\" \
   )"
 )
 
