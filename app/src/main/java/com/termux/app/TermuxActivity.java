@@ -971,6 +971,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
             if (mExtraKeysView != null) {
                 mExtraKeysView.setButtonTextAllCaps(mProperties.shouldExtraKeysTextBeAllCaps());
+                mExtraKeysView.setButtonActiveColorOverrides(
+                    mProperties.getExtraKeysButtonActiveTextColor(),
+                    mProperties.getExtraKeysButtonActiveBackgroundColor());
                 mExtraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
             }
 

@@ -284,6 +284,24 @@ public final class ExtraKeysView extends GridLayout {
     }
 
 
+    /**
+     * Override the active colors of the {@link ExtraKeysView} buttons, for example from the
+     * {@code extra-keys-button-active-text-color} and {@code extra-keys-button-active-background-color}
+     * properties. A {@code null} color restores the value defined by the current theme. Call
+     * {@link #reload(ExtraKeysInfo, float)} afterwards so that already created buttons are rebuilt
+     * with the new colors.
+     *
+     * @param activeTextColor The value for {@link #mButtonActiveTextColor} or {@code null}.
+     * @param activeBackgroundColor The value for {@link #mButtonActiveBackgroundColor} or {@code null}.
+     */
+    public void setButtonActiveColorOverrides(@Nullable Integer activeTextColor, @Nullable Integer activeBackgroundColor) {
+        Context context = getContext();
+        setButtonActiveTextColor(activeTextColor != null ? activeTextColor :
+            ThemeUtils.getSystemAttrColor(context, ATTR_BUTTON_ACTIVE_TEXT_COLOR, DEFAULT_BUTTON_ACTIVE_TEXT_COLOR));
+        setButtonActiveBackgroundColor(activeBackgroundColor != null ? activeBackgroundColor :
+            ThemeUtils.getSystemAttrColor(context, ATTR_BUTTON_ACTIVE_BACKGROUND_COLOR, DEFAULT_BUTTON_ACTIVE_BACKGROUND_COLOR));
+    }
+
     /** Get {@link #mButtonTextColor}. */
     public int getButtonTextColor() {
         return mButtonTextColor;

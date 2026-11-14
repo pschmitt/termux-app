@@ -78,6 +78,9 @@ import java.util.Set;
  * - 0.17.0 (2022-03-17)
  *      - Add `KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT`.
  *
+ * - TermuxPP
+ *      - Add `KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR` and `KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR`.
+ *
  * - 0.18.0 (2022-06-13)
  *      - Add `KEY_DISABLE_FILE_SHARE_RECEIVER` and `KEY_DISABLE_FILE_VIEW_RECEIVER`.
  */
@@ -334,6 +337,18 @@ public final class TermuxPropertyConstants {
 
 
 
+    /** Defines the key for the text color of an active (toggled or locked) extra keys special
+     * button like CTRL and ALT. Value is {@code #RGB}, {@code #RRGGBB} or {@code #AARRGGBB}. If
+     * not set or invalid, then the color defined by the current theme is used. */
+    public static final String KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR =  "extra-keys-button-active-text-color"; // Default: "extra-keys-button-active-text-color"
+
+    /** Defines the key for the background color of a pressed extra keys button. Value is
+     * {@code #RGB}, {@code #RRGGBB} or {@code #AARRGGBB}. If not set or invalid, then the color
+     * defined by the current theme is used. */
+    public static final String KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR =  "extra-keys-button-active-background-color"; // Default: "extra-keys-button-active-background-color"
+
+
+
     /** Defines the key for {@link NightMode}. */
     public static final String KEY_NIGHT_MODE = "night-mode"; // Default: "night-mode"
 
@@ -418,6 +433,8 @@ public final class TermuxPropertyConstants {
         KEY_TERMINAL_TOOLBAR_HEIGHT_SCALE_FACTOR,
 
         /* Integer */
+        KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR,
+        KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR,
         KEY_SHORTCUT_CREATE_SESSION,
         KEY_SHORTCUT_NEXT_SESSION,
         KEY_SHORTCUT_PREVIOUS_SESSION,

@@ -3,12 +3,14 @@ package com.termux.shared.termux.settings.properties;
 import android.content.Context;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.termux.shared.logger.Logger;
 import com.termux.shared.data.DataUtils;
 import com.termux.shared.settings.properties.SharedProperties;
 import com.termux.shared.settings.properties.SharedPropertiesParser;
 import com.termux.shared.termux.TermuxConstants;
+import com.termux.shared.termux.extrakeys.ExtraKeysColorParser;
 
 import java.io.File;
 import java.util.HashMap;
@@ -279,6 +281,9 @@ public abstract class TermuxSharedProperties {
                 return (float) getTerminalToolbarHeightScaleFactorInternalPropertyValueFromValue(value);
 
             /* Integer (may be null) */
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR:
+                return (Integer) getExtraKeysColorInternalPropertyValueFromValue(key, value);
             case TermuxPropertyConstants.KEY_SHORTCUT_CREATE_SESSION:
             case TermuxPropertyConstants.KEY_SHORTCUT_NEXT_SESSION:
             case TermuxPropertyConstants.KEY_SHORTCUT_PREVIOUS_SESSION:
@@ -529,6 +534,23 @@ public abstract class TermuxSharedProperties {
     }
 
     /**
+     * Returns the ARGB color for the value of an extra keys color property if its a valid
+     * {@code #RGB}, {@code #RRGGBB} or {@code #AARRGGBB} color, otherwise returns {@code null}
+     * so that the color defined by the current theme is used.
+     *
+     * @param key The key of the property, used for logging.
+     * @param value The {@link String} value to convert.
+     * @return Returns the internal value for value, which may be {@code null}.
+     */
+    public static Integer getExtraKeysColorInternalPropertyValueFromValue(String key, String value) {
+        if (value == null) return null;
+        Integer color = ExtraKeysColorParser.parseColor(value);
+        if (color == null)
+            Logger.logError(LOG_TAG, "The value \"" + value + "\" for the key \"" + key + "\" is invalid. Expected #RGB, #RRGGBB or #AARRGGBB. Using the theme color instead.");
+        return color;
+    }
+
+    /**
      * Returns the value itself if it is not {@code null}, otherwise returns {@link TermuxPropertyConstants#DEFAULT_IVALUE_EXTRA_KEYS_STYLE}.
      *
      * @param value {@link String} value to convert.
@@ -596,6 +618,18 @@ public abstract class TermuxSharedProperties {
 
     public boolean isEnforcingCharBasedInput() {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_ENFORCE_CHAR_BASED_INPUT, true);
+    }
+
+    /** The text color of an active extra keys special button, or {@code null} to use the theme color. */
+    @Nullable
+    public Integer getExtraKeysButtonActiveTextColor() {
+        return (Integer) getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR, true);
+    }
+
+    /** The background color of a pressed extra keys button, or {@code null} to use the theme color. */
+    @Nullable
+    public Integer getExtraKeysButtonActiveBackgroundColor() {
+        return (Integer) getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR, true);
     }
 
     public boolean shouldExtraKeysTextBeAllCaps() {
