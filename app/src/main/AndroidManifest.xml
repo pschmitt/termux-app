@@ -12,6 +12,11 @@
         android:fullBackupOnly="false"
         android:supportsRtl="true">
 
+        <!-- Read by the core app's Updates screen to compare this build with the published one. -->
+        <meta-data
+            android:name="dev.pschmitt.termux.GIT_REVISION"
+            android:value="${TERMUX_GIT_REVISION}" />
+
         <activity
             android:name=".activities.TermuxTaskerMainActivity"
             android:exported="true"

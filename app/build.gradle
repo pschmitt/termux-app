@@ -21,6 +21,8 @@ android {
         manifestPlaceholders.TERMUX_PACKAGE_NAME = "dev.pschmitt.termux"
         manifestPlaceholders.TERMUX_APP_NAME = "TermuxPP"
         manifestPlaceholders.TERMUX_TASKER_APP_NAME = "TermuxPP:Tasker"
+        // "git-" keeps the value a string for the manifest merger even when the revision is all digits.
+        manifestPlaceholders.TERMUX_GIT_REVISION = "git-" + gitRevision()
     }
 
     signingConfigs {
@@ -101,6 +103,34 @@ dependencies {
 task versionName {
     doLast {
         print android.defaultConfig.versionName
+    }
+}
+
+// The commit this build was made from. The core app's Updates screen reads it from the manifest
+// meta-data "dev.pschmitt.termux.GIT_REVISION" (value "git-<revision>") and compares it with the
+// published "latest" build. TERMUX_GIT_REVISION (or -PgitRevision=...) wins, for CI and for builds
+// from a tree without .git. Otherwise the revision is read from git, with "-dirty" appended for
+// uncommitted changes. A dirty or unknown build is never offered an update.
+def gitRevision() {
+    def given = System.getenv("TERMUX_GIT_REVISION") ?: project.findProperty("gitRevision")
+    if (given) {
+        given = given.toString().trim()
+        if (!java.util.regex.Pattern.matches("[0-9a-f]{7,40}(-dirty)?", given))
+            throw new GradleException("TERMUX_GIT_REVISION is not '<hex commit>[-dirty]': " + given)
+        return given
+    }
+    try {
+        def run = { List<String> args ->
+            def process = new ProcessBuilder(["git"] + args).directory(rootDir).redirectErrorStream(false).start()
+            def output = process.inputStream.text.trim()
+            if (process.waitFor() != 0) throw new IOException("git " + args)
+            return output
+        }
+        def head = run(["rev-parse", "HEAD"])
+        if (!java.util.regex.Pattern.matches("[0-9a-f]{40}", head)) return "unknown"
+        return run(["status", "--porcelain", "--untracked-files=no"]).isEmpty() ? head : head + "-dirty"
+    } catch (Exception ignored) {
+        return "unknown"
     }
 }
 
