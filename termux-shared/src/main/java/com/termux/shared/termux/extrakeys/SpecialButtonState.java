@@ -50,4 +50,57 @@ public class SpecialButtonState {
         isLocked = value;
     }
 
+    /** Value of {@link #mLastTapTime} when there is no tap that could start a double tap. */
+    private static final long NO_TAP = Long.MIN_VALUE;
+
+    /** The time of the tap that latched the button, to detect a double tap on it. */
+    private long mLastTapTime = NO_TAP;
+
+    /**
+     * Handle a tap (a click that is not a long press) on the button.
+     *
+     * <ul>
+     *   <li>Not active: latch it for the next key only, and remember when.</li>
+     *   <li>Latched (active, not locked) and tapped again within {@code doubleTapTimeoutMs} of the
+     *   tap that latched it: a double tap, lock it, so it stays active for any number of keys.</li>
+     *   <li>Latched and tapped again later, or locked: deactivate and unlock it.</li>
+     * </ul>
+     *
+     * @param now The time of the tap in milliseconds, from a monotonic clock.
+     * @param doubleTapTimeoutMs The most milliseconds between the two taps of a double tap.
+     */
+    public void onTap(long now, long doubleTapTimeoutMs) {
+        if (!isActive) {
+            setIsActive(true);
+            mLastTapTime = now;
+        } else if (!isLocked && mLastTapTime != NO_TAP && now - mLastTapTime <= doubleTapTimeoutMs) {
+            setIsLocked(true);
+            mLastTapTime = NO_TAP;
+        } else {
+            setIsActive(false);
+            setIsLocked(false);
+            mLastTapTime = NO_TAP;
+        }
+    }
+
+    /** Handle a long press on the button: lock it if it is not active, otherwise deactivate and unlock it. */
+    public void onLongPress() {
+        setIsLocked(!isActive);
+        setIsActive(!isActive);
+        mLastTapTime = NO_TAP;
+    }
+
+    /**
+     * Read whether the button is active, as the next key is sent.
+     *
+     * @param autoSetInActive Deactivate the button if it is only latched. A locked one stays active.
+     */
+    public boolean read(boolean autoSetInActive) {
+        if (!isCreated || !isActive)
+            return false;
+        if (autoSetInActive && !isLocked)
+            setIsActive(false);
+        return true;
+    }
+
 }

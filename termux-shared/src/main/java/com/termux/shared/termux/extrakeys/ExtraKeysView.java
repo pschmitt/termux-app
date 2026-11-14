@@ -5,6 +5,7 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.AttributeSet;
 
@@ -596,10 +597,9 @@ public final class ExtraKeysView extends GridLayout {
             SpecialButtonState state = mSpecialButtons.get(SpecialButton.valueOf(buttonInfo.getKey()));
             if (state == null) return;
 
-            // Toggle active state and disable lock state if new state is not active
-            state.setIsActive(!state.isActive);
-            if (!state.isActive)
-                state.setIsLocked(false);
+            // A tap latches the button for the next key, a double tap locks it until it is tapped
+            // again, and a tap on an active button deactivates it and the lock
+            state.onTap(SystemClock.uptimeMillis(), ViewConfiguration.getDoubleTapTimeout());
         } else {
             onExtraKeyButtonClick(view, buttonInfo, button);
         }
@@ -652,8 +652,7 @@ public final class ExtraKeysView extends GridLayout {
 
         public void run() {
             // Toggle active and lock state
-            mState.setIsLocked(!mState.isActive);
-            mState.setIsActive(!mState.isActive);
+            mState.onLongPress();
             mLongPressCount++;
         }
     }
@@ -719,14 +718,8 @@ public final class ExtraKeysView extends GridLayout {
         SpecialButtonState state = mSpecialButtons.get(specialButton);
         if (state == null) return null;
 
-        if (!state.isCreated || !state.isActive)
-            return false;
-
         // Disable active state only if not locked
-        if (autoSetInActive && !state.isLocked)
-            state.setIsActive(false);
-
-        return true;
+        return state.read(autoSetInActive);
     }
 
     public MaterialButton createSpecialButton(String buttonKey, boolean needUpdate) {
