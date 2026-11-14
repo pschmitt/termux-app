@@ -53,7 +53,7 @@
         <!-- If you see "Unresolved package" errors for TextIOActivity with manifest placeholder, ignore it.
         Android Studio linter is broken and correct package name will be used at build time." -->
         <activity
-            android:name="${TERMUX_PACKAGE_NAME}.shared.activities.TextIOActivity"
+            android:name="com.termux.shared.activities.TextIOActivity"
             android:exported="false"
             android:theme="@style/Theme.BaseActivity.Light.NoActionBar"
             tools:ignore="MissingClass" />

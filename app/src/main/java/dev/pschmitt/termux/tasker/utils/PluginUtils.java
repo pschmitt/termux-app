@@ -1,4 +1,4 @@
-package com.termux.tasker.utils;
+package dev.pschmitt.termux.tasker.utils;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -22,12 +22,12 @@ import com.termux.shared.shell.command.runner.app.AppShell;
 import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_TASKER_APP;
 import com.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
-import com.termux.tasker.FireReceiver;
-import com.termux.tasker.PluginResultsService;
+import dev.pschmitt.termux.tasker.FireReceiver;
+import dev.pschmitt.termux.tasker.PluginResultsService;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
 import com.termux.shared.settings.properties.SharedProperties;
-import com.termux.tasker.R;
+import dev.pschmitt.termux.tasker.R;
 
 import java.util.regex.Pattern;
 
@@ -43,7 +43,7 @@ import java.util.regex.Pattern;
  * {@link AppShell} class if background mode is enabled and
  * {@link TermuxSession} if foreground terminal mode is enabled. The
  * result of commands is only returned if the plugin action bundle has
- * {@link com.termux.tasker.PluginBundleManager#EXTRA_WAIT_FOR_RESULT} set to true.
+ * {@link dev.pschmitt.termux.tasker.PluginBundleManager#EXTRA_WAIT_FOR_RESULT} set to true.
  *
  * Flow to be used for the commands received by {@link FireReceiver}:
  * 1. Call {@link #sendExecuteIntentToExecuteService} from {@link FireReceiver}. This expects the

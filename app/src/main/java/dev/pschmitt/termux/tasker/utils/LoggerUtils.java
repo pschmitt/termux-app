@@ -1,11 +1,11 @@
-package com.termux.tasker.utils;
+package dev.pschmitt.termux.tasker.utils;
 
 import android.content.Context;
 
 import androidx.appcompat.app.AlertDialog;
 
 import com.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
-import com.termux.tasker.R;
+import dev.pschmitt.termux.tasker.R;
 import com.termux.shared.logger.Logger;
 
 import static com.termux.shared.logger.Logger.getLogLevelLabel;

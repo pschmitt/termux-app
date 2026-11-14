@@ -1,4 +1,4 @@
-package com.termux.tasker;
+package dev.pschmitt.termux.tasker;
 
 import android.app.Application;
 import android.content.Context;

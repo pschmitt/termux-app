@@ -1,4 +1,4 @@
-package com.termux.tasker.activities;
+package dev.pschmitt.termux.tasker.activities;
 
 import android.os.Bundle;
 import android.widget.Button;
@@ -13,8 +13,8 @@ import com.termux.shared.markdown.MarkdownUtils;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.theme.TermuxThemeUtils;
 import com.termux.shared.theme.NightMode;
-import com.termux.tasker.R;
-import com.termux.tasker.TermuxTaskerApplication;
+import dev.pschmitt.termux.tasker.R;
+import dev.pschmitt.termux.tasker.TermuxTaskerApplication;
 
 public class TermuxTaskerMainActivity extends AppCompatActivity {
 

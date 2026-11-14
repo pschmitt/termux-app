@@ -15,6 +15,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.GITHUB_REF }}
+          submodules: recursive
+
+      - uses: pschmitt/ci-workflows/.github/actions/setup-jdk-gradle@main
+        with:
+          java-version: "17"
 
       - name: Build and upload files to release
         shell: bash {0}

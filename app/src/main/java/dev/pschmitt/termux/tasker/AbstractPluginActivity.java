@@ -1,4 +1,4 @@
-package com.termux.tasker;
+package dev.pschmitt.termux.tasker;
 
 import androidx.appcompat.app.AppCompatActivity;
 import android.view.Menu;

@@ -280,14 +280,14 @@ Enable this action to skip running this template</label>
 				<Vals sr="val">
 					<com.termux.execute.arguments>%arguments</com.termux.execute.arguments>
 					<com.termux.execute.arguments-type>java.lang.String</com.termux.execute.arguments-type>
-					<com.termux.tasker.extra.EXECUTABLE>%executable</com.termux.tasker.extra.EXECUTABLE>
-					<com.termux.tasker.extra.EXECUTABLE-type>java.lang.String</com.termux.tasker.extra.EXECUTABLE-type>
-					<com.termux.tasker.extra.TERMINAL>false</com.termux.tasker.extra.TERMINAL>
-					<com.termux.tasker.extra.TERMINAL-type>java.lang.Boolean</com.termux.tasker.extra.TERMINAL-type>
-					<com.termux.tasker.extra.VERSION_CODE>4</com.termux.tasker.extra.VERSION_CODE>
-					<com.termux.tasker.extra.VERSION_CODE-type>java.lang.Integer</com.termux.tasker.extra.VERSION_CODE-type>
-					<com.termux.tasker.extra.WORKDIR></com.termux.tasker.extra.WORKDIR>
-					<com.termux.tasker.extra.WORKDIR-type>java.lang.String</com.termux.tasker.extra.WORKDIR-type>
+					<dev.pschmitt.termux.tasker.extra.EXECUTABLE>%executable</dev.pschmitt.termux.tasker.extra.EXECUTABLE>
+					<dev.pschmitt.termux.tasker.extra.EXECUTABLE-type>java.lang.String</dev.pschmitt.termux.tasker.extra.EXECUTABLE-type>
+					<dev.pschmitt.termux.tasker.extra.TERMINAL>false</dev.pschmitt.termux.tasker.extra.TERMINAL>
+					<dev.pschmitt.termux.tasker.extra.TERMINAL-type>java.lang.Boolean</dev.pschmitt.termux.tasker.extra.TERMINAL-type>
+					<dev.pschmitt.termux.tasker.extra.VERSION_CODE>4</dev.pschmitt.termux.tasker.extra.VERSION_CODE>
+					<dev.pschmitt.termux.tasker.extra.VERSION_CODE-type>java.lang.Integer</dev.pschmitt.termux.tasker.extra.VERSION_CODE-type>
+					<dev.pschmitt.termux.tasker.extra.WORKDIR></dev.pschmitt.termux.tasker.extra.WORKDIR>
+					<dev.pschmitt.termux.tasker.extra.WORKDIR-type>java.lang.String</dev.pschmitt.termux.tasker.extra.WORKDIR-type>
 					<com.twofortyfouram.locale.intent.extra.BLURB>%executable %arguments</com.twofortyfouram.locale.intent.extra.BLURB>
 					<com.twofortyfouram.locale.intent.extra.BLURB-type>java.lang.String</com.twofortyfouram.locale.intent.extra.BLURB-type>
 					<net.dinglisch.android.tasker.RELEVANT_VARIABLES>&lt;StringArray sr=""&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;%stdout
@@ -298,14 +298,14 @@ The &amp;lt;B&amp;gt;stderr&amp;lt;/B&amp;gt; of the command.&lt;/_array_net.din
 Exit Code
 The &amp;lt;B&amp;gt;exit code&amp;lt;/B&amp;gt; of the command. 0 often means success and anything else is usually a failure of some sort.&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES2&gt;&lt;/StringArray&gt;</net.dinglisch.android.tasker.RELEVANT_VARIABLES>
 					<net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>[Ljava.lang.String;</net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>
-					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>com.termux.tasker.extra.EXECUTABLE com.termux.execute.arguments com.termux.tasker.extra.WORKDIR</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
+					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>dev.pschmitt.termux.tasker.extra.EXECUTABLE com.termux.execute.arguments dev.pschmitt.termux.tasker.extra.WORKDIR</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
 					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>java.lang.String</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>
 					<net.dinglisch.android.tasker.subbundled>true</net.dinglisch.android.tasker.subbundled>
 					<net.dinglisch.android.tasker.subbundled-type>java.lang.Boolean</net.dinglisch.android.tasker.subbundled-type>
 				</Vals>
 			</Bundle>
-			<Str sr="arg1" ve="3">com.termux.tasker</Str>
-			<Str sr="arg2" ve="3">com.termux.tasker.EditConfigurationActivity</Str>
+			<Str sr="arg1" ve="3">dev.pschmitt.termux.tasker</Str>
+			<Str sr="arg2" ve="3">dev.pschmitt.termux.tasker.EditConfigurationActivity</Str>
 			<Int sr="arg3" val="10"/>
 		</Action>
 		<Action sr="act27" ve="7">
@@ -576,14 +576,14 @@ Enable this action to skip running this template</label>
 				<Vals sr="val">
 					<com.termux.execute.arguments>%arguments</com.termux.execute.arguments>
 					<com.termux.execute.arguments-type>java.lang.String</com.termux.execute.arguments-type>
-					<com.termux.tasker.extra.EXECUTABLE>%executable</com.termux.tasker.extra.EXECUTABLE>
-					<com.termux.tasker.extra.EXECUTABLE-type>java.lang.String</com.termux.tasker.extra.EXECUTABLE-type>
-					<com.termux.tasker.extra.TERMINAL>false</com.termux.tasker.extra.TERMINAL>
-					<com.termux.tasker.extra.TERMINAL-type>java.lang.Boolean</com.termux.tasker.extra.TERMINAL-type>
-					<com.termux.tasker.extra.VERSION_CODE>4</com.termux.tasker.extra.VERSION_CODE>
-					<com.termux.tasker.extra.VERSION_CODE-type>java.lang.Integer</com.termux.tasker.extra.VERSION_CODE-type>
-					<com.termux.tasker.extra.WORKDIR></com.termux.tasker.extra.WORKDIR>
-					<com.termux.tasker.extra.WORKDIR-type>java.lang.String</com.termux.tasker.extra.WORKDIR-type>
+					<dev.pschmitt.termux.tasker.extra.EXECUTABLE>%executable</dev.pschmitt.termux.tasker.extra.EXECUTABLE>
+					<dev.pschmitt.termux.tasker.extra.EXECUTABLE-type>java.lang.String</dev.pschmitt.termux.tasker.extra.EXECUTABLE-type>
+					<dev.pschmitt.termux.tasker.extra.TERMINAL>false</dev.pschmitt.termux.tasker.extra.TERMINAL>
+					<dev.pschmitt.termux.tasker.extra.TERMINAL-type>java.lang.Boolean</dev.pschmitt.termux.tasker.extra.TERMINAL-type>
+					<dev.pschmitt.termux.tasker.extra.VERSION_CODE>4</dev.pschmitt.termux.tasker.extra.VERSION_CODE>
+					<dev.pschmitt.termux.tasker.extra.VERSION_CODE-type>java.lang.Integer</dev.pschmitt.termux.tasker.extra.VERSION_CODE-type>
+					<dev.pschmitt.termux.tasker.extra.WORKDIR></dev.pschmitt.termux.tasker.extra.WORKDIR>
+					<dev.pschmitt.termux.tasker.extra.WORKDIR-type>java.lang.String</dev.pschmitt.termux.tasker.extra.WORKDIR-type>
 					<com.twofortyfouram.locale.intent.extra.BLURB>%executable %arguments</com.twofortyfouram.locale.intent.extra.BLURB>
 					<com.twofortyfouram.locale.intent.extra.BLURB-type>java.lang.String</com.twofortyfouram.locale.intent.extra.BLURB-type>
 					<net.dinglisch.android.tasker.RELEVANT_VARIABLES>&lt;StringArray sr=""&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;%stdout
@@ -594,14 +594,14 @@ The &amp;lt;B&amp;gt;stderr&amp;lt;/B&amp;gt; of the command.&lt;/_array_net.din
 Exit Code
 The &amp;lt;B&amp;gt;exit code&amp;lt;/B&amp;gt; of the command. 0 often means success and anything else is usually a failure of some sort.&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES2&gt;&lt;/StringArray&gt;</net.dinglisch.android.tasker.RELEVANT_VARIABLES>
 					<net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>[Ljava.lang.String;</net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>
-					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>com.termux.tasker.extra.EXECUTABLE com.termux.execute.arguments com.termux.tasker.extra.WORKDIR</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
+					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>dev.pschmitt.termux.tasker.extra.EXECUTABLE com.termux.execute.arguments dev.pschmitt.termux.tasker.extra.WORKDIR</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
 					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>java.lang.String</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>
 					<net.dinglisch.android.tasker.subbundled>true</net.dinglisch.android.tasker.subbundled>
 					<net.dinglisch.android.tasker.subbundled-type>java.lang.Boolean</net.dinglisch.android.tasker.subbundled-type>
 				</Vals>
 			</Bundle>
-			<Str sr="arg1" ve="3">com.termux.tasker</Str>
-			<Str sr="arg2" ve="3">com.termux.tasker.EditConfigurationActivity</Str>
+			<Str sr="arg1" ve="3">dev.pschmitt.termux.tasker</Str>
+			<Str sr="arg2" ve="3">dev.pschmitt.termux.tasker.EditConfigurationActivity</Str>
 			<Int sr="arg3" val="10"/>
 		</Action>
 		<Action sr="act47" ve="7">
@@ -779,24 +779,24 @@ Enable this action to skip running this template</label>
 				<Vals sr="val">
 					<com.termux.execute.arguments>"hello," "termux!"</com.termux.execute.arguments>
 					<com.termux.execute.arguments-type>java.lang.String</com.termux.execute.arguments-type>
-					<com.termux.tasker.extra.EXECUTABLE>termux_tasker_basic_bash_test</com.termux.tasker.extra.EXECUTABLE>
-					<com.termux.tasker.extra.EXECUTABLE-type>java.lang.String</com.termux.tasker.extra.EXECUTABLE-type>
-					<com.termux.tasker.extra.TERMINAL>false</com.termux.tasker.extra.TERMINAL>
-					<com.termux.tasker.extra.TERMINAL-type>java.lang.Boolean</com.termux.tasker.extra.TERMINAL-type>
-					<com.termux.tasker.extra.VERSION_CODE>4</com.termux.tasker.extra.VERSION_CODE>
-					<com.termux.tasker.extra.VERSION_CODE-type>java.lang.Integer</com.termux.tasker.extra.VERSION_CODE-type>
-					<com.termux.tasker.extra.WORKDIR></com.termux.tasker.extra.WORKDIR>
-					<com.termux.tasker.extra.WORKDIR-type>java.lang.String</com.termux.tasker.extra.WORKDIR-type>
+					<dev.pschmitt.termux.tasker.extra.EXECUTABLE>termux_tasker_basic_bash_test</dev.pschmitt.termux.tasker.extra.EXECUTABLE>
+					<dev.pschmitt.termux.tasker.extra.EXECUTABLE-type>java.lang.String</dev.pschmitt.termux.tasker.extra.EXECUTABLE-type>
+					<dev.pschmitt.termux.tasker.extra.TERMINAL>false</dev.pschmitt.termux.tasker.extra.TERMINAL>
+					<dev.pschmitt.termux.tasker.extra.TERMINAL-type>java.lang.Boolean</dev.pschmitt.termux.tasker.extra.TERMINAL-type>
+					<dev.pschmitt.termux.tasker.extra.VERSION_CODE>4</dev.pschmitt.termux.tasker.extra.VERSION_CODE>
+					<dev.pschmitt.termux.tasker.extra.VERSION_CODE-type>java.lang.Integer</dev.pschmitt.termux.tasker.extra.VERSION_CODE-type>
+					<dev.pschmitt.termux.tasker.extra.WORKDIR></dev.pschmitt.termux.tasker.extra.WORKDIR>
+					<dev.pschmitt.termux.tasker.extra.WORKDIR-type>java.lang.String</dev.pschmitt.termux.tasker.extra.WORKDIR-type>
 					<com.twofortyfouram.locale.intent.extra.BLURB>termux_tasker_basic_bash_test "hello," "termux!"</com.twofortyfouram.locale.intent.extra.BLURB>
 					<com.twofortyfouram.locale.intent.extra.BLURB-type>java.lang.String</com.twofortyfouram.locale.intent.extra.BLURB-type>
-					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>com.termux.tasker.extra.EXECUTABLE com.termux.execute.arguments com.termux.tasker.extra.WORKDIR</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
+					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>dev.pschmitt.termux.tasker.extra.EXECUTABLE com.termux.execute.arguments dev.pschmitt.termux.tasker.extra.WORKDIR</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
 					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>java.lang.String</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>
 					<net.dinglisch.android.tasker.subbundled>true</net.dinglisch.android.tasker.subbundled>
 					<net.dinglisch.android.tasker.subbundled-type>java.lang.Boolean</net.dinglisch.android.tasker.subbundled-type>
 				</Vals>
 			</Bundle>
-			<Str sr="arg1" ve="3">com.termux.tasker</Str>
-			<Str sr="arg2" ve="3">com.termux.tasker.EditConfigurationActivity</Str>
+			<Str sr="arg1" ve="3">dev.pschmitt.termux.tasker</Str>
+			<Str sr="arg2" ve="3">dev.pschmitt.termux.tasker.EditConfigurationActivity</Str>
 			<Int sr="arg3" val="10"/>
 		</Action>
 		<Action sr="act60" ve="7">
@@ -807,26 +807,26 @@ Enable this action to skip running this template</label>
 				<Vals sr="val">
 					<com.termux.execute.arguments>-c "echo \"I'm in '$(pwd)'\"; sleep 5;"</com.termux.execute.arguments>
 					<com.termux.execute.arguments-type>java.lang.String</com.termux.execute.arguments-type>
-					<com.termux.tasker.extra.EXECUTABLE>$PREFIX/bin/bash</com.termux.tasker.extra.EXECUTABLE>
-					<com.termux.tasker.extra.EXECUTABLE-type>java.lang.String</com.termux.tasker.extra.EXECUTABLE-type>
-					<com.termux.tasker.extra.TERMINAL>true</com.termux.tasker.extra.TERMINAL>
-					<com.termux.tasker.extra.TERMINAL-type>java.lang.Boolean</com.termux.tasker.extra.TERMINAL-type>
-					<com.termux.tasker.extra.VERSION_CODE>4</com.termux.tasker.extra.VERSION_CODE>
-					<com.termux.tasker.extra.VERSION_CODE-type>java.lang.Integer</com.termux.tasker.extra.VERSION_CODE-type>
-					<com.termux.tasker.extra.WORKDIR>~/</com.termux.tasker.extra.WORKDIR>
-					<com.termux.tasker.extra.WORKDIR-type>java.lang.String</com.termux.tasker.extra.WORKDIR-type>
+					<dev.pschmitt.termux.tasker.extra.EXECUTABLE>$PREFIX/bin/bash</dev.pschmitt.termux.tasker.extra.EXECUTABLE>
+					<dev.pschmitt.termux.tasker.extra.EXECUTABLE-type>java.lang.String</dev.pschmitt.termux.tasker.extra.EXECUTABLE-type>
+					<dev.pschmitt.termux.tasker.extra.TERMINAL>true</dev.pschmitt.termux.tasker.extra.TERMINAL>
+					<dev.pschmitt.termux.tasker.extra.TERMINAL-type>java.lang.Boolean</dev.pschmitt.termux.tasker.extra.TERMINAL-type>
+					<dev.pschmitt.termux.tasker.extra.VERSION_CODE>4</dev.pschmitt.termux.tasker.extra.VERSION_CODE>
+					<dev.pschmitt.termux.tasker.extra.VERSION_CODE-type>java.lang.Integer</dev.pschmitt.termux.tasker.extra.VERSION_CODE-type>
+					<dev.pschmitt.termux.tasker.extra.WORKDIR>~/</dev.pschmitt.termux.tasker.extra.WORKDIR>
+					<dev.pschmitt.termux.tasker.extra.WORKDIR-type>java.lang.String</dev.pschmitt.termux.tasker.extra.WORKDIR-type>
 					<com.twofortyfouram.locale.intent.extra.BLURB>$PREFIX/bin/bash -c "echo \"I'm in '$(pwd)'\"; sleep 5;"
 
 ✓ </com.twofortyfouram.locale.intent.extra.BLURB>
 					<com.twofortyfouram.locale.intent.extra.BLURB-type>java.lang.String</com.twofortyfouram.locale.intent.extra.BLURB-type>
-					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>com.termux.tasker.extra.EXECUTABLE com.termux.execute.arguments com.termux.tasker.extra.WORKDIR</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
+					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>dev.pschmitt.termux.tasker.extra.EXECUTABLE com.termux.execute.arguments dev.pschmitt.termux.tasker.extra.WORKDIR</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
 					<net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>java.lang.String</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>
 					<net.dinglisch.android.tasker.subbundled>true</net.dinglisch.android.tasker.subbundled>
 					<net.dinglisch.android.tasker.subbundled-type>java.lang.Boolean</net.dinglisch.android.tasker.subbundled-type>
 				</Vals>
 			</Bundle>
-			<Str sr="arg1" ve="3">com.termux.tasker</Str>
-			<Str sr="arg2" ve="3">com.termux.tasker.EditConfigurationActivity</Str>
+			<Str sr="arg1" ve="3">dev.pschmitt.termux.tasker</Str>
+			<Str sr="arg2" ve="3">dev.pschmitt.termux.tasker.EditConfigurationActivity</Str>
 			<Int sr="arg3" val="10"/>
 		</Action>
 		<Action sr="act61" ve="7">

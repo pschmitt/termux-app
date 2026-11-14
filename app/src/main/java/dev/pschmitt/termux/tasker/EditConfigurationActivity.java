@@ -1,4 +1,4 @@
-package com.termux.tasker;
+package dev.pschmitt.termux.tasker;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -20,9 +20,9 @@ import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.file.TermuxFileUtils;
 import com.termux.shared.termux.theme.TermuxThemeUtils;
 import com.termux.shared.theme.NightMode;
-import com.termux.tasker.utils.LoggerUtils;
-import com.termux.tasker.utils.PluginUtils;
-import com.termux.tasker.utils.TaskerPlugin;
+import dev.pschmitt.termux.tasker.utils.LoggerUtils;
+import dev.pschmitt.termux.tasker.utils.PluginUtils;
+import dev.pschmitt.termux.tasker.utils.TaskerPlugin;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -44,7 +44,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.termux.tasker.utils.TaskerPlugin.Setting.RESULT_CODE_FAILED;
+import static dev.pschmitt.termux.tasker.utils.TaskerPlugin.Setting.RESULT_CODE_FAILED;
 
 /**
  * This is the "Edit" activity for a Locale Plug-in.

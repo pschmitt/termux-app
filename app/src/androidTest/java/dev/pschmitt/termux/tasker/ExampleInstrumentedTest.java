@@ -1,4 +1,4 @@
-package com.termux.tasker;
+package dev.pschmitt.termux.tasker;
 
 import android.content.Context;
 import androidx.test.platform.app.InstrumentationRegistry;

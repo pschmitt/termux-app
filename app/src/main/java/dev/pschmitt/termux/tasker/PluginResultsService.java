@@ -1,11 +1,11 @@
-package com.termux.tasker;
+package dev.pschmitt.termux.tasker;
 
 import android.app.IntentService;
 import android.content.Intent;
 import androidx.annotation.Nullable;
 
 import com.termux.shared.logger.Logger;
-import com.termux.tasker.utils.PluginUtils;
+import dev.pschmitt.termux.tasker.utils.PluginUtils;
 
 public class PluginResultsService extends IntentService {
 

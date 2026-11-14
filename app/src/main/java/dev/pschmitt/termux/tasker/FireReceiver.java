@@ -1,4 +1,4 @@
-package com.termux.tasker;
+package dev.pschmitt.termux.tasker;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -19,8 +19,8 @@ import com.termux.shared.file.FileUtils;
 import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
 import com.termux.shared.termux.file.TermuxFileUtils;
-import com.termux.tasker.utils.PluginUtils;
-import com.termux.tasker.utils.TaskerPlugin;
+import dev.pschmitt.termux.tasker.utils.PluginUtils;
+import dev.pschmitt.termux.tasker.utils.TaskerPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -67,20 +67,21 @@ public final class FireReceiver extends BroadcastReceiver {
             return;
         }
 
+        Intent commandIntent = new Intent().putExtras(bundle);
         ExecutionCommand executionCommand = new ExecutionCommand();
 
-        String executableExtra = executionCommand.executable = IntentUtils.getStringExtraIfSet(intent, PluginBundleManager.EXTRA_EXECUTABLE, null);
+        String executableExtra = executionCommand.executable = IntentUtils.getStringExtraIfSet(commandIntent, PluginBundleManager.EXTRA_EXECUTABLE, null);
         final String arguments_string = bundle.getString(PluginBundleManager.EXTRA_ARGUMENTS);
-        executionCommand.workingDirectory = IntentUtils.getStringExtraIfSet(intent, PluginBundleManager.EXTRA_WORKDIR, null);
-        executionCommand.runner = intent.getBooleanExtra(PluginBundleManager.EXTRA_TERMINAL, false) ?
+        executionCommand.workingDirectory = IntentUtils.getStringExtraIfSet(commandIntent, PluginBundleManager.EXTRA_WORKDIR, null);
+        executionCommand.runner = commandIntent.getBooleanExtra(PluginBundleManager.EXTRA_TERMINAL, false) ?
                 ExecutionCommand.Runner.TERMINAL_SESSION.getName() : ExecutionCommand.Runner.APP_SHELL.getName();
         final boolean waitForResult = bundle.getBoolean(PluginBundleManager.EXTRA_WAIT_FOR_RESULT, true);
 
         if (ExecutionCommand.Runner.APP_SHELL.equalsRunner(executionCommand.runner)) {
-            executionCommand.stdin = IntentUtils.getStringExtraIfSet(intent, PluginBundleManager.EXTRA_STDIN, null);
-            executionCommand.backgroundCustomLogLevel = IntentUtils.getIntegerExtraIfSet(intent, PluginBundleManager.EXTRA_BACKGROUND_CUSTOM_LOG_LEVEL, null);
+            executionCommand.stdin = IntentUtils.getStringExtraIfSet(commandIntent, PluginBundleManager.EXTRA_STDIN, null);
+            executionCommand.backgroundCustomLogLevel = IntentUtils.getIntegerExtraIfSet(commandIntent, PluginBundleManager.EXTRA_BACKGROUND_CUSTOM_LOG_LEVEL, null);
         } else {
-            executionCommand.sessionAction = IntentUtils.getStringExtraIfSet(intent, PluginBundleManager.EXTRA_SESSION_ACTION, null);
+            executionCommand.sessionAction = IntentUtils.getStringExtraIfSet(commandIntent, PluginBundleManager.EXTRA_SESSION_ACTION, null);
         }
 
         // If Termux app is not installed, enabled or accessible with current context or if

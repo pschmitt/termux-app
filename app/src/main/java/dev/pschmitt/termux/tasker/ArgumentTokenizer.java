@@ -34,7 +34,7 @@
  * 
  * END_COPYRIGHT_BLOCK*/
 
-package com.termux.tasker;
+package dev.pschmitt.termux.tasker;
 
 import java.util.List;
 import java.util.LinkedList;
