@@ -81,6 +81,8 @@ import java.util.Set;
  * - TermuxPP
  *      - Add `KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR`, `KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR`
  *        and `KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS`.
+ *      - Add `KEY_TERMINAL_SINGLE_TAP_ACTION`, `KEY_TERMINAL_DOUBLE_TAP_ACTION`,
+ *        `KEY_TERMINAL_TRIPLE_TAP_ACTION` and `KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION`.
  *
  * - 0.18.0 (2022-06-13)
  *      - Add `KEY_DISABLE_FILE_SHARE_RECEIVER` and `KEY_DISABLE_FILE_VIEW_RECEIVER`.
@@ -355,6 +357,27 @@ public final class TermuxPropertyConstants {
 
 
 
+    /* TerminalGestureAction (never null) */
+
+    /** Defines the key for the {@link TerminalGestureAction} of a single finger tap on the terminal. */
+    public static final String KEY_TERMINAL_SINGLE_TAP_ACTION =  "terminal-single-tap-action"; // Default: "terminal-single-tap-action"
+    public static final TerminalGestureAction DEFAULT_TERMINAL_SINGLE_TAP_ACTION = TerminalGestureAction.SHOW_KEYBOARD;
+
+    /** Defines the key for the {@link TerminalGestureAction} of two quick finger taps on the terminal. */
+    public static final String KEY_TERMINAL_DOUBLE_TAP_ACTION =  "terminal-double-tap-action"; // Default: "terminal-double-tap-action"
+    public static final TerminalGestureAction DEFAULT_TERMINAL_DOUBLE_TAP_ACTION = TerminalGestureAction.NONE;
+
+    /** Defines the key for the {@link TerminalGestureAction} of three quick finger taps on the terminal. */
+    public static final String KEY_TERMINAL_TRIPLE_TAP_ACTION =  "terminal-triple-tap-action"; // Default: "terminal-triple-tap-action"
+    public static final TerminalGestureAction DEFAULT_TERMINAL_TRIPLE_TAP_ACTION = TerminalGestureAction.NONE;
+
+    /** Defines the key for the {@link TerminalGestureAction} of a swipe on the normal extra keys row
+     * from left to right, the direction that does not switch to the text input. */
+    public static final String KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION =  "extra-keys-swipe-left-action"; // Default: "extra-keys-swipe-left-action"
+    public static final TerminalGestureAction DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION = TerminalGestureAction.NONE;
+
+
+
     /** Defines the key for {@link NightMode}. */
     public static final String KEY_NIGHT_MODE = "night-mode"; // Default: "night-mode"
 
@@ -440,6 +463,12 @@ public final class TermuxPropertyConstants {
 
         /* Float (may be null) */
         KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS,
+
+        /* TerminalGestureAction */
+        KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION,
+        KEY_TERMINAL_DOUBLE_TAP_ACTION,
+        KEY_TERMINAL_SINGLE_TAP_ACTION,
+        KEY_TERMINAL_TRIPLE_TAP_ACTION,
 
         /* Integer */
         KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR,

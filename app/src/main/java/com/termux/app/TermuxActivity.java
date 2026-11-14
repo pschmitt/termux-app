@@ -30,6 +30,7 @@ import com.termux.R;
 import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
+import com.termux.app.terminal.io.ExtraKeysSwipeViewPager;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.activity.ActivityUtils;
@@ -50,6 +51,7 @@ import com.termux.shared.termux.extrakeys.ExtraKeysView;
 import com.termux.shared.termux.interact.TextInputDialogUtils;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxUtils;
+import com.termux.shared.termux.settings.properties.TerminalGestureAction;
 import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
 import com.termux.shared.termux.theme.TermuxThemeUtils;
 import com.termux.shared.theme.NightMode;
@@ -525,6 +527,24 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         terminalToolbarViewPager.setAdapter(new TerminalToolbarViewPager.PageAdapter(this, savedTextInput));
         terminalToolbarViewPager.addOnPageChangeListener(new TerminalToolbarViewPager.OnPageChangeListener(this, terminalToolbarViewPager));
+
+        // The action of the swipe on the extra keys row away from the text input. It is read on
+        // each swipe, so that a reloaded termux.properties applies at once.
+        if (terminalToolbarViewPager instanceof ExtraKeysSwipeViewPager) {
+            ((ExtraKeysSwipeViewPager) terminalToolbarViewPager).setListener(new ExtraKeysSwipeViewPager.Listener() {
+                @Override
+                public boolean isEnabled() {
+                    // With no action configured the swipe is left alone: no animation, nothing consumed.
+                    return mProperties != null && mProperties.getExtraKeysSwipeLeftAction() != TerminalGestureAction.NONE;
+                }
+
+                @Override
+                public void onSwipeLeft() {
+                    if (mTermuxTerminalViewClient != null && mProperties != null)
+                        mTermuxTerminalViewClient.performGestureAction(mProperties.getExtraKeysSwipeLeftAction());
+                }
+            });
+        }
     }
 
     private void setTerminalToolbarHeight() {

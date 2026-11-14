@@ -6,6 +6,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.media.AudioManager;
+import android.os.Build;
 import android.os.Environment;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -19,11 +20,13 @@ import android.widget.Toast;
 
 import com.termux.R;
 import com.termux.app.TermuxActivity;
+import com.termux.app.TermuxService;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.interact.MessageDialogUtils;
 import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.shell.ShellUtils;
 import com.termux.shared.termux.TermuxBootstrap;
+import com.termux.shared.termux.settings.properties.TerminalGestureAction;
 import com.termux.shared.termux.terminal.TermuxTerminalViewClientBase;
 import com.termux.shared.termux.extrakeys.SpecialButton;
 import com.termux.shared.android.AndroidUtils;
@@ -51,6 +54,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
+import androidx.annotation.NonNull;
 import androidx.drawerlayout.widget.DrawerLayout;
 
 public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
@@ -198,24 +202,95 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             }
         }
 
-        // A touch tap shows the soft keyboard even while a terminal application (like tmux with
-        // `mouse on`) has enabled mouse tracking. TerminalView already forwarded the tap to the
-        // application as a mouse click in onUp(), and this callback does not report anything.
-        if (shouldShowSoftKeyboardOnSingleTapUp(e)) {
-            if (!KeyboardUtils.areDisableSoftKeyboardFlagsSet(mActivity))
-                KeyboardUtils.showSoftKeyboard(mActivity, mActivity.getTerminalView());
-            else
-                Logger.logVerbose(LOG_TAG, "Not showing soft keyboard onSingleTapUp since its disabled");
-        }
+        // A touch tap acts (soft keyboard, session switch, sidebar) even while a terminal
+        // application (like tmux with `mouse on`) has enabled mouse tracking. TerminalView already
+        // forwarded the tap to the application as a mouse click in onUp(), and this callback does
+        // not report anything.
+        TerminalGestureAction singleTapAction = mActivity.getProperties().getTerminalSingleTapAction();
+        if (shouldActOnSingleTapUp(e, getMaxTapActionCount(), singleTapAction))
+            performGestureAction(singleTapAction);
     }
 
     /**
-     * Whether a confirmed single tap should show the soft keyboard. Taps from an external mouse
-     * never do. Whether the terminal application has enabled mouse tracking is intentionally not
-     * considered, since the click is forwarded independently of the keyboard.
+     * Whether a confirmed single tap acts. Taps from an external mouse never do, and neither do
+     * taps with the action none, or while a double or triple tap action is configured, in which
+     * case {@link #onTapCount(int)} acts on single taps once it is clear that no more taps follow.
+     * Whether the terminal application has enabled mouse tracking is intentionally not considered,
+     * since the click is forwarded independently.
      */
-    static boolean shouldShowSoftKeyboardOnSingleTapUp(MotionEvent e) {
-        return !e.isFromSource(InputDevice.SOURCE_MOUSE);
+    static boolean shouldActOnSingleTapUp(MotionEvent e, int maxTapActionCount, TerminalGestureAction singleTapAction) {
+        return !e.isFromSource(InputDevice.SOURCE_MOUSE)
+            && maxTapActionCount <= 1
+            && singleTapAction != TerminalGestureAction.NONE;
+    }
+
+    @Override
+    public int getMaxTapActionCount() {
+        return mActivity.getProperties().getTerminalMaxTapActionCount();
+    }
+
+    /**
+     * Acts on the configured action of a tap sequence of {@code tapCount} taps. Only called while a
+     * double or triple tap action is configured, see {@link #getMaxTapActionCount()}.
+     */
+    @Override
+    public void onTapCount(int tapCount) {
+        performGestureAction(mActivity.getProperties().getTerminalTapAction(tapCount));
+    }
+
+    /**
+     * Carries out an action configured for a tap or a swipe. Hiding the keyboard is only a hide:
+     * it neither disables the keyboard nor changes the keyboard toggle preference.
+     */
+    public void performGestureAction(@NonNull TerminalGestureAction action) {
+        GestureActionDispatcher.perform(action, new GestureActionDispatcher.Target() {
+            @Override
+            public int getSessionCount() {
+                TermuxService service = mActivity.getTermuxService();
+                return service == null ? 0 : service.getTermuxSessionsSize();
+            }
+
+            @Override
+            public void switchSession(boolean forward) {
+                mTermuxTerminalSessionActivityClient.switchToSession(forward);
+            }
+
+            @SuppressLint("RtlHardcoded")
+            @Override
+            public void openSidebar() {
+                DrawerLayout drawer = mActivity.getDrawer();
+                // The drawer is locked closed while copying.
+                if (drawer.getDrawerLockMode(Gravity.LEFT) != DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+                    drawer.openDrawer(Gravity.LEFT);
+            }
+
+            @Override
+            public boolean isSoftKeyboardDisabled() {
+                boolean disabled = KeyboardUtils.areDisableSoftKeyboardFlagsSet(mActivity);
+                if (disabled) Logger.logVerbose(LOG_TAG, "Not touching soft keyboard on gesture since its disabled");
+                return disabled;
+            }
+
+            @Override
+            public boolean isSoftKeyboardVisible() {
+                // Visibility can only be read from the window insets since Android 6. Before that
+                // the keyboard is only ever shown.
+                return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && KeyboardUtils.isSoftKeyboardVisible(mActivity);
+            }
+
+            @Override
+            public void showSoftKeyboard() {
+                Logger.logVerbose(LOG_TAG, "Showing soft keyboard on gesture");
+                mActivity.getTerminalView().requestFocus();
+                KeyboardUtils.showSoftKeyboard(mActivity, mActivity.getTerminalView());
+            }
+
+            @Override
+            public void hideSoftKeyboard() {
+                Logger.logVerbose(LOG_TAG, "Hiding soft keyboard on gesture");
+                KeyboardUtils.hideSoftKeyboard(mActivity, mActivity.getTerminalView());
+            }
+        });
     }
 
     @Override

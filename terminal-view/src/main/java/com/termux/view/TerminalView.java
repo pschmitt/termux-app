@@ -75,6 +75,15 @@ public final class TerminalView extends View {
     float mScaleFactor = 1.f;
     final GestureAndScaleRecognizer mGestureRecognizer;
 
+    /** Resolves consecutive finger taps for {@link TerminalViewClient#onTapCount(int)}. */
+    private final TapActionResolver mTapActionResolver;
+    private final Runnable mTapActionTimeout = new Runnable() {
+        @Override
+        public void run() {
+            mTapActionResolver.onTimeout();
+        }
+    };
+
     /** Keep track of where mouse touch event started which we report as mouse scroll. */
     private int mMouseScrollStartX = -1, mMouseScrollStartY = -1;
     /** Keep track of the time when a touch event leading to sending mouse scroll events started. */
@@ -137,6 +146,29 @@ public final class TerminalView extends View {
 
     public TerminalView(Context context, AttributeSet attributes) { // NO_UCD (unused code)
         super(context, attributes);
+        ViewConfiguration viewConfiguration = ViewConfiguration.get(context);
+        mTapActionResolver = new TapActionResolver(
+            new TapSequenceTracker(ViewConfiguration.getLongPressTimeout(),
+                ViewConfiguration.getDoubleTapTimeout(), viewConfiguration.getScaledTouchSlop(),
+                viewConfiguration.getScaledDoubleTapSlop()),
+            new TapActionResolver.Scheduler() {
+                @Override
+                public void schedule(long delayMs) {
+                    removeCallbacks(mTapActionTimeout);
+                    postDelayed(mTapActionTimeout, delayMs);
+                }
+
+                @Override
+                public void cancel() {
+                    removeCallbacks(mTapActionTimeout);
+                }
+            },
+            new TapActionResolver.Listener() {
+                @Override
+                public void onTap(int tapCount) {
+                    if (mClient != null) mClient.onTapCount(tapCount);
+                }
+            });
         mGestureRecognizer = new GestureAndScaleRecognizer(context, new GestureAndScaleRecognizer.Listener() {
 
             boolean scrolledWithFinger;
@@ -250,6 +282,7 @@ public final class TerminalView extends View {
 
             @Override
             public void onLongPress(MotionEvent event) {
+                mTapActionResolver.cancel();
                 if (mGestureRecognizer.isInProgress()) return;
                 if (mClient.onLongPress(event)) return;
                 if (!isSelectingText()) {
@@ -628,6 +661,8 @@ public final class TerminalView extends View {
         if (mEmulator == null) return true;
         final int action = event.getAction();
 
+        trackTapSequence(event);
+
         if (isSelectingText()) {
             updateFloatingToolbarVisibility(event);
             mGestureRecognizer.onTouchEvent(event);
@@ -661,6 +696,39 @@ public final class TerminalView extends View {
 
         mGestureRecognizer.onTouchEvent(event);
         return true;
+    }
+
+    /**
+     * Feeds touch events of a finger to the {@link TapActionResolver} and reports resolved taps to
+     * {@link TerminalViewClient#onTapCount(int)}. Taps are not counted for an external mouse,
+     * while text is selected, for multi touch gestures and for drags and long presses, which all
+     * cancel a running sequence. Nothing is resolved while the client only has an action for single
+     * taps, see {@link TerminalViewClient#getMaxTapActionCount()}.
+     */
+    private void trackTapSequence(MotionEvent event) {
+        if (isSelectingText() || event.isFromSource(InputDevice.SOURCE_MOUSE)) {
+            mTapActionResolver.cancel();
+            return;
+        }
+
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                mTapActionResolver.onDown(event.getEventTime(), event.getX(), event.getY());
+                break;
+            case MotionEvent.ACTION_MOVE:
+                mTapActionResolver.onMove(event.getX(), event.getY());
+                break;
+            case MotionEvent.ACTION_UP:
+                mTapActionResolver.onUp(event.getEventTime(), event.getX(), event.getY(),
+                    mClient.getMaxTapActionCount());
+                break;
+            case MotionEvent.ACTION_POINTER_DOWN:
+            case MotionEvent.ACTION_CANCEL:
+                mTapActionResolver.cancel();
+                break;
+            default:
+                break;
+        }
     }
 
     @Override
@@ -1488,6 +1556,8 @@ public final class TerminalView extends View {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+
+        mTapActionResolver.cancel();
 
         if (mTextSelectionCursorController != null) {
             // Might solve the following exception

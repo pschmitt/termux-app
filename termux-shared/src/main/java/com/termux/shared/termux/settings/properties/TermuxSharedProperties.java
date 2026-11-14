@@ -284,6 +284,16 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS:
                 return (Float) getExtraKeysCornerRadiusInternalPropertyValueFromValue(key, value);
 
+            /* TerminalGestureAction (never null), stored as its String value since SharedProperties only caches primitives and Strings */
+            case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION:
+                return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_TERMINAL_SINGLE_TAP_ACTION).getValue();
+            case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION:
+                return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_TERMINAL_DOUBLE_TAP_ACTION).getValue();
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION:
+                return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_TERMINAL_TRIPLE_TAP_ACTION).getValue();
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
+                return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION).getValue();
+
             /* Integer (may be null) */
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR:
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR:
@@ -572,6 +582,27 @@ public abstract class TermuxSharedProperties {
     }
 
     /**
+     * Returns the {@link TerminalGestureAction} for the value of a gesture action property, or
+     * {@code defaultAction} if the property is not set. An invalid or blank value is logged and
+     * also uses {@code defaultAction}.
+     *
+     * @param key The key of the property, used for logging.
+     * @param value The {@link String} value to convert.
+     * @param defaultAction The action to use for a missing or invalid value.
+     * @return Returns the internal value for value, which is never {@code null}.
+     */
+    @NonNull
+    public static TerminalGestureAction getGestureActionInternalPropertyValueFromValue(String key, String value, @NonNull TerminalGestureAction defaultAction) {
+        if (value == null) return defaultAction;
+        TerminalGestureAction action = TerminalGestureAction.parse(value);
+        if (action == null) {
+            Logger.logError(LOG_TAG, "The value \"" + value + "\" for the key \"" + key + "\" is invalid. Expected one of: " + TerminalGestureAction.getValidValues() + ". Using the default \"" + defaultAction.getValue() + "\" instead.");
+            return defaultAction;
+        }
+        return action;
+    }
+
+    /**
      * Returns the value itself if it is not {@code null}, otherwise returns {@link TermuxPropertyConstants#DEFAULT_IVALUE_EXTRA_KEYS_STYLE}.
      *
      * @param value {@link String} value to convert.
@@ -657,6 +688,68 @@ public abstract class TermuxSharedProperties {
     @Nullable
     public Float getExtraKeysButtonCornerRadius() {
         return (Float) getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS, true);
+    }
+
+    /** Get the cached {@link TerminalGestureAction} of a gesture key, its default if it is not usable. */
+    @NonNull
+    private TerminalGestureAction getGestureAction(String key) {
+        Object value = getInternalPropertyValue(key, true);
+        TerminalGestureAction action = value instanceof String ? TerminalGestureAction.parse((String) value) : null;
+        if (action != null) return action;
+        return key.equals(TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION)
+            ? TermuxPropertyConstants.DEFAULT_TERMINAL_SINGLE_TAP_ACTION : TerminalGestureAction.NONE;
+    }
+
+    /** The action of a single finger tap on the terminal, see {@link TermuxPropertyConstants#KEY_TERMINAL_SINGLE_TAP_ACTION}. */
+    @NonNull
+    public TerminalGestureAction getTerminalSingleTapAction() {
+        return getGestureAction(TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION);
+    }
+
+    /** The action of two quick finger taps on the terminal, see {@link TermuxPropertyConstants#KEY_TERMINAL_DOUBLE_TAP_ACTION}. */
+    @NonNull
+    public TerminalGestureAction getTerminalDoubleTapAction() {
+        return getGestureAction(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION);
+    }
+
+    /** The action of three quick finger taps on the terminal, see {@link TermuxPropertyConstants#KEY_TERMINAL_TRIPLE_TAP_ACTION}. */
+    @NonNull
+    public TerminalGestureAction getTerminalTripleTapAction() {
+        return getGestureAction(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION);
+    }
+
+    /**
+     * The action of the {@code tapCount}th tap of a quick tap sequence on the terminal.
+     *
+     * @param tapCount {@code 1} for a single tap, {@code 2} for a double tap and {@code 3} for a
+     *                 triple tap. Any other count has no action.
+     */
+    @NonNull
+    public TerminalGestureAction getTerminalTapAction(int tapCount) {
+        switch (tapCount) {
+            case 1: return getTerminalSingleTapAction();
+            case 2: return getTerminalDoubleTapAction();
+            case 3: return getTerminalTripleTapAction();
+            default: return TerminalGestureAction.NONE;
+        }
+    }
+
+    /**
+     * The highest tap count that has an action, {@code 0} if no tap has one. A value of {@code 1}
+     * or less means that only single taps need to be recognized, so that no tap has to wait for a
+     * possible following one.
+     */
+    public int getTerminalMaxTapActionCount() {
+        for (int tapCount = 3; tapCount >= 1; tapCount--) {
+            if (getTerminalTapAction(tapCount) != TerminalGestureAction.NONE) return tapCount;
+        }
+        return 0;
+    }
+
+    /** The action of a swipe on the normal extra keys row, see {@link TermuxPropertyConstants#KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION}. */
+    @NonNull
+    public TerminalGestureAction getExtraKeysSwipeLeftAction() {
+        return getGestureAction(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION);
     }
 
     public boolean shouldExtraKeysTextBeAllCaps() {

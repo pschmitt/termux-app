@@ -28,6 +28,32 @@ public interface TerminalViewClient {
      */
     void onSingleTapUp(MotionEvent e);
 
+    /**
+     * The highest tap count that the client has an action for: {@code 2} if there is a double tap
+     * action but no triple tap action, and so on. {@code 1} or less if only single taps have an
+     * action, or none do, in which case {@link #onSingleTapUp(MotionEvent)} alone acts on taps,
+     * as soon as the platform has confirmed a single tap. For {@code 2} or more
+     * {@link #onTapCount(int)} acts on taps, and {@link #onSingleTapUp(MotionEvent)} must not.
+     *
+     * The default is {@code 1}.
+     */
+    default int getMaxTapActionCount() {
+        return 1;
+    }
+
+    /**
+     * Called for a finger tap sequence that is over, if {@link #getMaxTapActionCount()} is {@code 2}
+     * or more: {@code 1} for a lone tap, {@code 2} for two taps that followed each other fast and
+     * close enough, and so on. Taps that wait for a possible next tap are delivered when it is
+     * clear that none follows, after the platform's double tap timeout. Not called for external
+     * mouse events, long presses, drags, multi touch gestures or while text is selected.
+     *
+     * The taps are also forwarded to the terminal application as mouse clicks, if it has enabled
+     * mouse tracking.
+     */
+    default void onTapCount(int tapCount) {
+    }
+
     boolean shouldBackButtonBeMappedToEscape();
 
     boolean shouldEnforceCharBasedInput();
