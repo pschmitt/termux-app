@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="termux_update_preferences_title">Update</string>
+    <string name="termux_update_preferences_summary">Install new builds over Shizuku</string>
+
+    <string name="termux_update_channel_title">Channel</string>
+    <string name="termux_update_channel_latest">Latest</string>
+    <string name="termux_update_current_title">Installed build</string>
+    <string name="termux_update_current_summary">Commit %1$s, variant %2$s</string>
+    <string name="termux_update_current_unknown">Unknown (not built from a clean commit), variant %1$s</string>
+
+    <string name="termux_update_shizuku_title">Shizuku</string>
+    <string name="termux_update_shizuku_unavailable">Shizuku is not installed. Install it and start it to update from here.</string>
+    <string name="termux_update_shizuku_unsupported">The running Shizuku is too old. Update Shizuku.</string>
+    <string name="termux_update_shizuku_not_running">Shizuku is installed but not running. Tap to open it and start the service.</string>
+    <string name="termux_update_shizuku_permission_needed">Shizuku is running. Tap to allow this app to use it.</string>
+    <string name="termux_update_shizuku_permission_denied">Permission denied. Grant it to this app in the Shizuku app (tap to open).</string>
+    <string name="termux_update_shizuku_ready">Ready. Updates are installed through Shizuku.</string>
+
+    <string name="termux_update_status_title">Status</string>
+    <string name="termux_update_status_idle">Not checked yet. Nothing is checked in the background.</string>
+    <string name="termux_update_status_checking">Checking for updates…</string>
+    <string name="termux_update_status_up_to_date">Up to date.</string>
+    <string name="termux_update_status_available">Update available: build %1$s (%2$s).</string>
+    <string name="termux_update_status_not_eligible">This build cannot be compared with the published one (a local build, not on the main branch, or a different history). No update is offered.</string>
+    <string name="termux_update_status_check_failed">The check failed: %1$s</string>
+    <string name="termux_update_status_downloading">Downloading %1$s of %2$s</string>
+    <string name="termux_update_status_downloading_unknown">Downloading %1$s</string>
+    <string name="termux_update_status_verifying">Verifying the download…</string>
+    <string name="termux_update_status_installing">Installing. The app restarts when it is done.</string>
+    <string name="termux_update_status_failed">Update failed: %1$s</string>
+    <string name="termux_update_status_failed_detail">%1$s (%2$s)</string>
+
+    <string name="termux_update_check">Check for updates</string>
+    <string name="termux_update_check_summary">Contacts GitHub once, when you tap</string>
+    <string name="termux_update_cancel">Cancel</string>
+    <string name="termux_update_install">Update now</string>
+    <string name="termux_update_install_summary">Download, verify and install the build found by the check</string>
+
+    <string name="termux_update_confirm_title">Install update?</string>
+    <string name="termux_update_confirm_message">Build %1$s will be downloaded, verified against its published checksum and the installed signing certificate, and installed over this app through Shizuku. Open terminal sessions end when the app restarts.</string>
+    <string name="termux_update_confirm_positive">Update</string>
+
+    <string name="termux_update_failure_no_apk">The release has no APK for this device.</string>
+    <string name="termux_update_failure_not_trusted">The download address is not trusted.</string>
+    <string name="termux_update_failure_shizuku_not_ready">Shizuku is not ready.</string>
+    <string name="termux_update_failure_download_failed">The download failed.</string>
+    <string name="termux_update_failure_insufficient_storage">Not enough free storage.</string>
+    <string name="termux_update_failure_checksum_unavailable">The release has no checksum for this APK.</string>
+    <string name="termux_update_failure_checksum_mismatch">The download does not match its checksum.</string>
+    <string name="termux_update_failure_unreadable_apk">The downloaded file is not a readable APK.</string>
+    <string name="termux_update_failure_wrong_package">The APK is for a different app.</string>
+    <string name="termux_update_failure_signature_mismatch">The APK is not signed with the installed certificate.</string>
+    <string name="termux_update_failure_downgrade">The APK is older than the installed version.</string>
+    <string name="termux_update_failure_install_failed">The installer refused the update.</string>
+    <string name="termux_update_failure_cancelled">Cancelled.</string>
+
+</resources>

@@ -1,0 +1,41 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        app:key="update_source"
+        app:title="@string/termux_update_preferences_title">
+
+        <ListPreference
+            app:defaultValue="latest"
+            app:entries="@array/termux_update_channel_entries"
+            app:entryValues="@array/termux_update_channel_values"
+            app:key="update_channel"
+            app:title="@string/termux_update_channel_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <Preference
+            app:key="update_current"
+            app:selectable="false"
+            app:title="@string/termux_update_current_title" />
+
+        <Preference
+            app:key="update_shizuku"
+            app:title="@string/termux_update_shizuku_title" />
+
+        <Preference
+            app:key="update_status"
+            app:selectable="false"
+            app:title="@string/termux_update_status_title" />
+
+        <Preference
+            app:key="update_check"
+            app:summary="@string/termux_update_check_summary"
+            app:title="@string/termux_update_check" />
+
+        <Preference
+            app:key="update_install"
+            app:summary="@string/termux_update_install_summary"
+            app:title="@string/termux_update_install" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

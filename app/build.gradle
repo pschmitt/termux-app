@@ -36,6 +36,12 @@ android {
         implementation "io.noties.markwon:recycler:$markwonVersion"
         implementation 'com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava'
 
+        // In-app self update: the privileged install session runs through Shizuku (see
+        // com.termux.app.update and docs/en/self-update.md).
+        implementation "dev.rikka.shizuku:api:13.1.5"
+        implementation "dev.rikka.shizuku:provider:13.1.5"
+        implementation "org.lsposed.hiddenapibypass:hiddenapibypass:6.1"
+
         implementation project(":terminal-view")
         implementation project(":termux-shared")
     }
@@ -51,6 +57,7 @@ android {
         validateVersionName(versionName)
 
         buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + project.ext.packageVariant + "\"" // Used by TermuxApplication class
+        buildConfigField "String", "GIT_REVISION", "\"" + gitRevision() + "\"" // Used by the self updater
 
         manifestPlaceholders.TERMUX_PACKAGE_NAME = "dev.pschmitt.termux"
         manifestPlaceholders.TERMUX_APP_NAME = "TermuxPP"
@@ -149,12 +156,40 @@ android {
 dependencies {
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.robolectric:robolectric:4.10"
+    testImplementation "org.json:json:20231013" // Android's org.json is a stub in plain JVM unit tests
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
 }
 
 task versionName {
     doLast {
         print android.defaultConfig.versionName
+    }
+}
+
+// The commit this build was made from, which the self updater compares with the published
+// "latest" build. TERMUX_GIT_REVISION (or -PgitRevision=...) wins, for CI and for builds from a
+// tree without .git (rworker sync). Otherwise the revision is read from git, with "-dirty" appended
+// for uncommitted changes. A dirty or unknown build is never offered an update.
+def gitRevision() {
+    def given = System.getenv("TERMUX_GIT_REVISION") ?: project.findProperty("gitRevision")
+    if (given) {
+        given = given.toString().trim()
+        if (!java.util.regex.Pattern.matches("[0-9a-f]{7,40}(-dirty)?", given))
+            throw new GradleException("TERMUX_GIT_REVISION is not '<hex commit>[-dirty]': " + given)
+        return given
+    }
+    try {
+        def run = { List<String> args ->
+            def process = new ProcessBuilder(["git"] + args).directory(rootDir).redirectErrorStream(false).start()
+            def output = process.inputStream.text.trim()
+            if (process.waitFor() != 0) throw new IOException("git " + args)
+            return output
+        }
+        def head = run(["rev-parse", "HEAD"])
+        if (!java.util.regex.Pattern.matches("[0-9a-f]{40}", head)) return "unknown"
+        return run(["status", "--porcelain", "--untracked-files=no"]).isEmpty() ? head : head + "-dirty"
+    } catch (Exception ignored) {
+        return "unknown"
     }
 }
 
