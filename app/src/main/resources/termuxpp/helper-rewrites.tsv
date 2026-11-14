@@ -1,0 +1,20 @@
+# Exact stock -> fork identity rewrites for termux-tools helper scripts.
+#
+# Canonical table: it is read by TermuxHelperRewrites (bootstrap extraction) and rendered into
+# $PREFIX/libexec/termuxpp/helper-rewrites.tsv for the APT post-invoke hook (adapt-helpers), so the
+# installer and the hook can never disagree.
+#
+# Format: rule<TAB>file<TAB>stock text<TAB>fork text. Placeholders (@PACKAGE@, @RELOAD_STYLE_ACTION@,
+# @WAKE_LOCK_ACTION@, @WAKE_UNLOCK_ACTION@) are filled from TermuxConstants. Rules are literal, never
+# patterns. Java class names stay under com.termux.* and are deliberately not rewritten. Every stock
+# text includes its opening quote or flag so the fork text never matches it again (idempotent).
+rule	bin/termux-reload-settings	-a "com.termux.app.reload_style" "com.termux"	-a "@RELOAD_STYLE_ACTION@" "@PACKAGE@"
+rule	bin/termux-setup-storage	"com.termux.app.reload_style"	"@RELOAD_STYLE_ACTION@"
+rule	bin/termux-setup-storage	"com.termux" > /dev/null	"@PACKAGE@" > /dev/null
+rule	bin/termux-open	-n "com.termux/com.termux.app.TermuxOpenReceiver"	-n "@PACKAGE@/com.termux.app.TermuxOpenReceiver"
+rule	bin/termux-wake-lock	-a "com.termux.service_wake_lock"	-a "@WAKE_LOCK_ACTION@"
+rule	bin/termux-wake-lock	"com.termux/com.termux.app.TermuxService"	"@PACKAGE@/com.termux.app.TermuxService"
+rule	bin/termux-wake-unlock	-a "com.termux.service_wake_unlock"	-a "@WAKE_UNLOCK_ACTION@"
+rule	bin/termux-wake-unlock	"com.termux/com.termux.app.TermuxService"	"@PACKAGE@/com.termux.app.TermuxService"
+rule	bin/termux-reset	"com.termux/com.termux.app.TermuxService"	"@PACKAGE@/com.termux.app.TermuxService"
+rule	bin/termux-info	echo -n "com.termux" |	echo -n "@PACKAGE@" |

@@ -29,7 +29,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -151,6 +154,11 @@ final class TermuxInstaller {
                         return;
                     }
 
+                    // Stock Termux needs no rewrite: its helpers already address the right package.
+                    boolean forkIdentity = !"com.termux".equals(TermuxConstants.TERMUX_PACKAGE_NAME);
+                    List<TermuxHelperRewrites.Rule> helperRewrites = forkIdentity
+                        ? loadHelperRewrites() : Collections.<TermuxHelperRewrites.Rule>emptyList();
+
                     Logger.logInfo(LOG_TAG, "Extracting bootstrap zip to prefix staging directory \"" + TERMUX_STAGING_PREFIX_DIR_PATH + "\".");
 
                     final byte[] buffer = new byte[8096];
@@ -204,14 +212,10 @@ final class TermuxInstaller {
                                                 TermuxConstants.TERMUX_INTERNAL_PRIVATE_APP_DATA_DIR_PATH);
                                             modified = true;
                                         }
-                                        if ("bin/termux-reload-settings".equals(zipEntryName)) {
-                                            String adapted = adaptReloadSettingsScript(text,
-                                                TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY.ACTION_RELOAD_STYLE,
-                                                TermuxConstants.TERMUX_PACKAGE_NAME);
-                                            if (!adapted.equals(text)) {
-                                                text = adapted;
-                                                modified = true;
-                                            }
+                                        String adaptedHelper = TermuxHelperRewrites.apply(helperRewrites, zipEntryName, text);
+                                        if (!adaptedHelper.equals(text)) {
+                                            text = adaptedHelper;
+                                            modified = true;
                                         }
                                         if ("bin/login".equals(zipEntryName) && text.contains("export LD_PRELOAD=\"")) {
                                             text = text.replace("export LD_PRELOAD=\"",
@@ -256,6 +260,17 @@ final class TermuxInstaller {
                         }
                     }
 
+                    if (forkIdentity) {
+                        // Keep the helpers correct after APT replaces them with the stock versions.
+                        try {
+                            TermuxHelperRewrites.deployHook(TERMUX_STAGING_PREFIX_DIR,
+                                TermuxConstants.TERMUX_PREFIX_DIR_PATH, helperIdentityValues());
+                        } catch (java.io.IOException e) {
+                            // Not fatal: the helpers are still adapted at extraction, only the APT hook is missing.
+                            Logger.logError(LOG_TAG, "Failed to install the helper identity hook: " + e.getMessage());
+                        }
+                    }
+
                     if (symlinks.isEmpty())
                         throw new RuntimeException("No SYMLINKS.txt encountered");
                     for (Pair<String, String> symlink : symlinks) {
@@ -291,15 +306,24 @@ final class TermuxInstaller {
         }.start();
     }
 
-    /**
-     * The stock {@code termux-reload-settings} helper hardcodes the stock reload broadcast
-     * ({@code -a "com.termux.app.reload_style" "com.termux"}), which is a silent no-op for a fork with
-     * another package name. Point it at this app's action and package. Returns the text unchanged when
-     * the stock identity is in use or the helper does not have the expected form.
-     */
-    static String adaptReloadSettingsScript(String text, String reloadStyleAction, String packageName) {
-        String stock = "-a \"com.termux.app.reload_style\" \"com.termux\"";
-        return text.replace(stock, "-a \"" + reloadStyleAction + "\" \"" + packageName + "\"");
+    private static List<TermuxHelperRewrites.Rule> loadHelperRewrites() {
+        try {
+            return TermuxHelperRewrites.parse(TermuxHelperRewrites.render(
+                TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), helperIdentityValues()));
+        } catch (java.io.IOException e) {
+            Logger.logError(LOG_TAG, "Failed to load the helper rewrite table: " + e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /** The fork identity values for the placeholders of the helper rewrite table. */
+    static Map<String, String> helperIdentityValues() {
+        Map<String, String> values = new HashMap<>();
+        values.put("PACKAGE", TermuxConstants.TERMUX_PACKAGE_NAME);
+        values.put("RELOAD_STYLE_ACTION", TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY.ACTION_RELOAD_STYLE);
+        values.put("WAKE_LOCK_ACTION", TermuxConstants.TERMUX_APP.TERMUX_SERVICE.ACTION_WAKE_LOCK);
+        values.put("WAKE_UNLOCK_ACTION", TermuxConstants.TERMUX_APP.TERMUX_SERVICE.ACTION_WAKE_UNLOCK);
+        return values;
     }
 
     public static void showBootstrapErrorDialog(Activity activity, Runnable whenDone, String message) {
