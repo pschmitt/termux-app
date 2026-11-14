@@ -89,35 +89,59 @@ final class TermuxHelperRewrites {
     static List<Rule> parse(@NonNull String renderedTable) {
         List<Rule> rules = new ArrayList<>();
         for (String line : renderedTable.split("\n", -1)) {
-            String[] fields = line.split("\t", -1);
-            switch (fields[0]) {
-                case "identity":
-                    if (fields.length != 3 || !usable(fields[1], fields[2], true)) continue;
-                    rules.add(new Rule(Kind.IDENTITY, "", fields[1], fields[2]));
-                    break;
-                case "rule":
-                    if (fields.length != 4 || !ADAPTED_FILE.matcher(fields[1]).matches()
-                        || !usable(fields[2], fields[3], true)) continue;
-                    rules.add(new Rule(Kind.RULE, fields[1], fields[2], fields[3]));
-                    break;
-                case "append":
-                    if (fields.length != 4 || !ADAPTED_FILE.matcher(fields[1]).matches()
-                        || !usable(fields[2], fields[3], false)) continue;
-                    rules.add(new Rule(Kind.APPEND, fields[1], fields[2], fields[3]));
-                    break;
-                case "require":
-                case "forbid":
-                    // The fourth field is the guard: it only resolves for the fork identity.
-                    if (fields.length != 4 || !ADAPTED_FILE.matcher(fields[1]).matches()
-                        || !usable(fields[2], fields[3], false)) continue;
-                    rules.add(new Rule("require".equals(fields[0]) ? Kind.REQUIRE : Kind.FORBID,
-                        fields[1], fields[2], ""));
-                    break;
-                default:
-                    break;
-            }
+            Rule rule = parseLine(line);
+            if (rule != null) rules.add(rule);
         }
         return Collections.unmodifiableList(rules);
+    }
+
+    /**
+     * Parse a rendered table that must be complete: unlike {@link #parse} a row that would be dropped
+     * (malformed, unresolved placeholder, not idempotent, unknown kind) is an error, because for the fork
+     * identity a silently dropped row means a silently unadapted login or helper.
+     */
+    @NonNull
+    static List<Rule> parseStrict(@NonNull String renderedTable) throws IOException {
+        List<Rule> rules = new ArrayList<>();
+        String[] lines = renderedTable.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            Rule rule = parseLine(line);
+            if (rule == null) {
+                throw new IOException("Unusable row " + (i + 1) + " in the helper rewrite table: "
+                    + (line.length() > 80 ? line.substring(0, 80) + "..." : line));
+            }
+            rules.add(rule);
+        }
+        return Collections.unmodifiableList(rules);
+    }
+
+    /** The rule of one table line, or null for comments, blank lines and unusable rows. */
+    private static Rule parseLine(String line) {
+        String[] fields = line.split("\t", -1);
+        switch (fields[0]) {
+            case "identity":
+                if (fields.length != 3 || !usable(fields[1], fields[2], true)) return null;
+                return new Rule(Kind.IDENTITY, "", fields[1], fields[2]);
+            case "rule":
+                if (fields.length != 4 || !ADAPTED_FILE.matcher(fields[1]).matches()
+                    || !usable(fields[2], fields[3], true)) return null;
+                return new Rule(Kind.RULE, fields[1], fields[2], fields[3]);
+            case "append":
+                if (fields.length != 4 || !ADAPTED_FILE.matcher(fields[1]).matches()
+                    || !usable(fields[2], fields[3], false)) return null;
+                return new Rule(Kind.APPEND, fields[1], fields[2], fields[3]);
+            case "require":
+            case "forbid":
+                // The fourth field is the guard: it only resolves for the fork identity.
+                if (fields.length != 4 || !ADAPTED_FILE.matcher(fields[1]).matches()
+                    || !usable(fields[2], fields[3], false)) return null;
+                return new Rule("require".equals(fields[0]) ? Kind.REQUIRE : Kind.FORBID,
+                    fields[1], fields[2], "");
+            default:
+                return null;
+        }
     }
 
     private static boolean usable(String stock, String fork, boolean mustChangeAndBeIdempotent) {
@@ -204,6 +228,7 @@ final class TermuxHelperRewrites {
             throw new IOException("Unsafe prefix path for the helper hook: " + prefixPath);
         }
         String renderedTable = render(readResource(TABLE_RESOURCE), values);
+        parseStrict(renderedTable); // never deploy a table the hook would partly ignore
         writeFile(new File(stagingPrefixDir, HOOK_SCRIPT),
             hookScript(prefixPath, readResource(HOOK_SCRIPT_RESOURCE)), true);
         writeFile(new File(stagingPrefixDir, HOOK_TABLE), hookTable(prefixPath, renderedTable), false);

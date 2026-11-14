@@ -312,4 +312,59 @@ public class TermuxHelperRewritesTest {
         Assert.assertEquals(forkRules().size(),
             TermuxHelperRewrites.parse(TermuxHelperRewrites.hookTable("/p", rendered)).size());
     }
+
+    @Test
+    public void strictParseAcceptsTheRealForkTableWithTwentyFourRows() throws IOException {
+        String rendered = TermuxHelperRewrites.render(
+            TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), forkValues());
+        Assert.assertEquals(24, TermuxHelperRewrites.parseStrict(rendered).size());
+        Assert.assertEquals(TermuxHelperRewrites.parse(rendered).size(), TermuxHelperRewrites.parseStrict(rendered).size());
+    }
+
+    @Test
+    public void strictParseRejectsEveryRowThatLenientParseWouldDrop() throws IOException {
+        String rendered = TermuxHelperRewrites.render(
+            TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), forkValues());
+        String[] bad = {"bogus\tx\ty\n", "rule\tbin/login\tonly\n", "rule\tbin/evil\tx\ty\n",
+            "rule\tbin/login\tx\tx\n", "rule\tbin/login\tx\txx\n", "rule\tbin/login\t@UNRESOLVED@\ty\n",
+            "identity\t\tx\n", "append\tbin/login\t\tx\n"};
+        for (String row : bad) {
+            Assert.assertEquals(row, TermuxHelperRewrites.parse(rendered).size(),
+                TermuxHelperRewrites.parse(rendered + row).size());
+            try {
+                TermuxHelperRewrites.parseStrict(rendered + row);
+                Assert.fail("strict parse should reject: " + row);
+            } catch (IOException expected) {
+                Assert.assertTrue(expected.getMessage(), expected.getMessage().contains("Unusable row"));
+            }
+        }
+    }
+
+    @Test
+    public void strictParseOfTheStockRenderingRejectsTheForkRowsThatVanish() throws IOException {
+        // The stock rendering leaves @FORK_ONLY@ and @REDIRECT_SO_VAR@ unresolved: parse() drops those rows by
+        // design (stock stays untouched), parseStrict() is for the fork identity only and says so.
+        String rendered = TermuxHelperRewrites.render(
+            TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), stockValues());
+        try {
+            TermuxHelperRewrites.parseStrict(rendered);
+            Assert.fail("the stock rendering is not a complete fork table");
+        } catch (IOException expected) {
+            // fine
+        }
+    }
+
+    @Test
+    public void deployHookRefusesAnUnresolvablePlaceholderBeforeWritingAnything() throws IOException {
+        File staging = temp.newFolder("staging-strict");
+        Map<String, String> values = forkValues();
+        values.remove("REDIRECT_SO_VAR");
+        try {
+            TermuxHelperRewrites.deployHook(staging, "/data/data/dev.pschmitt.termux/files/usr", values);
+            Assert.fail("deployHook must refuse");
+        } catch (IOException expected) {
+            Assert.assertTrue(expected.getMessage(), expected.getMessage().contains("Unusable row"));
+        }
+        Assert.assertEquals(0, staging.list().length);
+    }
 }

@@ -7,7 +7,6 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Environment;
 import android.system.Os;
-import android.util.Pair;
 import android.view.WindowManager;
 
 import com.termux.R;
@@ -23,18 +22,10 @@ import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import static com.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR;
 import static com.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR_PATH;
@@ -126,6 +117,18 @@ final class TermuxInstaller {
 
                     Error error;
 
+                    // The fork identity needs the helper rewrite table. Load it before anything is deleted:
+                    // when it is missing or unusable nothing was touched and the error says why.
+                    final TermuxBootstrapAdapter adapter;
+                    try {
+                        adapter = TermuxBootstrapAdapter.load(TermuxConstants.TERMUX_PACKAGE_NAME, helperIdentityValues());
+                    } catch (java.io.IOException e) {
+                        Logger.logError(LOG_TAG, "Refusing to install the bootstrap: " + e.getMessage());
+                        showBootstrapErrorDialog(activity, whenDone, "The bootstrap was not installed and nothing was changed: "
+                            + e.getMessage());
+                        return;
+                    }
+
                     // Delete prefix staging directory or any file at its destination
                     error = FileUtils.deleteFile("termux prefix staging directory", TERMUX_STAGING_PREFIX_DIR_PATH, true);
                     if (error != null) {
@@ -154,80 +157,21 @@ final class TermuxInstaller {
                         return;
                     }
 
-                    // Stock Termux needs no rewrite: its helpers already address the right package.
-                    boolean forkIdentity = !"com.termux".equals(TermuxConstants.TERMUX_PACKAGE_NAME);
-                    List<TermuxHelperRewrites.Rule> helperRewrites = forkIdentity
-                        ? loadHelperRewrites() : Collections.<TermuxHelperRewrites.Rule>emptyList();
-
                     Logger.logInfo(LOG_TAG, "Extracting bootstrap zip to prefix staging directory \"" + TERMUX_STAGING_PREFIX_DIR_PATH + "\".");
 
-                    final byte[] buffer = new byte[8096];
-                    final Map<String, String> adaptedFiles = new HashMap<>();
-                    final List<Pair<String, String>> symlinks = new ArrayList<>(50);
-
-                    final byte[] zipBytes = loadZipBytes();
-                    try (ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
-                        ZipEntry zipEntry;
-                        while ((zipEntry = zipInput.getNextEntry()) != null) {
-                            if (zipEntry.getName().equals("SYMLINKS.txt")) {
-                                BufferedReader symlinksReader = new BufferedReader(new InputStreamReader(zipInput));
-                                String line;
-                                while ((line = symlinksReader.readLine()) != null) {
-                                    String[] parts = line.split("←");
-                                    if (parts.length != 2)
-                                        throw new RuntimeException("Malformed symlink line: " + line);
-                                    String oldPath = parts[0].replace("/data/data/com.termux", TermuxConstants.TERMUX_INTERNAL_PRIVATE_APP_DATA_DIR_PATH);
-                                    String newPath = TERMUX_STAGING_PREFIX_DIR_PATH + "/" + parts[1];
-                                    symlinks.add(Pair.create(oldPath, newPath));
-
-                                    error = ensureDirectoryExists(new File(newPath).getParentFile());
-                                    if (error != null) {
-                                        showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
-                                        return;
-                                    }
-                                }
-                            } else {
-                                String zipEntryName = zipEntry.getName();
-                                File targetFile = new File(TERMUX_STAGING_PREFIX_DIR_PATH, zipEntryName);
-                                boolean isDirectory = zipEntry.isDirectory();
-
-                                error = ensureDirectoryExists(isDirectory ? targetFile : targetFile.getParentFile());
-                                if (error != null) {
-                                    showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
-                                    return;
-                                }
-
-                                if (!isDirectory) {
-                                    java.io.ByteArrayOutputStream entryBytesStream = new java.io.ByteArrayOutputStream();
-                                    int readBytes;
-                                    while ((readBytes = zipInput.read(buffer)) != -1)
-                                        entryBytesStream.write(buffer, 0, readBytes);
-                                    byte[] entryBytes = entryBytesStream.toByteArray();
-                                    boolean isElf = entryBytes.length >= 4 &&
-                                        entryBytes[0] == 0x7F && entryBytes[1] == 'E' && entryBytes[2] == 'L' && entryBytes[3] == 'F';
-                                    if (!isElf && !"com.termux".equals(TermuxConstants.TERMUX_PACKAGE_NAME)) {
-                                        String text = new String(entryBytes, java.nio.charset.StandardCharsets.UTF_8);
-                                        // Identity, helper, login and conffile rewrites all come from the table.
-                                        String adapted = TermuxHelperRewrites.apply(helperRewrites, zipEntryName, text);
-                                        if (!adapted.equals(text)) {
-                                            adaptedFiles.put(zipEntryName, adapted);
-                                            entryBytes = adapted.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                                        }
-                                    }
-                                    try (FileOutputStream outStream = new FileOutputStream(targetFile)) {
-                                        outStream.write(entryBytes);
-                                    }
-                                    if (zipEntryName.startsWith("bin/") || zipEntryName.startsWith("libexec") ||
-                                        zipEntryName.startsWith("lib/apt/apt-helper") || zipEntryName.startsWith("lib/apt/methods")) {
-                                        //noinspection OctalInteger
-                                        Os.chmod(targetFile.getAbsolutePath(), 0700);
-                                    }
-                                }
+                    // Extraction and the stock to app rewrite are one unit: any failure throws here, before
+                    // the staging directory is moved to the prefix, so no half adapted prefix is ever activated.
+                    final TermuxBootstrapExtractor.Result extracted = TermuxBootstrapExtractor.extract(
+                        loadZipBytes(), TERMUX_STAGING_PREFIX_DIR, adapter,
+                        (file, mode) -> {
+                            try {
+                                Os.chmod(file.getAbsolutePath(), mode);
+                            } catch (android.system.ErrnoException e) {
+                                throw new java.io.IOException("chmod failed for " + file + ": " + e.getMessage(), e);
                             }
-                        }
-                    }
+                        });
 
-                    if (!"com.termux".equals(TermuxConstants.TERMUX_PACKAGE_NAME)) {
+                    if (!adapter.isStock()) {
                         File homeProfile = new File(TermuxConstants.TERMUX_HOME_DIR_PATH, ".profile");
                         if (!homeProfile.exists()) {
                             ensureDirectoryExists(homeProfile.getParentFile());
@@ -236,29 +180,17 @@ final class TermuxInstaller {
                                     .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                             }
                         }
+
+                        // Keep the helpers correct after APT replaces them with the stock versions. Fatal:
+                        // without the hook the first apt upgrade of termux-tools breaks login.
+                        TermuxHelperRewrites.deployHook(TERMUX_STAGING_PREFIX_DIR,
+                            TermuxConstants.TERMUX_PREFIX_DIR_PATH, helperIdentityValues());
+                        Logger.logInfo(LOG_TAG, "Adapted " + extracted.adaptedFiles.size() + " bootstrap files to "
+                            + adapter.dataDir() + ".");
                     }
 
-                    if (forkIdentity) {
-                        // The same checks the APT hook runs: never ship a half adapted login or helper.
-                        for (Map.Entry<String, String> adapted : adaptedFiles.entrySet()) {
-                            for (String problem : TermuxHelperRewrites.verify(helperRewrites, adapted.getKey(), adapted.getValue())) {
-                                Logger.logError(LOG_TAG, "Fork identity check failed: " + problem);
-                            }
-                        }
-                        // Keep the helpers correct after APT replaces them with the stock versions.
-                        try {
-                            TermuxHelperRewrites.deployHook(TERMUX_STAGING_PREFIX_DIR,
-                                TermuxConstants.TERMUX_PREFIX_DIR_PATH, helperIdentityValues());
-                        } catch (java.io.IOException e) {
-                            // Not fatal: the helpers are still adapted at extraction, only the APT hook is missing.
-                            Logger.logError(LOG_TAG, "Failed to install the helper identity hook: " + e.getMessage());
-                        }
-                    }
-
-                    if (symlinks.isEmpty())
-                        throw new RuntimeException("No SYMLINKS.txt encountered");
-                    for (Pair<String, String> symlink : symlinks) {
-                        Os.symlink(symlink.first, symlink.second);
+                    for (TermuxBootstrapExtractor.Symlink symlink : extracted.symlinks) {
+                        Os.symlink(symlink.target, symlink.link);
                     }
 
                     Logger.logInfo(LOG_TAG, "Moving termux prefix staging to prefix directory.");
@@ -288,16 +220,6 @@ final class TermuxInstaller {
                 }
             }
         }.start();
-    }
-
-    private static List<TermuxHelperRewrites.Rule> loadHelperRewrites() {
-        try {
-            return TermuxHelperRewrites.parse(TermuxHelperRewrites.render(
-                TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), helperIdentityValues()));
-        } catch (java.io.IOException e) {
-            Logger.logError(LOG_TAG, "Failed to load the helper rewrite table: " + e.getMessage());
-            return Collections.emptyList();
-        }
     }
 
     /** The fork identity values for the placeholders of the helper rewrite table. */
