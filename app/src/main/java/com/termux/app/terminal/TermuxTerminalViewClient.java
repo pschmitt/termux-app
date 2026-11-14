@@ -198,12 +198,24 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             }
         }
 
-        if (!term.isMouseTrackingActive() && !e.isFromSource(InputDevice.SOURCE_MOUSE)) {
+        // A touch tap shows the soft keyboard even while a terminal application (like tmux with
+        // `mouse on`) has enabled mouse tracking. TerminalView already forwarded the tap to the
+        // application as a mouse click in onUp(), and this callback does not report anything.
+        if (shouldShowSoftKeyboardOnSingleTapUp(e)) {
             if (!KeyboardUtils.areDisableSoftKeyboardFlagsSet(mActivity))
                 KeyboardUtils.showSoftKeyboard(mActivity, mActivity.getTerminalView());
             else
                 Logger.logVerbose(LOG_TAG, "Not showing soft keyboard onSingleTapUp since its disabled");
         }
+    }
+
+    /**
+     * Whether a confirmed single tap should show the soft keyboard. Taps from an external mouse
+     * never do. Whether the terminal application has enabled mouse tracking is intentionally not
+     * considered, since the click is forwarded independently of the keyboard.
+     */
+    static boolean shouldShowSoftKeyboardOnSingleTapUp(MotionEvent e) {
+        return !e.isFromSource(InputDevice.SOURCE_MOUSE);
     }
 
     @Override
