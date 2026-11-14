@@ -10,6 +10,7 @@ import com.google.android.material.button.MaterialButton;
 import com.termux.shared.termux.extrakeys.ExtraKeyButton;
 import com.termux.shared.termux.extrakeys.ExtraKeysView;
 import com.termux.shared.termux.extrakeys.SpecialButton;
+import com.termux.shared.termux.extrakeys.TerminalKeySequence;
 import com.termux.terminal.TerminalSession;
 import com.termux.view.TerminalView;
 
@@ -52,6 +53,25 @@ public class TerminalExtraKeys implements ExtraKeysView.IExtraKeysView {
     }
 
     protected void onTerminalExtraKeyButtonClick(View view, String key, boolean ctrlDown, boolean altDown, boolean shiftDown, boolean fnDown) {
+        sendTerminalKey(key, ctrlDown, altDown, shiftDown, fnDown);
+    }
+
+    /**
+     * Send the keys of a {@link TerminalKeySequence} to the terminal, the same way as the keys of an
+     * extra keys macro. Only terminal input is sent, the app specific extra keys words like
+     * {@code KEYBOARD} are not part of a sequence.
+     */
+    public void sendKeys(@NonNull TerminalKeySequence keys) {
+        keys.send(this::sendTerminalKey);
+    }
+
+    /**
+     * Send one key to the terminal.
+     *
+     * @param key A named key of {@link com.termux.shared.termux.extrakeys.ExtraKeysConstants#PRIMARY_KEY_CODES_FOR_STRINGS},
+     *            or literal text.
+     */
+    public void sendTerminalKey(@NonNull String key, boolean ctrlDown, boolean altDown, boolean shiftDown, boolean fnDown) {
         if (PRIMARY_KEY_CODES_FOR_STRINGS.containsKey(key)) {
             Integer keyCode = PRIMARY_KEY_CODES_FOR_STRINGS.get(key);
             if (keyCode == null) return;

@@ -33,7 +33,14 @@ public enum TerminalGestureAction {
     PREVIOUS_SESSION("previous-session"),
 
     /** Open the sidebar (the drawer) with the list of sessions. */
-    OPEN_SIDEBAR("open-sidebar");
+    OPEN_SIDEBAR("open-sidebar"),
+
+    /**
+     * Send keys to the terminal, like Escape or Ctrl+L, given by the {@code *-keys} property of the
+     * gesture, for example {@link TermuxPropertyConstants#KEY_TERMINAL_DOUBLE_TAP_KEYS}. Without
+     * usable keys the action is {@link #NONE}, see {@link #effective(TerminalGestureAction, boolean)}.
+     */
+    SEND_KEYS("send-keys");
 
     /** What to do with the soft keyboard, see {@link #keyboardOperation(boolean, boolean)}. */
     public enum KeyboardOperation { NONE, SHOW, HIDE }
@@ -84,6 +91,19 @@ public enum TerminalGestureAction {
             builder.append(action.mValue);
         }
         return builder.toString();
+    }
+
+    /**
+     * The action that is really performed for a configured action. {@link #SEND_KEYS} without
+     * usable keys (missing, blank or invalid in the properties file) is {@link #NONE}, so that a
+     * broken configuration is a no-op that neither animates, consumes a swipe nor delays taps.
+     *
+     * @param configured The action configured for the gesture.
+     * @param hasUsableKeys Whether the {@code *-keys} property of the gesture is a valid sequence.
+     */
+    @NonNull
+    public static TerminalGestureAction effective(@NonNull TerminalGestureAction configured, boolean hasUsableKeys) {
+        return configured == SEND_KEYS && !hasUsableKeys ? NONE : configured;
     }
 
     /**

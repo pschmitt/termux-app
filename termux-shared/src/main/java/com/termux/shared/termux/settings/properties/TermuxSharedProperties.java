@@ -11,6 +11,7 @@ import com.termux.shared.settings.properties.SharedProperties;
 import com.termux.shared.settings.properties.SharedPropertiesParser;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.extrakeys.ExtraKeysColorParser;
+import com.termux.shared.termux.extrakeys.TerminalKeySequence;
 
 import java.io.File;
 import java.util.HashMap;
@@ -55,6 +56,7 @@ public abstract class TermuxSharedProperties {
         mSharedProperties.loadPropertiesFromDisk();
         dumpPropertiesToLog();
         dumpInternalPropertiesToLog();
+        logGesturesWithoutKeys();
     }
 
 
@@ -293,6 +295,13 @@ public abstract class TermuxSharedProperties {
                 return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_TERMINAL_TRIPLE_TAP_ACTION).getValue();
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
                 return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION).getValue();
+
+            /* TerminalKeySequence String (may be null), stored as its normalized value */
+            case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_KEYS:
+            case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_KEYS:
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS:
+                return getKeySequenceInternalPropertyValueFromValue(key, value);
 
             /* Integer (may be null) */
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR:
@@ -603,6 +612,25 @@ public abstract class TermuxSharedProperties {
     }
 
     /**
+     * Returns the normalized {@link TerminalKeySequence#getNormalizedValue()} for the value of a
+     * {@code *-keys} property, or {@code null} if the property is not set or not valid. An invalid
+     * value is logged and the action {@link TerminalGestureAction#SEND_KEYS} then does nothing.
+     *
+     * @param key The key of the property, used for logging.
+     * @param value The {@link String} value to convert.
+     */
+    @Nullable
+    public static String getKeySequenceInternalPropertyValueFromValue(String key, String value) {
+        if (value == null) return null;
+        TerminalKeySequence sequence = TerminalKeySequence.parse(value);
+        if (sequence == null) {
+            Logger.logError(LOG_TAG, "The value \"" + value + "\" for the key \"" + key + "\" is invalid: " + TerminalKeySequence.getError(value) + ". The send-keys action will do nothing.");
+            return null;
+        }
+        return sequence.getNormalizedValue();
+    }
+
+    /**
      * Returns the value itself if it is not {@code null}, otherwise returns {@link TermuxPropertyConstants#DEFAULT_IVALUE_EXTRA_KEYS_STYLE}.
      *
      * @param value {@link String} value to convert.
@@ -690,14 +718,83 @@ public abstract class TermuxSharedProperties {
         return (Float) getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS, true);
     }
 
-    /** Get the cached {@link TerminalGestureAction} of a gesture key, its default if it is not usable. */
+    /** The key of the {@code *-keys} property of the key of a gesture action property. */
+    @Nullable
+    private static String getKeysKeyOfGestureActionKey(String actionKey) {
+        switch (actionKey) {
+            case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_KEYS;
+            case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_KEYS;
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS;
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS;
+            default: return null;
+        }
+    }
+
+    /** Get the cached {@link TerminalGestureAction} of a gesture key as configured, its default if it is not usable. */
     @NonNull
-    private TerminalGestureAction getGestureAction(String key) {
+    private TerminalGestureAction getConfiguredGestureAction(String key) {
         Object value = getInternalPropertyValue(key, true);
         TerminalGestureAction action = value instanceof String ? TerminalGestureAction.parse((String) value) : null;
         if (action != null) return action;
         return key.equals(TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION)
             ? TermuxPropertyConstants.DEFAULT_TERMINAL_SINGLE_TAP_ACTION : TerminalGestureAction.NONE;
+    }
+
+    /** Get the cached keys of a {@code *-keys} property, {@code null} if they are not set or not valid. */
+    @Nullable
+    private TerminalKeySequence getKeySequence(@Nullable String keysKey) {
+        if (keysKey == null) return null;
+        Object value = getInternalPropertyValue(keysKey, true);
+        return value instanceof String ? TerminalKeySequence.parse((String) value) : null;
+    }
+
+    /**
+     * Get the {@link TerminalGestureAction} that is really performed for a gesture key: the
+     * configured action, but {@link TerminalGestureAction#NONE} for {@code send-keys} without usable keys.
+     */
+    @NonNull
+    private TerminalGestureAction getGestureAction(String key) {
+        TerminalGestureAction action = getConfiguredGestureAction(key);
+        return TerminalGestureAction.effective(action, getKeySequence(getKeysKeyOfGestureActionKey(key)) != null);
+    }
+
+    /** Logs the gestures whose action is {@code send-keys} but that have no usable keys. */
+    private void logGesturesWithoutKeys() {
+        String[] actionKeys = {
+            TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION
+        };
+        for (String actionKey : actionKeys) {
+            if (getConfiguredGestureAction(actionKey) != TerminalGestureAction.SEND_KEYS) continue;
+            String keysKey = getKeysKeyOfGestureActionKey(actionKey);
+            // An invalid value was logged when it was loaded.
+            if (getInternalPropertyValue(keysKey, true) == null)
+                Logger.logError(LOG_TAG, "The action of the key \"" + actionKey + "\" is \"" + TerminalGestureAction.SEND_KEYS.getValue() + "\" but the key \"" + keysKey + "\" is not set or not valid. The action will do nothing.");
+        }
+    }
+
+    /**
+     * The keys that {@link TerminalGestureAction#SEND_KEYS} sends for the {@code tapCount}th tap of a
+     * quick tap sequence on the terminal.
+     *
+     * @return The keys, or {@code null} if they are not set or not valid.
+     */
+    @Nullable
+    public TerminalKeySequence getTerminalTapKeys(int tapCount) {
+        switch (tapCount) {
+            case 1: return getKeySequence(TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_KEYS);
+            case 2: return getKeySequence(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_KEYS);
+            case 3: return getKeySequence(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS);
+            default: return null;
+        }
+    }
+
+    /** The keys that {@link TerminalGestureAction#SEND_KEYS} sends for the swipe on the normal extra keys row, or {@code null}. */
+    @Nullable
+    public TerminalKeySequence getExtraKeysSwipeLeftKeys() {
+        return getKeySequence(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS);
     }
 
     /** The action of a single finger tap on the terminal, see {@link TermuxPropertyConstants#KEY_TERMINAL_SINGLE_TAP_ACTION}. */

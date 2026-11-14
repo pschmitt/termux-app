@@ -26,10 +26,50 @@ The four keys are independent and active at the same time. Valid values, case-in
 | `next-session` | Switch to the next session, wrapping around. Does nothing with a single session. |
 | `previous-session` | Switch to the previous session, wrapping around. Does nothing with a single session. |
 | `open-sidebar` | Open the sidebar with the session list. It is not opened while it is locked closed in copy mode. |
+| `send-keys` | Send keys to the terminal, like Escape or Ctrl+L, given by the matching `*-keys` key (see below). |
 
 A missing or empty key uses its default. A value that is not listed is logged and the default is
 used. The soft keyboard flags that disable the keyboard always win: `show-keyboard` and
 `toggle-keyboard` do nothing while it is disabled, the other actions still work.
+
+## Sending keys
+
+The action `send-keys` sends keys to the current terminal session, as if they were typed. Every
+gesture has its own key that says which keys to send:
+
+| Gesture | Action key | Keys key |
+| --- | --- | --- |
+| Single tap | `terminal-single-tap-action` | `terminal-single-tap-keys` |
+| Double tap | `terminal-double-tap-action` | `terminal-double-tap-keys` |
+| Triple tap | `terminal-triple-tap-action` | `terminal-triple-tap-keys` |
+| Extra keys swipe | `extra-keys-swipe-left-action` | `extra-keys-swipe-left-keys` |
+
+The keys are written exactly like the `macro` of an extra keys button in `extra-keys`, so what works
+there works here:
+
+* Keys are separated by whitespace and sent in order.
+* The names of the extra keys row: `ESC`, `TAB`, `ENTER`, `SPACE`, `UP`, `DOWN`, `LEFT`, `RIGHT`,
+  `HOME`, `END`, `PGUP`, `PGDN`, `INS`, `DEL`, `BKSP` and `F1` to `F12`, and the aliases of the row
+  such as `ESCAPE`, `RETURN`, `PAGEUP`, `DELETE`, `BACKSPACE`. Names are upper case, as in the extra
+  keys.
+* `CTRL`, `ALT`, `SHIFT` and `FN` apply to the next key only and have to be followed by one. `CTRL l`
+  is Ctrl+L, `CTRL ALT x` is Ctrl+Alt+X. `CONTROL` and `SHFT` are accepted too.
+* Any other word is typed as text, a character at a time. `ESC :wq ENTER` sends Escape, the
+  characters `:wq` and Enter. A space has to be written `SPACE`, since spaces separate the keys.
+* The words of the row that are not terminal input (`KEYBOARD`, `DRAWER`, `PASTE`, `SCROLL`) are not
+  accepted. Nothing is ever run as a command, only terminal key input is sent.
+
+If the keys key is missing, blank or invalid (for example a `CTRL` with no key after it), the problem
+is logged and the gesture does nothing, as if its action were `none`. That also means that nothing is
+animated or consumed for the swipe, and that taps do not wait for it. The keys keys are ignored for
+every other action.
+
+Each key is sent with its own modifiers, so no modifier stays pressed after the gesture. The `CTRL`
+or `ALT` button of the extra keys row is different: when it is latched at the time of the gesture it
+applies to the first key that is sent and is released, as it would for any key typed.
+
+A tap that only sends keys does not show the soft keyboard. Combine it with another gesture if you
+want both.
 
 ## How taps are told apart
 
@@ -70,6 +110,21 @@ runs while `extra-keys-swipe-left-action` is not `none`, and not when the system
 turned off (animator duration scale 0), the action itself still runs then. With `none` the swipe is
 not recognized at all and the row behaves exactly as without this feature.
 
+## Locking a modifier
+
+The modifier keys of the extra keys row (`CTRL`, `ALT`, `SHIFT`, `FN`) have three ways to be used:
+
+| Gesture on the modifier | Result |
+|-------------------------|--------|
+| Tap | Applies to the next key only, then it is released (unchanged) |
+| Double tap | Locked: it applies to every key until you tap it again |
+| Long press | Locked, the same as a double tap (unchanged). Long press again to release |
+
+The second tap of a double tap has to follow within the system double tap timeout, otherwise
+it releases the modifier like before. For example, double tap `CTRL` and type `d` twice to send
+`Ctrl+D` twice. A locked modifier keeps the active colors of a latched one. This is not
+configurable and has no effect on other keys like `ESC`.
+
 ## Example
 
 ```properties
@@ -84,6 +139,22 @@ terminal-single-tap-action = show-keyboard
 
 # Optional: swipe the extra keys row to the right to go to the previous session
 extra-keys-swipe-left-action = previous-session
+```
+
+Sending keys:
+
+```properties
+# Double tap sends Escape
+terminal-double-tap-action = send-keys
+terminal-double-tap-keys = ESC
+
+# Triple tap sends Ctrl+L, which clears the screen in most shells
+terminal-triple-tap-action = send-keys
+terminal-triple-tap-keys = CTRL l
+
+# The swipe sends Escape, then ":q", then Enter, for example to leave vim
+extra-keys-swipe-left-action = send-keys
+extra-keys-swipe-left-keys = ESC :q ENTER
 ```
 
 Run `termux-reload-settings` after editing the file. Stock Termux does not read these keys and

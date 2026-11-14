@@ -20,6 +20,29 @@ public class TerminalGestureActionTest {
         assertSame(TerminalGestureAction.NEXT_SESSION, TerminalGestureAction.parse("next-session"));
         assertSame(TerminalGestureAction.PREVIOUS_SESSION, TerminalGestureAction.parse("previous-session"));
         assertSame(TerminalGestureAction.OPEN_SIDEBAR, TerminalGestureAction.parse("open-sidebar"));
+        assertSame(TerminalGestureAction.SEND_KEYS, TerminalGestureAction.parse("send-keys"));
+        assertSame(TerminalGestureAction.SEND_KEYS, TerminalGestureAction.parse(" Send-Keys "));
+    }
+
+    @Test
+    public void sendKeysWithoutUsableKeysIsNone() {
+        assertSame(TerminalGestureAction.NONE, TerminalGestureAction.effective(TerminalGestureAction.SEND_KEYS, false));
+        assertSame(TerminalGestureAction.SEND_KEYS, TerminalGestureAction.effective(TerminalGestureAction.SEND_KEYS, true));
+    }
+
+    @Test
+    public void otherActionsDoNotDependOnKeys() {
+        for (TerminalGestureAction action : TerminalGestureAction.values()) {
+            if (action == TerminalGestureAction.SEND_KEYS) continue;
+            assertSame(action, TerminalGestureAction.effective(action, false));
+            assertSame(action, TerminalGestureAction.effective(action, true));
+        }
+    }
+
+    @Test
+    public void sendKeysIsNeitherKeyboardNorSessionAction() {
+        assertEquals(KeyboardOperation.NONE, TerminalGestureAction.SEND_KEYS.keyboardOperation(false, true));
+        assertEquals(SessionSwitch.NONE, TerminalGestureAction.SEND_KEYS.sessionSwitch(5));
     }
 
     @Test
@@ -54,7 +77,7 @@ public class TerminalGestureActionTest {
 
     @Test
     public void validValuesListsEveryValue() {
-        assertEquals("none, show-keyboard, toggle-keyboard, next-session, previous-session, open-sidebar",
+        assertEquals("none, show-keyboard, toggle-keyboard, next-session, previous-session, open-sidebar, send-keys",
             TerminalGestureAction.getValidValues());
     }
 

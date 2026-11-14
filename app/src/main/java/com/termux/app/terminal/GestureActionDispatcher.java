@@ -1,7 +1,9 @@
 package com.termux.app.terminal;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import com.termux.shared.termux.extrakeys.TerminalKeySequence;
 import com.termux.shared.termux.settings.properties.TerminalGestureAction;
 
 /**
@@ -30,13 +32,31 @@ public final class GestureActionDispatcher {
         void showSoftKeyboard();
 
         void hideSoftKeyboard();
+
+        /** Send the keys to the current terminal session. */
+        void sendKeys(@NonNull TerminalKeySequence keys);
     }
 
     private GestureActionDispatcher() {
     }
 
+    /** Carries out an action that needs no keys, see {@link #perform(TerminalGestureAction, TerminalKeySequence, Target)}. */
     public static void perform(@NonNull TerminalGestureAction action, @NonNull Target target) {
+        perform(action, null, target);
+    }
+
+    /**
+     * Carries out an action.
+     *
+     * @param keys The keys of the gesture, sent by {@link TerminalGestureAction#SEND_KEYS}. That
+     *             action does nothing without keys.
+     */
+    public static void perform(@NonNull TerminalGestureAction action, @Nullable TerminalKeySequence keys, @NonNull Target target) {
         switch (action) {
+            case SEND_KEYS:
+                if (keys != null) target.sendKeys(keys);
+                break;
+
             case NEXT_SESSION:
             case PREVIOUS_SESSION:
                 // Switching never touches the keyboard.

@@ -29,6 +29,8 @@ import com.termux.shared.termux.TermuxBootstrap;
 import com.termux.shared.termux.settings.properties.TerminalGestureAction;
 import com.termux.shared.termux.terminal.TermuxTerminalViewClientBase;
 import com.termux.shared.termux.extrakeys.SpecialButton;
+import com.termux.shared.termux.extrakeys.TerminalKeySequence;
+import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
 import com.termux.shared.android.AndroidUtils;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.activities.ReportActivity;
@@ -55,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.drawerlayout.widget.DrawerLayout;
 
 public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
@@ -208,7 +211,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         // not report anything.
         TerminalGestureAction singleTapAction = mActivity.getProperties().getTerminalSingleTapAction();
         if (shouldActOnSingleTapUp(e, getMaxTapActionCount(), singleTapAction))
-            performGestureAction(singleTapAction);
+            performGestureAction(singleTapAction, mActivity.getProperties().getTerminalTapKeys(1));
     }
 
     /**
@@ -235,7 +238,8 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
      */
     @Override
     public void onTapCount(int tapCount) {
-        performGestureAction(mActivity.getProperties().getTerminalTapAction(tapCount));
+        performGestureAction(mActivity.getProperties().getTerminalTapAction(tapCount),
+            mActivity.getProperties().getTerminalTapKeys(tapCount));
     }
 
     /**
@@ -243,7 +247,16 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
      * it neither disables the keyboard nor changes the keyboard toggle preference.
      */
     public void performGestureAction(@NonNull TerminalGestureAction action) {
-        GestureActionDispatcher.perform(action, new GestureActionDispatcher.Target() {
+        performGestureAction(action, null);
+    }
+
+    /**
+     * Carries out an action configured for a tap or a swipe.
+     *
+     * @param keys The keys to send for {@link TerminalGestureAction#SEND_KEYS}.
+     */
+    public void performGestureAction(@NonNull TerminalGestureAction action, @Nullable TerminalKeySequence keys) {
+        GestureActionDispatcher.perform(action, keys, new GestureActionDispatcher.Target() {
             @Override
             public int getSessionCount() {
                 TermuxService service = mActivity.getTermuxService();
@@ -289,6 +302,20 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             public void hideSoftKeyboard() {
                 Logger.logVerbose(LOG_TAG, "Hiding soft keyboard on gesture");
                 KeyboardUtils.hideSoftKeyboard(mActivity, mActivity.getTerminalView());
+            }
+
+            @Override
+            public void sendKeys(@NonNull TerminalKeySequence keys) {
+                TermuxTerminalExtraKeys extraKeys = mActivity.getTermuxTerminalExtraKeys();
+                if (extraKeys == null) {
+                    Logger.logError(LOG_TAG, "Not sending the keys of the gesture since the extra keys are not set up");
+                    return;
+                }
+                try {
+                    extraKeys.sendKeys(keys);
+                } catch (RuntimeException e) {
+                    Logger.logStackTraceWithMessage(LOG_TAG, "Failed to send the keys \"" + keys.getNormalizedValue() + "\" of the gesture", e);
+                }
             }
         });
     }

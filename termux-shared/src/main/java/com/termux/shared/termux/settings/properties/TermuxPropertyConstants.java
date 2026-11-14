@@ -83,6 +83,9 @@ import java.util.Set;
  *        and `KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS`.
  *      - Add `KEY_TERMINAL_SINGLE_TAP_ACTION`, `KEY_TERMINAL_DOUBLE_TAP_ACTION`,
  *        `KEY_TERMINAL_TRIPLE_TAP_ACTION` and `KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION`.
+ *      - Add `KEY_TERMINAL_SINGLE_TAP_KEYS`, `KEY_TERMINAL_DOUBLE_TAP_KEYS`,
+ *        `KEY_TERMINAL_TRIPLE_TAP_KEYS` and `KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS`, the keys that the
+ *        `send-keys` gesture action sends.
  *
  * - 0.18.0 (2022-06-13)
  *      - Add `KEY_DISABLE_FILE_SHARE_RECEIVER` and `KEY_DISABLE_FILE_VIEW_RECEIVER`.
@@ -378,6 +381,24 @@ public final class TermuxPropertyConstants {
 
 
 
+    /* TerminalKeySequence String (may be null) */
+
+    /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for a single tap
+     * on the terminal, in the grammar of an extra keys macro, like "ESC" or "CTRL l". */
+    public static final String KEY_TERMINAL_SINGLE_TAP_KEYS =  "terminal-single-tap-keys"; // Default: "terminal-single-tap-keys"
+
+    /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for a double tap. */
+    public static final String KEY_TERMINAL_DOUBLE_TAP_KEYS =  "terminal-double-tap-keys"; // Default: "terminal-double-tap-keys"
+
+    /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for a triple tap. */
+    public static final String KEY_TERMINAL_TRIPLE_TAP_KEYS =  "terminal-triple-tap-keys"; // Default: "terminal-triple-tap-keys"
+
+    /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for the swipe on
+     * the normal extra keys row, see {@link #KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION}. */
+    public static final String KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS =  "extra-keys-swipe-left-keys"; // Default: "extra-keys-swipe-left-keys"
+
+
+
     /** Defines the key for {@link NightMode}. */
     public static final String KEY_NIGHT_MODE = "night-mode"; // Default: "night-mode"
 
@@ -469,6 +490,12 @@ public final class TermuxPropertyConstants {
         KEY_TERMINAL_DOUBLE_TAP_ACTION,
         KEY_TERMINAL_SINGLE_TAP_ACTION,
         KEY_TERMINAL_TRIPLE_TAP_ACTION,
+
+        /* TerminalKeySequence String (may be null) */
+        KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS,
+        KEY_TERMINAL_DOUBLE_TAP_KEYS,
+        KEY_TERMINAL_SINGLE_TAP_KEYS,
+        KEY_TERMINAL_TRIPLE_TAP_KEYS,
 
         /* Integer */
         KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR,
