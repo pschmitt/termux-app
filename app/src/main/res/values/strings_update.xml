@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="termux_update_preferences_title">Update</string>
-    <string name="termux_update_preferences_summary">Install new builds over Shizuku</string>
+    <string name="termux_updates_title">Updates</string>
+    <string name="termux_updates_summary">Check for and install new builds of TermuxPP, Termux:API and Termux:Tasker over Shizuku</string>
 
     <string name="termux_update_channel_title">Channel</string>
     <string name="termux_update_channel_latest">Latest</string>
-    <string name="termux_update_current_title">Installed build</string>
-    <string name="termux_update_current_summary">Commit %1$s, variant %2$s</string>
-    <string name="termux_update_current_unknown">Unknown (not built from a clean commit), variant %1$s</string>
+
+    <string name="termux_update_apps_title">Apps</string>
+    <string name="termux_update_app_core">TermuxPP</string>
+    <string name="termux_update_app_api">Termux:API</string>
+    <string name="termux_update_app_tasker">Termux:Tasker</string>
+    <string name="termux_update_app_installed">Installed: commit %1$s</string>
+    <string name="termux_update_app_installed_unknown">Installed: unknown commit (not a published build)</string>
+    <string name="termux_update_app_not_installed">Not installed. The updater never installs apps.</string>
+    <string name="termux_update_app_tap_to_update">Tap to update.</string>
+    <string name="termux_update_app_shizuku_needed">Shizuku is not ready, see above.</string>
+
+    <string name="termux_update_warning_title">Before you update</string>
+    <string name="termux_update_warning_summary">TermuxPP, Termux:API and Termux:Tasker share one user id. Replacing any one of them ends the processes of all of them: open terminal sessions and running tasks stop. Apps are updated one at a time; nothing is installed in the background.</string>
 
     <string name="termux_update_shizuku_title">Shizuku</string>
     <string name="termux_update_shizuku_unavailable">Shizuku is not installed. Install it and start it to update from here.</string>
@@ -18,8 +28,7 @@
     <string name="termux_update_shizuku_permission_denied">Permission denied. Grant it to this app in the Shizuku app (tap to open).</string>
     <string name="termux_update_shizuku_ready">Ready. Updates are installed through Shizuku.</string>
 
-    <string name="termux_update_status_title">Status</string>
-    <string name="termux_update_status_idle">Not checked yet. Nothing is checked in the background.</string>
+    <string name="termux_update_status_idle">Not checked yet.</string>
     <string name="termux_update_status_checking">Checking for updates…</string>
     <string name="termux_update_status_up_to_date">Up to date.</string>
     <string name="termux_update_status_available">Update available: build %1$s (%2$s).</string>
@@ -28,18 +37,15 @@
     <string name="termux_update_status_downloading">Downloading %1$s of %2$s</string>
     <string name="termux_update_status_downloading_unknown">Downloading %1$s</string>
     <string name="termux_update_status_verifying">Verifying the download…</string>
-    <string name="termux_update_status_installing">Installing. The app restarts when it is done.</string>
+    <string name="termux_update_status_installing">Installing. All TermuxPP apps restart when it is done.</string>
     <string name="termux_update_status_failed">Update failed: %1$s</string>
     <string name="termux_update_status_failed_detail">%1$s (%2$s)</string>
 
     <string name="termux_update_check">Check for updates</string>
-    <string name="termux_update_check_summary">Contacts GitHub once, when you tap</string>
+    <string name="termux_update_check_summary">Checks all installed apps. Contacts GitHub only when you tap.</string>
     <string name="termux_update_cancel">Cancel</string>
-    <string name="termux_update_install">Update now</string>
-    <string name="termux_update_install_summary">Download, verify and install the build found by the check</string>
-
-    <string name="termux_update_confirm_title">Install update?</string>
-    <string name="termux_update_confirm_message">Build %1$s will be downloaded, verified against its published checksum and the installed signing certificate, and installed over this app through Shizuku. Open terminal sessions end when the app restarts.</string>
+    <string name="termux_update_confirm_title">Update %1$s?</string>
+    <string name="termux_update_confirm_message">Build %2$s of %1$s will be downloaded, verified against its published checksum and the signing certificate of the installed apps, and installed through Shizuku.\n\nTermuxPP, Termux:API and Termux:Tasker share one user id, so Android ends the processes of all of them when %1$s is replaced. Open terminal sessions and running tasks stop.</string>
     <string name="termux_update_confirm_positive">Update</string>
 
     <string name="termux_update_failure_no_apk">The release has no APK for this device.</string>
@@ -51,6 +57,7 @@
     <string name="termux_update_failure_checksum_mismatch">The download does not match its checksum.</string>
     <string name="termux_update_failure_unreadable_apk">The downloaded file is not a readable APK.</string>
     <string name="termux_update_failure_wrong_package">The APK is for a different app.</string>
+    <string name="termux_update_failure_shared_user_mismatch">The APK does not use the TermuxPP shared user id.</string>
     <string name="termux_update_failure_signature_mismatch">The APK is not signed with the installed certificate.</string>
     <string name="termux_update_failure_downgrade">The APK is older than the installed version.</string>
     <string name="termux_update_failure_install_failed">The installer refused the update.</string>

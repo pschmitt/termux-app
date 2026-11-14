@@ -1,8 +1,8 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory
-        app:key="update_source"
-        app:title="@string/termux_update_preferences_title">
+        app:key="updates_source"
+        app:title="@string/termux_updates_title">
 
         <ListPreference
             app:defaultValue="latest"
@@ -13,28 +13,37 @@
             app:useSimpleSummaryProvider="true" />
 
         <Preference
-            app:key="update_current"
-            app:selectable="false"
-            app:title="@string/termux_update_current_title" />
-
-        <Preference
             app:key="update_shizuku"
             app:title="@string/termux_update_shizuku_title" />
 
         <Preference
-            app:key="update_status"
+            app:key="update_warning"
             app:selectable="false"
-            app:title="@string/termux_update_status_title" />
+            app:summary="@string/termux_update_warning_summary"
+            app:title="@string/termux_update_warning_title" />
 
         <Preference
             app:key="update_check"
             app:summary="@string/termux_update_check_summary"
             app:title="@string/termux_update_check" />
 
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="updates_apps"
+        app:title="@string/termux_update_apps_title">
+
         <Preference
-            app:key="update_install"
-            app:summary="@string/termux_update_install_summary"
-            app:title="@string/termux_update_install" />
+            app:key="update_app_core"
+            app:title="@string/termux_update_app_core" />
+
+        <Preference
+            app:key="update_app_api"
+            app:title="@string/termux_update_app_api" />
+
+        <Preference
+            app:key="update_app_tasker"
+            app:title="@string/termux_update_app_tasker" />
 
     </PreferenceCategory>
 

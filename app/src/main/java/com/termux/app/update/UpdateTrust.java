@@ -20,24 +20,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * What the updater trusts, in one place: the repository it may install from, the hosts it may talk
- * to, and the integrity primitives. Nothing downloaded is ever interpreted as a command or a path;
- * the only things taken from release metadata are a commit hash, asset names that must match
- * {@link #SAFE_NAME} and sizes.
+ * What the updater trusts, in one place: the repositories it may install from (those of the
+ * {@link UpdateTarget} allowlist), the hosts it may talk to, and the integrity primitives. Nothing
+ * downloaded is ever interpreted as a command or a path; the only things taken from release
+ * metadata are a commit hash, asset names that must match {@link #SAFE_NAME} and sizes.
  */
 public final class UpdateTrust {
-
-    /** The repository whose release assets may be installed. */
-    public static final String REPOSITORY = "pschmitt/termux-app";
-
-    /** The rolling prerelease the {@link UpdateChannel#LATEST} channel follows. */
-    public static final String LATEST_TAG = "latest";
-
-    public static final String API_BASE_URL = "https://api.github.com/repos/" + REPOSITORY;
-
-    public static final String CHECKSUMS_ASSET = "SHA256SUMS";
-
-    static final String ASSET_PATH_PREFIX = "/" + REPOSITORY + "/releases/download/" + LATEST_TAG + "/";
 
     /** Characters an asset name may consist of: no path separators, no spaces, no leading dot. */
     private static final Pattern SAFE_NAME = Pattern.compile("[A-Za-z0-9_+][A-Za-z0-9._+-]{0,127}");
@@ -51,21 +39,21 @@ public final class UpdateTrust {
     }
 
     /**
-     * The download URL of the asset {@code name} of the latest release. The URL is built here from
-     * constants, not taken from the release metadata. Throws for names that are not safe.
+     * The download URL of the asset {@code name} of {@code target}'s latest release. The URL is built
+     * here from constants, not taken from the release metadata. Throws for names that are not safe.
      */
     @NonNull
-    public static String assetUrl(@NonNull String name) {
+    public static String assetUrl(@NonNull UpdateTarget target, @NonNull String name) {
         if (!isSafeAssetName(name)) throw new IllegalArgumentException("Unsafe asset name");
-        return "https://github.com" + ASSET_PATH_PREFIX + name;
+        return "https://github.com" + target.assetPathPrefix() + name;
     }
 
     /**
-     * Only HTTPS release assets of {@link #REPOSITORY}'s latest release may be installed: host
+     * Only HTTPS release assets of {@code target}'s repository's latest release may be installed: host
      * exactly github.com, default port, no credentials, no query or fragment, no dot segments.
      * GitHub then redirects to its asset CDN, which {@link #isTrustedDownloadHost} covers.
      */
-    public static boolean isTrustedAssetUrl(@Nullable String url) {
+    public static boolean isTrustedAssetUrl(@NonNull UpdateTarget target, @Nullable String url) {
         if (url == null) return false;
         URI uri;
         try {
@@ -77,10 +65,10 @@ public final class UpdateTrust {
         if (!"https".equals(uri.getScheme()) || !"github.com".equals(uri.getHost())
                 || uri.getPort() != -1 || uri.getRawUserInfo() != null
                 || uri.getRawQuery() != null || uri.getRawFragment() != null
-                || path == null || !path.startsWith(ASSET_PATH_PREFIX)) {
+                || path == null || !path.startsWith(target.assetPathPrefix())) {
             return false;
         }
-        String name = path.substring(ASSET_PATH_PREFIX.length());
+        String name = path.substring(target.assetPathPrefix().length());
         return isSafeAssetName(name);
     }
 

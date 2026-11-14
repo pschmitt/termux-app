@@ -1,5 +1,6 @@
-package com.termux.app.fragments.settings.termux;
+package com.termux.app.fragments.settings;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -8,16 +9,19 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.format.Formatter;
+import android.widget.Toast;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
 import com.termux.BuildConfig;
 import com.termux.R;
+import com.termux.app.update.ApkInspector;
 import com.termux.app.update.InstalledBuild;
 import com.termux.app.update.ShizukuInstaller;
 import com.termux.app.update.ShizukuState;
@@ -25,18 +29,21 @@ import com.termux.app.update.UpdateChannel;
 import com.termux.app.update.UpdateController;
 import com.termux.app.update.UpdateFailure;
 import com.termux.app.update.UpdateState;
+import com.termux.app.update.UpdateTarget;
 import com.termux.shared.logger.Logger;
 
 import rikka.shizuku.Shizuku;
 
 /**
- * Settings &gt; Update. Everything here happens on a tap: checking, the confirmation and the
- * install. Opening the screen only reads local state.
+ * Settings &gt; Updates: one screen for TermuxPP, Termux:API and Termux:Tasker. Everything here
+ * happens on a tap: checking, the confirmation and each install. Opening the screen only reads local
+ * state (what is installed), it never contacts the network.
  */
 @Keep
-public class UpdatePreferencesFragment extends PreferenceFragmentCompat implements UpdateController.Listener {
+public class UpdatesPreferencesFragment extends PreferenceFragmentCompat implements UpdateController.Listener {
 
-    private static final String LOG_TAG = "UpdatePreferencesFragment";
+    private static final String LOG_TAG = "UpdatesPreferencesFragment";
+    private static final String KEY_APP_PREFIX = "update_app_";
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Shizuku.OnBinderReceivedListener binderReceived = () -> mainHandler.post(this::refreshShizuku);
@@ -48,31 +55,21 @@ public class UpdatePreferencesFragment extends PreferenceFragmentCompat implemen
 
     private UpdateController controller;
     private boolean shizukuListening;
+    @Nullable private CharSequence previousTitle;
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         Context context = getContext();
         if (context == null) return;
 
-        setPreferencesFromResource(R.xml.termux_update_preferences, rootKey);
+        setPreferencesFromResource(R.xml.updates_preferences, rootKey);
         controller = UpdateController.getInstance(context);
-
-        Preference current = findPreference("update_current");
-        if (current != null) current.setSummary(currentBuildSummary(context));
 
         Preference check = findPreference("update_check");
         if (check != null) {
             check.setOnPreferenceClickListener(p -> {
-                if (controller.getState().phase.isBusy()) controller.cancel();
-                else controller.check(selectedChannel());
-                return true;
-            });
-        }
-
-        Preference install = findPreference("update_install");
-        if (install != null) {
-            install.setOnPreferenceClickListener(p -> {
-                confirmInstall();
+                if (controller.isBusy()) controller.cancel();
+                else controller.checkAll(selectedChannel());
                 return true;
             });
         }
@@ -84,11 +81,25 @@ public class UpdatePreferencesFragment extends PreferenceFragmentCompat implemen
                 return true;
             });
         }
+
+        for (UpdateTarget target : UpdateTarget.values()) {
+            Preference app = findPreference(KEY_APP_PREFIX + target.id);
+            if (app == null) continue;
+            app.setOnPreferenceClickListener(p -> {
+                onAppClicked(target);
+                return true;
+            });
+        }
     }
 
     @Override
     public void onStart() {
         super.onStart();
+        Activity activity = getActivity();
+        if (activity != null) {
+            previousTitle = activity.getTitle();
+            activity.setTitle(R.string.termux_updates_title);
+        }
         controller.addListener(this);
         try {
             Shizuku.addBinderReceivedListener(binderReceived);
@@ -98,8 +109,8 @@ public class UpdatePreferencesFragment extends PreferenceFragmentCompat implemen
         } catch (Throwable t) {
             Logger.logError(LOG_TAG, "Could not listen to Shizuku: " + t);
         }
+        controller.refreshInstalled();
         refreshShizuku();
-        render(controller.getState());
     }
 
     @Override
@@ -115,12 +126,14 @@ public class UpdatePreferencesFragment extends PreferenceFragmentCompat implemen
             }
             shizukuListening = false;
         }
+        Activity activity = getActivity();
+        if (activity != null && previousTitle != null) activity.setTitle(previousTitle);
         super.onStop();
     }
 
     @Override
-    public void onUpdateStateChanged(@NonNull UpdateState state) {
-        render(state);
+    public void onUpdateStateChanged(@NonNull UpdateTarget target, @NonNull UpdateState state) {
+        renderAll();
     }
 
     @NonNull
@@ -129,14 +142,20 @@ public class UpdatePreferencesFragment extends PreferenceFragmentCompat implemen
         return UpdateChannel.fromValue(channel == null ? null : channel.getValue());
     }
 
-    private void confirmInstall() {
+    private void onAppClicked(@NonNull UpdateTarget target) {
         Context context = getContext();
-        UpdateState state = controller.getState();
-        if (context == null || state.phase != UpdateState.Phase.AVAILABLE || state.offer == null) return;
+        UpdateState state = controller.getState(target);
+        if (context == null || controller.isBusy() || state.phase != UpdateState.Phase.AVAILABLE
+                || state.offer == null) return;
+        if (ShizukuInstaller.state(context) != ShizukuState.READY) {
+            Toast.makeText(context, R.string.termux_update_app_shizuku_needed, Toast.LENGTH_LONG).show();
+            return;
+        }
+        String name = getString(appTitle(target));
         new AlertDialog.Builder(context)
-                .setTitle(R.string.termux_update_confirm_title)
-                .setMessage(getString(R.string.termux_update_confirm_message, state.offer.shortCommit()))
-                .setPositiveButton(R.string.termux_update_confirm_positive, (dialog, which) -> controller.startUpdate())
+                .setTitle(getString(R.string.termux_update_confirm_title, name))
+                .setMessage(getString(R.string.termux_update_confirm_message, name, state.offer.shortCommit()))
+                .setPositiveButton(R.string.termux_update_confirm_positive, (dialog, which) -> controller.startUpdate(target))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
@@ -168,10 +187,10 @@ public class UpdatePreferencesFragment extends PreferenceFragmentCompat implemen
         Preference shizuku = findPreference("update_shizuku");
         if (context == null || shizuku == null) return;
         shizuku.setSummary(shizukuSummary(ShizukuInstaller.state(context)));
-        render(controller.getState());
+        renderAll();
     }
 
-    private int shizukuSummary(ShizukuState state) {
+    private static int shizukuSummary(ShizukuState state) {
         switch (state) {
             case UNSUPPORTED: return R.string.termux_update_shizuku_unsupported;
             case NOT_RUNNING: return R.string.termux_update_shizuku_not_running;
@@ -183,30 +202,66 @@ public class UpdatePreferencesFragment extends PreferenceFragmentCompat implemen
         }
     }
 
-    private void render(@NonNull UpdateState state) {
+    private void renderAll() {
         Context context = getContext();
-        if (context == null) return;
+        if (context == null || controller == null) return;
 
-        Preference status = findPreference("update_status");
-        if (status != null) status.setSummary(statusText(context, state));
-
+        boolean busy = controller.isBusy();
         Preference check = findPreference("update_check");
         if (check != null) {
-            boolean busy = state.phase.isBusy();
-            boolean cancellable = state.phase == UpdateState.Phase.CHECKING
-                    || state.phase == UpdateState.Phase.DOWNLOADING || state.phase == UpdateState.Phase.VERIFYING;
             check.setTitle(busy ? R.string.termux_update_cancel : R.string.termux_update_check);
-            check.setEnabled(!busy || cancellable);
+            check.setEnabled(!busy || controller.isCancellable());
         }
-
-        Preference install = findPreference("update_install");
-        if (install != null) {
-            install.setEnabled(state.phase == UpdateState.Phase.AVAILABLE
-                    && ShizukuInstaller.state(context) == ShizukuState.READY);
-        }
-
         ListPreference channel = findPreference("update_channel");
-        if (channel != null) channel.setEnabled(!state.phase.isBusy());
+        if (channel != null) channel.setEnabled(!busy);
+
+        for (UpdateTarget target : UpdateTarget.values()) {
+            Preference app = findPreference(KEY_APP_PREFIX + target.id);
+            if (app == null) continue;
+            UpdateState state = controller.getState(target);
+            app.setSummary(appSummary(context, target, state));
+            app.setEnabled(state.phase != UpdateState.Phase.NOT_INSTALLED);
+        }
+    }
+
+    @StringRes
+    private static int appTitle(@NonNull UpdateTarget target) {
+        switch (target) {
+            case API: return R.string.termux_update_app_api;
+            case TASKER: return R.string.termux_update_app_tasker;
+            case CORE:
+            default: return R.string.termux_update_app_core;
+        }
+    }
+
+    @NonNull
+    private String appSummary(@NonNull Context context, @NonNull UpdateTarget target, @NonNull UpdateState state) {
+        if (state.phase == UpdateState.Phase.NOT_INSTALLED) return getString(R.string.termux_update_app_not_installed);
+
+        String installed = installedSummary(context, target);
+        switch (state.phase) {
+            case IDLE:
+                return installed;
+            case AVAILABLE:
+                boolean ready = ShizukuInstaller.state(context) == ShizukuState.READY;
+                return installed + "\n" + statusText(context, state) + " "
+                        + getString(ready ? R.string.termux_update_app_tap_to_update
+                                : R.string.termux_update_app_shizuku_needed);
+            default:
+                return installed + "\n" + statusText(context, state);
+        }
+    }
+
+    @NonNull
+    private String installedSummary(@NonNull Context context, @NonNull UpdateTarget target) {
+        InstalledBuild build = target == UpdateTarget.CORE
+                ? InstalledBuild.parse(BuildConfig.GIT_REVISION)
+                : ApkInspector.declaredBuild(context, target);
+        if (!build.isComparable() || build.commit == null) {
+            return getString(R.string.termux_update_app_installed_unknown);
+        }
+        String shortCommit = build.commit.length() > 7 ? build.commit.substring(0, 7) : build.commit;
+        return getString(R.string.termux_update_app_installed, shortCommit);
     }
 
     @NonNull
@@ -263,22 +318,13 @@ public class UpdatePreferencesFragment extends PreferenceFragmentCompat implemen
             case CHECKSUM_MISMATCH: return R.string.termux_update_failure_checksum_mismatch;
             case UNREADABLE_APK: return R.string.termux_update_failure_unreadable_apk;
             case WRONG_PACKAGE: return R.string.termux_update_failure_wrong_package;
+            case SHARED_USER_MISMATCH: return R.string.termux_update_failure_shared_user_mismatch;
             case SIGNATURE_MISMATCH: return R.string.termux_update_failure_signature_mismatch;
             case DOWNGRADE: return R.string.termux_update_failure_downgrade;
             case CANCELLED: return R.string.termux_update_failure_cancelled;
             case INSTALL_FAILED:
             default: return R.string.termux_update_failure_install_failed;
         }
-    }
-
-    @NonNull
-    private String currentBuildSummary(@NonNull Context context) {
-        InstalledBuild build = InstalledBuild.parse(BuildConfig.GIT_REVISION);
-        if (!build.isComparable() || build.commit == null) {
-            return context.getString(R.string.termux_update_current_unknown, BuildConfig.TERMUX_PACKAGE_VARIANT);
-        }
-        String shortCommit = build.commit.length() > 7 ? build.commit.substring(0, 7) : build.commit;
-        return context.getString(R.string.termux_update_current_summary, shortCommit, BuildConfig.TERMUX_PACKAGE_VARIANT);
     }
 
 }

@@ -44,6 +44,8 @@
     <!-- Lets the updater see whether the Shizuku manager is installed (Android 11+ package visibility). -->
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
+        <package android:name="dev.pschmitt.termux.api" />
+        <package android:name="dev.pschmitt.termux.tasker" />
     </queries>
 
     <application

@@ -1,5 +1,5 @@
 # Publishes every push to main as the rolling "latest" prerelease that the in-app updater
-# (Settings > TermuxPP > Update) reads. See docs/en/self-update.md.
+# (Settings > Updates) reads. See docs/en/self-update.md.
 #
 # - The release is a prerelease named "Latest build"; its tag is moved to the built commit.
 # - Assets: the apt-android-7 debug APKs (universal plus one per ABI) and SHA256SUMS over them.
@@ -131,7 +131,7 @@ jobs:
           {
             echo "Automated debug build of the latest main ($GITHUB_SHA), built $(date -u +'%Y-%m-%d %H:%M UTC'). Not a stable release."
             echo
-            echo "Read by the in-app updater (Settings > TermuxPP > Update). The commit above is the build's identity."
+            echo "Read by the in-app updater (Settings > Updates). The commit above is the build's identity."
             echo '`SHA256SUMS` covers the APKs. These APKs are signed with the repository development key.'
           } > release-notes.md
 

@@ -4,31 +4,44 @@ page_ref: /docs/apps/termux/self-update.html
 
 # Self-update over Shizuku
 
-TermuxPP can replace itself with a newer build without opening a file manager: **Settings >
-TermuxPP > Update**. Nothing is checked or downloaded in the background. Every step starts with a
-tap, and the install itself asks for a confirmation first.
+TermuxPP can replace itself, and the two forked companion apps (Termux:API and Termux:Tasker),
+with newer builds without opening a file manager: **Settings > Updates**. The companions have no
+updater of their own; this one screen manages all three. Nothing is checked or downloaded in the
+background. Every step starts with a tap, and every install asks for a confirmation first.
 
 ## Using it
 
 1. Install and start [Shizuku](https://shizuku.rikka.app/) (wireless debugging or root) and, when
-   the Update screen says so, tap the Shizuku line to allow TermuxPP.
-2. Tap **Check for updates**. This contacts GitHub once.
-3. If a newer build exists the status line says so. Tap **Update now**, confirm, and wait. The app
-   restarts when the install finishes; open terminal sessions end then.
+   the Updates screen says so, tap the Shizuku line to allow TermuxPP.
+2. Tap **Check for updates**. This contacts GitHub, once per installed app, and shows the installed
+   commit and the result for TermuxPP, Termux:API and Termux:Tasker.
+3. Tap an app that has an update, read the confirmation and confirm. Apps are updated one at a
+   time: there is no "update all" and no promise that several apps are installed together.
 
-Without Shizuku (not installed, not running, permission missing or denied) the screen says exactly
-which, the update button stays disabled and nothing is changed on the device.
+Companions that are not installed show "Not installed"; the updater never installs an app that is
+absent. Without Shizuku (not installed, not running, permission missing or denied) the screen says
+exactly which, updates cannot be started and nothing is changed on the device.
+
+**Replacing any one of the three apps ends the processes of all of them**, because they share one
+user id (`dev.pschmitt.termux`). Open terminal sessions and running Tasker actions stop. Settings,
+data and saved Tasker profiles are untouched: nothing is cleared or downgraded.
 
 ## Channel and what "newer" means
 
-There is one channel, **Latest**. It is the rolling prerelease named `latest` of
-[pschmitt/termux-app](https://github.com/pschmitt/termux-app/releases/tag/latest), republished by
-`.github/workflows/latest_release.yml` on every push to `main`. Its body names the full commit of
-the build.
+There is one channel, **Latest**. Each app has its own rolling prerelease named `latest`:
+[pschmitt/termux-app](https://github.com/pschmitt/termux-app/releases/tag/latest),
+[pschmitt/termux-api](https://github.com/pschmitt/termux-api/releases/tag/latest) and
+[pschmitt/termux-tasker](https://github.com/pschmitt/termux-tasker/releases/tag/latest), each
+republished by its `.github/workflows/latest_release.yml` on every push to `main`. The body names
+the full commit of the build, and the release carries `SHA256SUMS`. The companion APKs are published
+under the fixed names `termux-api-app_debug.apk` and `termux-tasker-app_debug.apk`.
 
 The version name and version code never change between these builds, so they cannot order them.
-The updater compares commits instead: the build's own commit (`BuildConfig.GIT_REVISION`, written
-by `app/build.gradle`) against the release commit, using GitHub's compare API.
+The updater compares commits instead: the installed app's own commit against the release commit,
+using GitHub's compare API. For TermuxPP that is `BuildConfig.GIT_REVISION`, written by
+`app/build.gradle`. A companion declares its own commit in the manifest meta-data
+`dev.pschmitt.termux.GIT_REVISION` (value `git-<commit>`), so the commit of the `termux-app`
+submodule a companion pins is never mistaken for its identity.
 
 | Result | Meaning |
 | --- | --- |
@@ -43,15 +56,21 @@ made from a dirty tree is not, by design.
 
 ## What is checked before anything is installed
 
+- The apps and repositories are a fixed allowlist in `UpdateTarget`: TermuxPP
+  (`pschmitt/termux-app`), Termux:API (`pschmitt/termux-api`) and Termux:Tasker
+  (`pschmitt/termux-tasker`). Nothing in a release or in an installed app can add a target or
+  change which repository or package a target means; one target can never install another's APK.
 - Metadata comes only from `api.github.com` and files only from the fixed release download URL of
-  this repository, over HTTPS. Redirects are followed by hand and each hop must stay on `github.com`
+  the target's repository, over HTTPS. Redirects are followed by hand and each hop must stay on `github.com`
   or `*.githubusercontent.com`, https and the default port. Metadata, `SHA256SUMS` and the APK are
   size-limited. Asset file names are matched exactly against names the app builds itself
-  (`termux-app_<variant>-debug_<abi|universal>.apk`) and never used as a path or in a command.
+  (`termux-app_<variant>-debug_<abi|universal>.apk` for the core, the fixed names above for the
+  companions) and never used as a path or in a command.
 - The APK must match its entry in the release's `SHA256SUMS` and the size the release lists.
-- The archive must be this package (`dev.pschmitt.termux`), signed with the same certificate
-  digests as the installed app, with a version code that is not lower than the installed one (an
-  equal one is allowed because rolling builds share it).
+- The archive must be the target's package, declare the shared user id `dev.pschmitt.termux`, be
+  signed with the same certificate digests as both the installed copy and TermuxPP itself, and have
+  a version code that is not lower than the installed one (an equal one is allowed because rolling
+  builds share it).
 - Android's package installer enforces the signing rule again.
 - The update runs as a session of the Shizuku (shell) user with a normal replace; no verifier or
   other protection is disabled. The downloaded file stays in the app's private cache and is deleted
@@ -65,8 +84,9 @@ made from a dirty tree is not, by design.
 - The repository's development key (`testkey_untrusted.jks`) is public, so every debug build shares
   one signing identity. Matching certificates here mean "same key as the installed app", not "built
   by the maintainer". Treat the published APKs as exactly as trustworthy as the repository.
-- The feed only exists after the workflow has run once on `main`; before that the check reports an
-  error.
+- A feed only exists after its workflow has run once on `main`; before that the check for that app
+  reports an error. A companion built before it declared its commit, or from a dirty tree, is "not
+  eligible" until a published build is installed once by other means.
 - CI builds embed the upstream bootstrap archive unless the bootstrap inputs described in
   `docs/en/aarch64-bootstrap.md` are supplied to the workflow. An update does not re-extract the
   bootstrap of an existing installation, but a fresh install from the published APK would get the
@@ -75,4 +95,4 @@ made from a dirty tree is not, by design.
   failure is then reported and nothing is installed.
 - Only Shizuku is supported; there is no fallback to the system's install prompt.
 - Shizuku needs Android 7 (API 24) or newer. On older systems the app still installs and runs, and
-  the Update screen reports the updater as unavailable.
+  the Updates screen reports the updater as unavailable.

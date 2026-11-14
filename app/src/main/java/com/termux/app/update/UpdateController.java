@@ -23,20 +23,25 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Runs checks and updates on explicit request from the settings screen; nothing here is scheduled.
+ * Runs checks and updates on explicit request from the Updates screen; nothing here is scheduled.
+ *
+ * <p>One check covers all targets (core and the installed companions), one update covers one
+ * target: no unattended updates, no update-all, and nothing is promised about several apps being
+ * installed together. Only one check or update runs at a time. Because the three apps share one
+ * user id, replacing any of them ends the processes of all of them, this one included.
  *
  * <p>An update goes through these gates, each of which ends it with a distinct {@link UpdateFailure}:
  * trusted source URL, Shizuku ready, enough free storage, download of the APK and of
- * {@code SHA256SUMS} from the fixed release, SHA-256 and size match, the archive parses, it is this
- * package with the installed signing certificates and no lower version code, then the privileged
- * install. The downloaded file lives in the app's private cache and is wiped before each run, after
- * the install and on every failure.
+ * {@code SHA256SUMS} from the target's fixed release, SHA-256 and size match, the archive parses, it
+ * is that package with the shared user id and the installed signing certificates (the target's and
+ * this app's) and no lower version code, then the privileged install. The downloaded file lives in
+ * the app's private cache and is wiped before each run, after the install and on every failure.
  */
 // The singleton only ever holds the application context.
 @SuppressLint("StaticFieldLeak")
@@ -44,7 +49,7 @@ public final class UpdateController {
 
     public interface Listener {
         @MainThread
-        void onUpdateStateChanged(@NonNull UpdateState state);
+        void onUpdateStateChanged(@NonNull UpdateTarget target, @NonNull UpdateState state);
     }
 
     static final String ACTION_INSTALL_STATUS = "dev.pschmitt.termux.app.update.INSTALL_STATUS";
@@ -77,11 +82,16 @@ public final class UpdateController {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final List<Listener> listeners = new ArrayList<>();
+    private final Map<UpdateTarget, UpdateState> states = new ConcurrentHashMap<>();
 
-    private volatile UpdateState state = UpdateState.IDLE;
-    @Nullable private Future<?> running;
+    private final Object runLock = new Object();
+    /** The thread of the task that is running, to interrupt it on cancel. Guarded by {@link #runLock}. */
+    @Nullable private Thread runner;
+    /** A task is queued or running; set from the main thread, cleared when it ends. */
+    private volatile boolean taskActive;
     private final AtomicBoolean cancelRequested = new AtomicBoolean();
-    private volatile boolean installCommitted;
+    /** The target whose install was handed to the system and has not answered yet. */
+    @Nullable private volatile UpdateTarget installing;
 
     UpdateController(@NonNull Context context, @NonNull UpdateNetwork network) {
         this.context = context;
@@ -89,8 +99,28 @@ public final class UpdateController {
     }
 
     @NonNull
-    public UpdateState getState() {
-        return state;
+    public UpdateState getState(@NonNull UpdateTarget target) {
+        UpdateState state = states.get(target);
+        return state == null ? UpdateState.IDLE : state;
+    }
+
+    /** A check or an update is running; no new one may start. */
+    public boolean isBusy() {
+        if (taskActive) return true;
+        for (UpdateTarget target : UpdateTarget.values()) {
+            if (getState(target).phase.isBusy()) return true;
+        }
+        return false;
+    }
+
+    /** A check or a download that {@link #cancel()} can still stop. */
+    public boolean isCancellable() {
+        for (UpdateTarget target : UpdateTarget.values()) {
+            UpdateState.Phase phase = getState(target).phase;
+            if (phase == UpdateState.Phase.CHECKING || phase == UpdateState.Phase.DOWNLOADING
+                    || phase == UpdateState.Phase.VERIFYING) return true;
+        }
+        return false;
     }
 
     @MainThread
@@ -103,82 +133,151 @@ public final class UpdateController {
         listeners.remove(listener);
     }
 
-    /** Asks GitHub whether a newer build of the channel exists. Ignored while another run is busy. */
+    /**
+     * Local only, no network: marks companions that are not installed and clears the marker of those
+     * that now are. Leaves targets that are checking, updating or have a result alone.
+     */
     @MainThread
-    public void check(@NonNull UpdateChannel channel) {
-        if (state.phase.isBusy()) return;
-        publish(UpdateState.of(UpdateState.Phase.CHECKING, null));
-        cancelRequested.set(false);
-        running = executor.submit(() -> {
-            UpdateChecker.Result result = new UpdateChecker(network).check(
-                    BuildConfig.GIT_REVISION, BuildConfig.TERMUX_PACKAGE_VARIANT, supportedAbis(), channel);
-            if (cancelRequested.get()) {
-                publish(UpdateState.IDLE);
-                return;
+    public void refreshInstalled() {
+        for (UpdateTarget target : UpdateTarget.values()) {
+            UpdateState.Phase phase = getState(target).phase;
+            boolean installed = ApkInspector.isInstalled(context, target);
+            if (!installed && phase != UpdateState.Phase.NOT_INSTALLED && !phase.isBusy()) {
+                publish(target, UpdateState.of(UpdateState.Phase.NOT_INSTALLED, null));
+            } else if (installed && phase == UpdateState.Phase.NOT_INSTALLED) {
+                publish(target, UpdateState.IDLE);
             }
-            switch (result.kind) {
-                case AVAILABLE:
-                    publish(UpdateState.of(UpdateState.Phase.AVAILABLE, result.offer));
-                    break;
-                case UP_TO_DATE:
-                    publish(UpdateState.of(UpdateState.Phase.UP_TO_DATE, null));
-                    break;
-                case NOT_ELIGIBLE:
-                    publish(UpdateState.of(UpdateState.Phase.NOT_ELIGIBLE, null));
-                    break;
-                default:
-                    publish(UpdateState.checkFailed(result.detail));
-                    break;
+        }
+    }
+
+    /**
+     * Asks GitHub, one request pair per installed target, whether a newer build of the channel
+     * exists. Companions that are not installed are reported as such and cost no request. Ignored
+     * while another run is busy.
+     */
+    @MainThread
+    public void checkAll(@NonNull UpdateChannel channel) {
+        if (isBusy()) return;
+        cancelRequested.set(false);
+        for (UpdateTarget target : UpdateTarget.values()) {
+            if (ApkInspector.isInstalled(context, target)) publish(target, UpdateState.of(UpdateState.Phase.CHECKING, null));
+            else publish(target, UpdateState.of(UpdateState.Phase.NOT_INSTALLED, null));
+        }
+        submit(() -> {
+            for (UpdateTarget target : UpdateTarget.values()) {
+                if (getState(target).phase != UpdateState.Phase.CHECKING) continue;
+                if (cancelRequested.get()) {
+                    publish(target, UpdateState.IDLE);
+                    continue;
+                }
+                publishCheckResult(target, checkOne(target, channel));
             }
         });
     }
 
-    /** Downloads, verifies and installs the offer found by the last check. */
+    private UpdateChecker.Result checkOne(UpdateTarget target, UpdateChannel channel) {
+        InstalledBuild installed = target == UpdateTarget.CORE
+                ? InstalledBuild.parse(BuildConfig.GIT_REVISION)
+                : ApkInspector.declaredBuild(context, target);
+        return new UpdateChecker(network).check(
+                target, installed, BuildConfig.TERMUX_PACKAGE_VARIANT, supportedAbis(), channel);
+    }
+
+    private void publishCheckResult(UpdateTarget target, UpdateChecker.Result result) {
+        if (cancelRequested.get()) {
+            publish(target, UpdateState.IDLE);
+            return;
+        }
+        switch (result.kind) {
+            case AVAILABLE:
+                publish(target, UpdateState.of(UpdateState.Phase.AVAILABLE, result.offer));
+                break;
+            case UP_TO_DATE:
+                publish(target, UpdateState.of(UpdateState.Phase.UP_TO_DATE, null));
+                break;
+            case NOT_ELIGIBLE:
+                publish(target, UpdateState.of(UpdateState.Phase.NOT_ELIGIBLE, null));
+                break;
+            default:
+                publish(target, UpdateState.checkFailed(result.detail));
+                break;
+        }
+    }
+
+    /** Downloads, verifies and installs the offer the last check found for {@code target}. */
     @MainThread
-    public void startUpdate() {
-        UpdateState current = state;
+    public void startUpdate(@NonNull UpdateTarget target) {
+        if (isBusy()) return;
+        UpdateState current = getState(target);
         if (current.phase != UpdateState.Phase.AVAILABLE || current.offer == null) return;
         UpdateChecker.Offer offer = current.offer;
         cancelRequested.set(false);
-        installCommitted = false;
-        publish(UpdateState.progress(offer, 0, offer.apk.size > 0 ? offer.apk.size : -1));
-        running = executor.submit(() -> runUpdate(offer));
+        installing = null;
+        publish(target, UpdateState.progress(offer, 0, offer.apk.size > 0 ? offer.apk.size : -1));
+        submit(() -> runUpdate(target, offer));
     }
 
-    /** Stops a check or download. Once the install is handed to the system it can no longer be stopped. */
+    /**
+     * Stops a check or download. The task ends the states itself (a stopped check leaves the
+     * remaining targets idle). Once the install is handed to the system it can no longer be stopped.
+     */
     @MainThread
     public void cancel() {
-        UpdateState.Phase phase = state.phase;
-        if (phase != UpdateState.Phase.CHECKING && phase != UpdateState.Phase.DOWNLOADING
-                && phase != UpdateState.Phase.VERIFYING) return;
+        if (!isCancellable()) return;
         cancelRequested.set(true);
-        Future<?> future = running;
-        if (future != null) future.cancel(true);
+        synchronized (runLock) {
+            if (runner != null) runner.interrupt();
+        }
     }
 
-    /** Back to the idle state, e.g. after the screen showed a failure. */
+    /** Runs {@code body} on the single worker thread; the task always runs to its end, so the busy flag is reliable. */
+    private void submit(@NonNull Runnable body) {
+        taskActive = true;
+        executor.execute(() -> {
+            synchronized (runLock) {
+                runner = Thread.currentThread();
+            }
+            try {
+                body.run();
+            } catch (RuntimeException e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Updater task failed", e);
+            } finally {
+                synchronized (runLock) {
+                    runner = null;
+                    // Clear an interrupt that arrived too late, so the next task starts clean.
+                    Thread.interrupted();
+                }
+                taskActive = false;
+            }
+        });
+    }
+
+    /** Back to the idle state of every target that is not busy, e.g. after the screen showed a failure. */
     @MainThread
     public void reset() {
-        if (!state.phase.isBusy()) publish(UpdateState.IDLE);
+        for (UpdateTarget target : UpdateTarget.values()) {
+            if (!getState(target).phase.isBusy()) publish(target, UpdateState.IDLE);
+        }
+        refreshInstalled();
     }
 
-    private void runUpdate(UpdateChecker.Offer offer) {
+    private void runUpdate(UpdateTarget target, UpdateChecker.Offer offer) {
         File dir = new File(context.getCacheDir(), UPDATE_DIR);
         File file = new File(dir, UPDATE_FILE);
         try {
-            UpdateFailure failure = download(offer, dir, file);
-            if (failure == null) failure = verify(offer, file);
-            if (failure == null) failure = install(offer, file);
-            if (failure != null) publish(UpdateState.failed(offer, failure, null));
+            UpdateFailure failure = download(target, offer, dir, file);
+            if (failure == null) failure = verify(target, offer, file);
+            if (failure == null) failure = install(target, offer, file);
+            if (failure != null) publish(target, UpdateState.failed(offer, failure, null));
         } catch (UpdateNetwork.InsufficientStorageException e) {
-            publish(UpdateState.failed(offer, UpdateFailure.INSUFFICIENT_STORAGE, null));
+            publish(target, UpdateState.failed(offer, UpdateFailure.INSUFFICIENT_STORAGE, null));
         } catch (IOException e) {
-            publish(cancelRequested.get() || Thread.currentThread().isInterrupted()
+            publish(target, cancelRequested.get() || Thread.currentThread().isInterrupted()
                     ? UpdateState.failed(offer, UpdateFailure.CANCELLED, null)
                     : UpdateState.failed(offer, UpdateFailure.DOWNLOAD_FAILED, e.getMessage()));
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Update failed", e);
-            publish(UpdateState.failed(offer, UpdateFailure.INSTALL_FAILED, e.getMessage()));
+            publish(target, UpdateState.failed(offer, UpdateFailure.INSTALL_FAILED, e.getMessage()));
         } finally {
             wipe(dir);
         }
@@ -186,10 +285,10 @@ public final class UpdateController {
 
     /** Gates 1 to 3 and the transfer; returns null on success. */
     @Nullable
-    private UpdateFailure download(UpdateChecker.Offer offer, File dir, File file) throws IOException {
-        String apkUrl = UpdateTrust.assetUrl(offer.apk.name);
-        String sumsUrl = UpdateTrust.assetUrl(offer.checksums.name);
-        if (!UpdateTrust.isTrustedAssetUrl(apkUrl) || !UpdateTrust.isTrustedAssetUrl(sumsUrl)) {
+    private UpdateFailure download(UpdateTarget target, UpdateChecker.Offer offer, File dir, File file) throws IOException {
+        String apkUrl = UpdateTrust.assetUrl(target, offer.apk.name);
+        String sumsUrl = UpdateTrust.assetUrl(target, offer.checksums.name);
+        if (!UpdateTrust.isTrustedAssetUrl(target, apkUrl) || !UpdateTrust.isTrustedAssetUrl(target, sumsUrl)) {
             return UpdateFailure.NOT_TRUSTED;
         }
         if (ShizukuInstaller.state(context) != ShizukuState.READY) return UpdateFailure.SHIZUKU_NOT_READY;
@@ -207,41 +306,42 @@ public final class UpdateController {
             long now = System.currentTimeMillis();
             if (done != (reported >= 0 ? reported : total) && now - last[0] < PROGRESS_INTERVAL_MS) return;
             last[0] = now;
-            publish(UpdateState.progress(offer, done, reported >= 0 ? reported : total));
+            publish(target, UpdateState.progress(offer, done, reported >= 0 ? reported : total));
         });
         return null;
     }
 
     /** Checksum, archive identity and version guard; returns null when the file may be installed. */
     @Nullable
-    private UpdateFailure verify(UpdateChecker.Offer offer, File file) throws IOException {
+    private UpdateFailure verify(UpdateTarget target, UpdateChecker.Offer offer, File file) throws IOException {
         if (Thread.currentThread().isInterrupted()) return UpdateFailure.CANCELLED;
-        publish(UpdateState.of(UpdateState.Phase.VERIFYING, offer));
+        publish(target, UpdateState.of(UpdateState.Phase.VERIFYING, offer));
 
-        String sums = network.fetchAssetText(UpdateTrust.assetUrl(offer.checksums.name), MAX_CHECKSUMS_BYTES);
+        String sums = network.fetchAssetText(UpdateTrust.assetUrl(target, offer.checksums.name), MAX_CHECKSUMS_BYTES);
         Map<String, String> table = UpdateTrust.parseSha256Sums(sums);
         String expected = table.get(offer.apk.name);
         if (expected == null) return UpdateFailure.CHECKSUM_UNAVAILABLE;
         if (offer.apk.size > 0 && file.length() != offer.apk.size) return UpdateFailure.CHECKSUM_MISMATCH;
         if (!expected.equals(UpdateTrust.sha256Hex(file))) return UpdateFailure.CHECKSUM_MISMATCH;
 
-        ApkFacts installed = ApkInspector.installed(context);
+        ApkFacts installed = ApkInspector.installed(context, target);
+        ApkFacts core = ApkInspector.installed(context, UpdateTarget.CORE);
         ApkFacts archive = ApkInspector.archive(context, file);
-        if (installed == null || archive == null) return UpdateFailure.UNREADABLE_APK;
-        return ApkFacts.checkInstallable(installed, archive);
+        if (installed == null || core == null || archive == null) return UpdateFailure.UNREADABLE_APK;
+        return ApkFacts.checkInstallable(target, installed, archive, core);
     }
 
     @Nullable
-    private UpdateFailure install(UpdateChecker.Offer offer, File file) throws Exception {
+    private UpdateFailure install(UpdateTarget target, UpdateChecker.Offer offer, File file) throws Exception {
         if (Thread.currentThread().isInterrupted() || cancelRequested.get()) return UpdateFailure.CANCELLED;
         // Re-check just before the privileged call: Shizuku may have stopped during the download.
         if (ShizukuInstaller.state(context) != ShizukuState.READY) return UpdateFailure.SHIZUKU_NOT_READY;
-        publish(UpdateState.of(UpdateState.Phase.INSTALLING, offer));
-        installCommitted = true;
+        publish(target, UpdateState.of(UpdateState.Phase.INSTALLING, offer));
+        installing = target;
         try {
-            ShizukuInstaller.install(context, file, statusSender());
+            ShizukuInstaller.install(context, target, file, statusSender());
         } catch (Exception e) {
-            installCommitted = false;
+            installing = null;
             throw e;
         }
         return null;
@@ -255,34 +355,38 @@ public final class UpdateController {
         return PendingIntent.getBroadcast(context, 0, intent, flags).getIntentSender();
     }
 
-    /** The verdict from {@link InstallStatusReceiver}. On success this process is normally replaced first. */
+    /**
+     * The verdict from {@link InstallStatusReceiver}. On success this process is normally replaced
+     * first: installing any of the three apps ends the processes of all of them.
+     */
     void onInstallStatus(@NonNull Intent intent) {
-        if (!installCommitted && state.phase != UpdateState.Phase.INSTALLING) return;
+        UpdateTarget target = installing;
+        if (target == null) return;
         int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
         String message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
-        UpdateChecker.Offer offer = state.offer;
-        installCommitted = false;
+        UpdateChecker.Offer offer = getState(target).offer;
+        installing = null;
         switch (status) {
             case PackageInstaller.STATUS_SUCCESS:
-                publish(UpdateState.of(UpdateState.Phase.IDLE, null));
+                publish(target, UpdateState.of(UpdateState.Phase.IDLE, null));
                 break;
             case PackageInstaller.STATUS_PENDING_USER_ACTION:
                 // The privileged session should not need a confirmation. If it asks, refuse: no
                 // confirmation intent from the system is launched on the update's behalf.
-                publish(UpdateState.failed(offer, UpdateFailure.INSTALL_FAILED, "installer asked for confirmation"));
+                publish(target, UpdateState.failed(offer, UpdateFailure.INSTALL_FAILED, "installer asked for confirmation"));
                 break;
             default:
-                publish(UpdateState.failed(offer, UpdateFailure.INSTALL_FAILED, message));
+                publish(target, UpdateState.failed(offer, UpdateFailure.INSTALL_FAILED, message));
                 break;
         }
     }
 
-    private void publish(UpdateState next) {
-        state = next;
+    private void publish(UpdateTarget target, UpdateState next) {
+        states.put(target, next);
         mainHandler.post(() -> {
             // Deliver the newest state; a burst of progress posts collapses to the last value.
-            UpdateState latest = state;
-            for (Listener listener : new ArrayList<>(listeners)) listener.onUpdateStateChanged(latest);
+            UpdateState latest = getState(target);
+            for (Listener listener : new ArrayList<>(listeners)) listener.onUpdateStateChanged(target, latest);
         });
     }
 

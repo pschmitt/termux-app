@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
 import android.os.Build;
+import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -15,19 +16,49 @@ import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Reads package name, version code and signing certificates from the installed app and from an APK file. */
+/**
+ * Reads package name, shared user id, version code and signing certificates from an installed app
+ * and from an APK file, and the commit a companion declares in its manifest.
+ */
 public final class ApkInspector {
 
     private ApkInspector() {}
 
-    /** Facts about this app as installed; null if the package manager cannot tell. */
+    /** Facts about {@code target} as installed; null if it is not installed or the package manager cannot tell. */
     @Nullable
-    public static ApkFacts installed(@NonNull Context context) {
+    public static ApkFacts installed(@NonNull Context context, @NonNull UpdateTarget target) {
         try {
-            PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), signingFlags());
+            PackageInfo info = context.getPackageManager().getPackageInfo(target.packageName, signingFlags());
             return facts(info);
         } catch (PackageManager.NameNotFoundException | RuntimeException e) {
             return null;
+        }
+    }
+
+    /** Whether the package manager knows {@code target}. */
+    public static boolean isInstalled(@NonNull Context context, @NonNull UpdateTarget target) {
+        try {
+            context.getPackageManager().getPackageInfo(target.packageName, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * The commit identity a companion declares in its manifest, as the installed package manager
+     * reports it; non-comparable when absent or not in the {@code git-<hex>} form.
+     */
+    @NonNull
+    public static InstalledBuild declaredBuild(@NonNull Context context, @NonNull UpdateTarget target) {
+        try {
+            PackageInfo info = context.getPackageManager().getPackageInfo(target.packageName,
+                    PackageManager.GET_META_DATA);
+            Bundle metaData = info.applicationInfo == null ? null : info.applicationInfo.metaData;
+            Object value = metaData == null ? null : metaData.get(UpdateTarget.REVISION_META_DATA);
+            return InstalledBuild.parseMetaData(value instanceof String ? (String) value : null);
+        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
+            return InstalledBuild.parseMetaData(null);
         }
     }
 
@@ -50,7 +81,7 @@ public final class ApkInspector {
 
     @NonNull
     private static ApkFacts facts(@NonNull PackageInfo info) {
-        return new ApkFacts(info.packageName, PackageInfoCompat.getLongVersionCode(info), digests(info));
+        return new ApkFacts(info.packageName, info.sharedUserId, PackageInfoCompat.getLongVersionCode(info), digests(info));
     }
 
     @SuppressWarnings("deprecation")

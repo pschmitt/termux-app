@@ -28,6 +28,19 @@ public final class InstalledBuild {
         return commit != null;
     }
 
+    /**
+     * What a companion's {@link UpdateTarget#REVISION_META_DATA} says: {@code git-<hex commit>}.
+     * A value without the prefix, with a {@code -dirty} suffix or in any other shape is not comparable.
+     */
+    @NonNull
+    public static InstalledBuild parseMetaData(@Nullable String metaData) {
+        if (metaData == null) return new InstalledBuild(null);
+        String value = metaData.trim().toLowerCase(Locale.ROOT);
+        if (!value.startsWith(UpdateTarget.REVISION_PREFIX)) return new InstalledBuild(null);
+        String hash = value.substring(UpdateTarget.REVISION_PREFIX.length());
+        return HASH.matcher(hash).matches() ? new InstalledBuild(hash) : new InstalledBuild(null);
+    }
+
     @NonNull
     public static InstalledBuild parse(@Nullable String gitRevision) {
         if (gitRevision == null) return new InstalledBuild(null);

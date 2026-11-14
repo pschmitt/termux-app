@@ -9,12 +9,11 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Checks the rolling {@code latest} release against the installed build.
+ * Checks the rolling {@code latest} release of one {@link UpdateTarget} against its installed build.
  *
  * "Newer" cannot be read off the constant tag, version name or version code, so the decision is
  * made on commits: the release body names the full commit the build was made from (a release
@@ -88,29 +87,31 @@ public final class UpdateChecker {
     private static final int HTTP_NOT_FOUND = 404;
 
     private final UpdateNetwork network;
-    private final String apiBaseUrl;
+    @Nullable private final String apiBaseUrlOverride;
 
     public UpdateChecker(@NonNull UpdateNetwork network) {
-        this(network, UpdateTrust.API_BASE_URL);
+        this(network, null);
     }
 
-    UpdateChecker(@NonNull UpdateNetwork network, @NonNull String apiBaseUrl) {
+    /** {@code apiBaseUrlOverride} replaces the target's API URL; for tests only. */
+    UpdateChecker(@NonNull UpdateNetwork network, @Nullable String apiBaseUrlOverride) {
         this.network = network;
-        this.apiBaseUrl = apiBaseUrl;
+        this.apiBaseUrlOverride = apiBaseUrlOverride;
     }
 
     /**
-     * @param gitRevision {@code BuildConfig.GIT_REVISION}
-     * @param variant the package variant of the running build, e.g. {@code apt-android-7}: the APK
-     *                installed must be the same variant
+     * @param target the app to check; its repository, not anything in the release, decides where
+     *               the metadata comes from
+     * @param installed the commit identity of the installed {@code target}
+     * @param variant the package variant of the running core, e.g. {@code apt-android-7}: the core
+     *                APK installed must be the same variant (ignored for companions, which have one APK)
      * @param supportedAbis the device's ABIs, most preferred first
      */
     @NonNull
-    public Result check(@Nullable String gitRevision, @Nullable String variant, @NonNull List<String> supportedAbis,
-                        @NonNull UpdateChannel channel) {
-        InstalledBuild installed = InstalledBuild.parse(gitRevision);
-        if (!installed.isComparable()) return new Result(Kind.NOT_ELIGIBLE, null, null);
-        if (variant == null || !VARIANT.matcher(variant).matches()) {
+    public Result check(@NonNull UpdateTarget target, @NonNull InstalledBuild installed, @Nullable String variant,
+                        @NonNull List<String> supportedAbis, @NonNull UpdateChannel channel) {
+        if (!installed.isComparable() || installed.commit == null) return new Result(Kind.NOT_ELIGIBLE, null, null);
+        if (target.hasVariants() && (variant == null || !VARIANT.matcher(variant).matches())) {
             return new Result(Kind.FAILED, null, "unknown package variant");
         }
         try {
@@ -118,7 +119,7 @@ public final class UpdateChecker {
             switch (channel) {
                 case LATEST:
                 default:
-                    return checkLatest(installed.commit, variant, supportedAbis);
+                    return checkLatest(target, installed.commit, variant, supportedAbis);
             }
         } catch (UpdateNetwork.HttpStatusException e) {
             return new Result(Kind.FAILED, null, "GitHub returned " + e.code);
@@ -127,31 +128,32 @@ public final class UpdateChecker {
         }
     }
 
-    private Result checkLatest(String installedCommit, String variant, List<String> abis)
+    private Result checkLatest(UpdateTarget target, String installedCommit, @Nullable String variant, List<String> abis)
             throws IOException, JSONException {
-        JSONObject release = new JSONObject(network.fetchApiJson(apiBaseUrl + "/releases/tags/" + UpdateTrust.LATEST_TAG));
+        String apiBaseUrl = apiBaseUrlOverride != null ? apiBaseUrlOverride : target.apiBaseUrl();
+        JSONObject release = new JSONObject(network.fetchApiJson(apiBaseUrl + "/releases/tags/" + UpdateTarget.LATEST_TAG));
         Matcher matcher = FULL_COMMIT_HASH.matcher(release.optString("body", ""));
         if (!matcher.find()) throw new IOException("latest release names no commit");
         String remoteCommit = matcher.group();
 
         if (remoteCommit.startsWith(installedCommit)) return new Result(Kind.UP_TO_DATE, null, null);
 
-        CompareStatus status = compare(installedCommit, remoteCommit);
+        CompareStatus status = compare(apiBaseUrl, installedCommit, remoteCommit);
         if (status == null || status == CompareStatus.DIVERGED) return new Result(Kind.NOT_ELIGIBLE, null, null);
         if (status != CompareStatus.AHEAD) return new Result(Kind.UP_TO_DATE, null, null);
 
         JSONArray assets = release.optJSONArray("assets");
         if (assets == null) throw new IOException("latest release has no assets");
-        Asset apk = selectApkAsset(assets, variant, abis);
+        Asset apk = selectApkAsset(assets, target, variant, abis);
         if (apk == null) throw new IOException("latest release has no APK for this device");
-        Asset checksums = findAsset(assets, UpdateTrust.CHECKSUMS_ASSET);
-        if (checksums == null) throw new IOException("latest release has no " + UpdateTrust.CHECKSUMS_ASSET);
+        Asset checksums = findAsset(assets, UpdateTarget.CHECKSUMS_ASSET);
+        if (checksums == null) throw new IOException("latest release has no " + UpdateTarget.CHECKSUMS_ASSET);
         return new Result(Kind.AVAILABLE, new Offer(remoteCommit, apk, checksums), null);
     }
 
     /** Null when GitHub answers 404: it does not know {@code base}. */
     @Nullable
-    private CompareStatus compare(String base, String head) throws IOException, JSONException {
+    private CompareStatus compare(String apiBaseUrl, String base, String head) throws IOException, JSONException {
         try {
             String json = network.fetchApiJson(apiBaseUrl + "/compare/" + base + "..." + head + "?per_page=1");
             return CompareStatus.parse(new JSONObject(json).optString("status"));
@@ -162,23 +164,18 @@ public final class UpdateChecker {
     }
 
     /**
-     * The APK of the running package variant for the first of {@code abis} that has one, else the
-     * universal APK. Names are exactly {@code termux-app_<variant>-debug_<abi>.apk}; anything else
-     * is ignored, so a release cannot steer the install to another variant or file.
+     * The APK of {@code target} for the first of its candidate names that the release has. The
+     * names are built by {@link UpdateTarget#apkNames}, so a release cannot steer the install to
+     * another variant, file or app; anything else in it is ignored.
      */
     @Nullable
-    static Asset selectApkAsset(@NonNull JSONArray assets, @NonNull String variant, @NonNull List<String> abis)
-            throws JSONException {
-        for (String abi : abis) {
-            Asset asset = findAsset(assets, apkName(variant, abi));
+    static Asset selectApkAsset(@NonNull JSONArray assets, @NonNull UpdateTarget target, @Nullable String variant,
+                                @NonNull List<String> abis) throws JSONException {
+        for (String name : target.apkNames(variant, abis)) {
+            Asset asset = findAsset(assets, name);
             if (asset != null) return asset;
         }
-        return findAsset(assets, apkName(variant, "universal"));
-    }
-
-    @NonNull
-    static String apkName(@NonNull String variant, @NonNull String abi) {
-        return String.format(Locale.ROOT, "termux-app_%s-debug_%s.apk", variant, abi);
+        return null;
     }
 
     @Nullable

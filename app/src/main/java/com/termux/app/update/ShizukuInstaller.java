@@ -110,12 +110,13 @@ public final class ShizukuInstaller {
     }
 
     /**
-     * Commits {@code file} in a privileged install session for this app's own package; the verdict
-     * goes to {@code resultSender}. Throws when Shizuku is not ready or anything fails; the session
-     * is abandoned then.
+     * Commits {@code file} in a privileged install session for the package of {@code target}, which
+     * is a fixed allowlist entry (never a name taken from the network); the verdict goes to
+     * {@code resultSender}. Throws when Shizuku is not ready or anything fails; the session is
+     * abandoned then.
      */
-    public static void install(@NonNull Context context, @NonNull File file, @NonNull IntentSender resultSender)
-            throws Exception {
+    public static void install(@NonNull Context context, @NonNull UpdateTarget target, @NonNull File file,
+                               @NonNull IntentSender resultSender) throws Exception {
         if (state(context) != ShizukuState.READY) throw new IllegalStateException("Shizuku is not ready");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) HiddenApiBypass.addHiddenApiExemptions("");
 
@@ -124,7 +125,7 @@ public final class ShizukuInstaller {
 
         PackageInstaller.SessionParams params =
                 new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-        params.setAppPackageName(context.getPackageName());
+        params.setAppPackageName(target.packageName);
         params.setSize(file.length());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);

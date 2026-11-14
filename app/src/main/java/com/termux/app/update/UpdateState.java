@@ -3,11 +3,13 @@ package com.termux.app.update;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-/** Immutable snapshot of what the updater is doing, for the settings screen. */
+/** Immutable snapshot of what the updater is doing for one {@link UpdateTarget}, for the settings screen. */
 public final class UpdateState {
 
     public enum Phase {
         IDLE,
+        /** The companion is not installed; it is never installed by the updater. */
+        NOT_INSTALLED,
         CHECKING,
         UP_TO_DATE,
         AVAILABLE,
