@@ -1,7 +1,6 @@
 package com.termux.app.fragments.settings;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -36,6 +35,7 @@ import com.termux.app.update.UpdateController;
 import com.termux.app.update.UpdateFailure;
 import com.termux.app.update.UpdateState;
 import com.termux.app.update.UpdateTarget;
+import com.termux.shared.interact.DialogUtils;
 import com.termux.shared.logger.Logger;
 
 import rikka.shizuku.Shizuku;
@@ -163,7 +163,7 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
             return;
         }
         String name = getString(appTitle(target));
-        new AlertDialog.Builder(context)
+        DialogUtils.builder(context, R.drawable.ui_ic_system_update, false)
                 .setTitle(getString(R.string.termux_update_confirm_title, name))
                 .setMessage(getString(R.string.termux_update_confirm_message, name, state.offer.shortCommit()))
                 .setPositiveButton(R.string.termux_update_confirm_positive, (dialog, which) -> controller.startUpdate(target))

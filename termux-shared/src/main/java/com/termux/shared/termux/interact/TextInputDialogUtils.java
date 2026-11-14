@@ -1,14 +1,18 @@
 package com.termux.shared.termux.interact;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.text.Selection;
-import android.util.TypedValue;
 import android.view.KeyEvent;
-import android.view.ViewGroup.LayoutParams;
-import android.widget.EditText;
-import android.widget.LinearLayout;
+import android.view.LayoutInflater;
+import android.view.View;
+
+import androidx.appcompat.app.AlertDialog;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
+import com.termux.shared.R;
+import com.termux.shared.interact.DialogUtils;
 
 public final class TextInputDialogUtils {
 
@@ -21,7 +25,10 @@ public final class TextInputDialogUtils {
                                  int neutralButtonText, final TextSetListener onNeutral,
                                  int negativeButtonText, final TextSetListener onNegative,
                                  final DialogInterface.OnDismissListener onDismiss) {
-        final EditText input = new EditText(activity);
+        MaterialAlertDialogBuilder builder = DialogUtils.builder(activity);
+
+        final View layout = LayoutInflater.from(builder.getContext()).inflate(R.layout.dialog_text_input, null);
+        final TextInputEditText input = layout.findViewById(R.id.dialog_input);
         input.setSingleLine();
         if (initialText != null) {
             input.setText(initialText);
@@ -36,19 +43,7 @@ public final class TextInputDialogUtils {
             return true;
         });
 
-        float dipInPixels = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1, activity.getResources().getDisplayMetrics());
-        // https://www.google.com/design/spec/components/dialogs.html#dialogs-specs
-        int paddingTopAndSides = Math.round(16 * dipInPixels);
-        int paddingBottom = Math.round(24 * dipInPixels);
-
-        LinearLayout layout = new LinearLayout(activity);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-        layout.setPadding(paddingTopAndSides, paddingTopAndSides, paddingTopAndSides, paddingBottom);
-        layout.addView(input);
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(activity)
-            .setTitle(titleText).setView(layout)
+        builder.setTitle(titleText).setView(layout)
             .setPositiveButton(positiveButtonText, (d, whichButton) -> onPositive.onTextSet(input.getText().toString()));
 
         if (onNeutral != null) {

@@ -160,6 +160,28 @@ public class TermuxContextMenuSheetTest {
             String.valueOf(androidx.core.view.ViewCompat.getAccessibilityPaneTitle(root)));
     }
 
+    @Test
+    public void expandedSheetKeepsItsRoundedTopCorners() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = sheet(activity).show(id -> { });
+        ShadowLooper.idleMainLooper();
+        Assert.assertEquals(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED,
+            dialog.getBehavior().getState());
+        Assert.assertFalse(dialog.getBehavior().isShouldRemoveExpandedCorners());
+
+        View sheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+        Assert.assertNotNull(sheet);
+        Assert.assertTrue(sheet.getBackground() instanceof com.google.android.material.shape.MaterialShapeDrawable);
+        com.google.android.material.shape.ShapeAppearanceModel shape =
+            ((com.google.android.material.shape.MaterialShapeDrawable) sheet.getBackground()).getShapeAppearanceModel();
+        android.graphics.RectF bounds = new android.graphics.RectF(0, 0, 1080, 1200);
+        float expected = 28 * activity.getResources().getDisplayMetrics().density;
+        Assert.assertEquals(expected, shape.getTopLeftCornerSize().getCornerSize(bounds), 0.5f);
+        Assert.assertEquals(expected, shape.getTopRightCornerSize().getCornerSize(bounds), 0.5f);
+        Assert.assertEquals(0f, shape.getBottomLeftCornerSize().getCornerSize(bounds), 0.5f);
+        Assert.assertEquals(0f, shape.getBottomRightCornerSize().getCornerSize(bounds), 0.5f);
+    }
+
     private static boolean containsVisibleText(View view, String text) {
         if (view instanceof android.widget.TextView && view.getVisibility() == View.VISIBLE
             && text.contentEquals(((android.widget.TextView) view).getText())) return true;

@@ -7,5 +7,6 @@
     <dimen name="ui_icon_container">40dp</dimen>
     <dimen name="ui_drawer_width">304dp</dimen>
     <dimen name="ui_sheet_radius">28dp</dimen>
+    <dimen name="ui_dialog_radius">28dp</dimen>
     <dimen name="ui_touch_target">48dp</dimen>
 </resources>

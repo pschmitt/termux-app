@@ -1,7 +1,6 @@
 package com.termux.app;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -40,6 +39,7 @@ import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.activity.ActivityUtils;
 import com.termux.shared.activity.media.AppCompatActivityUtils;
 import com.termux.shared.data.IntentUtils;
+import com.termux.shared.interact.DialogUtils;
 import com.termux.shared.android.PermissionUtils;
 import com.termux.shared.data.DataUtils;
 import com.termux.shared.termux.TermuxConstants;
@@ -750,15 +750,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void showKillSessionDialog(TerminalSession session) {
         if (session == null) return;
 
-        final AlertDialog.Builder b = new AlertDialog.Builder(this);
-        b.setIcon(android.R.drawable.ic_dialog_alert);
-        b.setMessage(R.string.title_confirm_kill_process);
-        b.setPositiveButton(android.R.string.yes, (dialog, id) -> {
-            dialog.dismiss();
-            session.finishIfRunning();
-        });
-        b.setNegativeButton(android.R.string.no, null);
-        b.show();
+        DialogUtils.builder(this, R.drawable.ui_ic_warning, true)
+            .setTitle(R.string.title_confirm_kill_process)
+            .setPositiveButton(android.R.string.yes, (dialog, id) -> {
+                dialog.dismiss();
+                session.finishIfRunning();
+            })
+            .setNegativeButton(android.R.string.no, null)
+            .show();
     }
 
     private void onResetTerminalSession(TerminalSession session) {
@@ -778,7 +777,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         } catch (ActivityNotFoundException | IllegalArgumentException e) {
             // The startActivity() call is not documented to throw IllegalArgumentException.
             // However, crash reporting shows that it sometimes does, so catch it here.
-            new AlertDialog.Builder(this).setMessage(getString(R.string.error_styling_not_installed))
+            DialogUtils.builder(this, R.drawable.ui_ic_palette, false).setTitle(getString(R.string.error_styling_not_installed))
                 .setPositiveButton(R.string.action_styling_install,
                     (dialog, which) -> ActivityUtils.startActivity(this, new Intent(Intent.ACTION_VIEW, Uri.parse(TermuxConstants.TERMUX_STYLING_FDROID_PACKAGE_URL))))
                 .setNegativeButton(android.R.string.cancel, null).show();

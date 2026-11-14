@@ -1,7 +1,7 @@
 package com.termux.app.terminal;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -22,6 +22,7 @@ import com.termux.R;
 import com.termux.app.TermuxActivity;
 import com.termux.app.TermuxService;
 import com.termux.shared.file.FileUtils;
+import com.termux.shared.interact.DialogUtils;
 import com.termux.shared.interact.MessageDialogUtils;
 import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.shell.ShellUtils;
@@ -269,7 +270,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             return;
         }
 
-        new AlertDialog.Builder(mActivity)
+        DialogUtils.builder(mActivity, R.drawable.ui_ic_link, false)
             .setTitle(R.string.title_open_hyperlink)
             .setMessage(mActivity.getString(R.string.msg_open_hyperlink_concealing, getLabelForDisplay(label), uri))
             .setPositiveButton(R.string.action_open_hyperlink, (dialog, which) -> ShareUtils.openUrl(mActivity, uri))
@@ -963,7 +964,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         List<CharSequence> items = new ArrayList<>(addressOfItem.keySet());
 
         if (items.isEmpty()) {
-            new AlertDialog.Builder(mActivity).setMessage(R.string.title_select_url_none_found).show();
+            DialogUtils.builder(mActivity, R.drawable.ui_ic_link, false).setTitle(R.string.title_select_url_none_found).show();
             return;
         }
 
@@ -971,7 +972,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         Collections.reverse(Arrays.asList(urls)); // Latest first.
 
         // Click to copy url to clipboard:
-        final AlertDialog dialog = new AlertDialog.Builder(mActivity).setItems(urls, (di, which) -> {
+        final AlertDialog dialog = DialogUtils.builder(mActivity, R.drawable.ui_ic_link, false).setItems(urls, (di, which) -> {
             String url = addressOfItem.get(urls[which].toString());
             ShareUtils.copyTextToClipboard(mActivity, url, mActivity.getString(R.string.msg_select_url_copied_to_clipboard));
         }).setTitle(R.string.title_select_url_dialog).create();

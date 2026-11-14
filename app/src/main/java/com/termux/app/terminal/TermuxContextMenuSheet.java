@@ -250,7 +250,8 @@ public class TermuxContextMenuSheet {
         behavior.setHideable(true);
         // A downward drag dismisses, there is no collapsed state in between.
         behavior.setSkipCollapsed(true);
-        // Keep the rounded corners and the scrim gap: the sheet never reaches the status bar.
+        // Material removes the rounded corners of a sheet once it is expanded, and the sheet always is: keep them.
+        behavior.setShouldRemoveExpandedCorners(false);
         if (maxHeight > 0) behavior.setMaxHeight(maxHeight);
         dialog.setOnShowListener(d -> behavior.setState(BottomSheetBehavior.STATE_EXPANDED));
         dialog.show();

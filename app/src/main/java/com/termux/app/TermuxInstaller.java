@@ -1,8 +1,7 @@
 package com.termux.app;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.ProgressDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.Context;
 import android.os.Build;
 import android.os.Environment;
@@ -13,6 +12,7 @@ import com.termux.R;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
 import com.termux.shared.termux.file.TermuxFileUtils;
+import com.termux.shared.interact.DialogUtils;
 import com.termux.shared.interact.MessageDialogUtils;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.markdown.MarkdownUtils;
@@ -108,7 +108,7 @@ final class TermuxInstaller {
             Logger.logInfo(LOG_TAG, "The termux prefix directory \"" + TERMUX_PREFIX_DIR_PATH + "\" does not exist but another file exists at its destination.");
         }
 
-        final ProgressDialog progress = ProgressDialog.show(activity, null, activity.getString(R.string.bootstrap_installer_body), true, false);
+        final AlertDialog progress = DialogUtils.showProgress(activity, activity.getString(R.string.bootstrap_installer_body));
         new Thread() {
             @Override
             public void run() {
@@ -243,7 +243,8 @@ final class TermuxInstaller {
 
         activity.runOnUiThread(() -> {
             try {
-                new AlertDialog.Builder(activity).setTitle(R.string.bootstrap_error_title).setMessage(R.string.bootstrap_error_body)
+                DialogUtils.builder(activity, R.drawable.ui_ic_warning, true)
+                    .setTitle(R.string.bootstrap_error_title).setMessage(R.string.bootstrap_error_body)
                     .setNegativeButton(R.string.bootstrap_error_abort, (dialog, which) -> {
                         dialog.dismiss();
                         activity.finish();
