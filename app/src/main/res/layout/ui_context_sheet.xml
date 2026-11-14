@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The header stays fixed, only the list scrolls: the scroll view takes the height that is left under the
+     maximum height that TermuxContextMenuSheet gives the bottom sheet. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <com.google.android.material.bottomsheet.BottomSheetDragHandleView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+    <View
+        android:layout_width="32dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/ui_sheet_handle"
+        android:importantForAccessibility="no" />
 
     <TextView
         android:layout_width="match_parent"
@@ -20,7 +27,9 @@
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:overScrollMode="ifContentScrolls">
 
         <LinearLayout
             android:id="@+id/context_sheet_items"

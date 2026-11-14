@@ -36,6 +36,12 @@ public enum TerminalGestureAction {
     OPEN_SIDEBAR("open-sidebar"),
 
     /**
+     * Open the terminal menu, the same bottom sheet that a long press on the terminal and then
+     * "More" opens.
+     */
+    OPEN_MENU("open-menu"),
+
+    /**
      * Send keys to the terminal, like Escape or Ctrl+L, given by the {@code *-keys} property of the
      * gesture, for example {@link TermuxPropertyConstants#KEY_TERMINAL_DOUBLE_TAP_KEYS}. Without
      * usable keys the action is {@link #NONE}, see {@link #effective(TerminalGestureAction, boolean)}.

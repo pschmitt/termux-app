@@ -23,6 +23,9 @@ public final class GestureActionDispatcher {
         /** Open the sidebar, if it may be opened now. */
         void openSidebar();
 
+        /** Open the terminal menu (the bottom sheet), the same one that the long press opens. */
+        void openMenu();
+
         /** Whether the user's flags disable the soft keyboard. */
         boolean isSoftKeyboardDisabled();
 
@@ -74,6 +77,10 @@ public final class GestureActionDispatcher {
 
             case OPEN_SIDEBAR:
                 target.openSidebar();
+                break;
+
+            case OPEN_MENU:
+                target.openMenu();
                 break;
 
             case SHOW_KEYBOARD:

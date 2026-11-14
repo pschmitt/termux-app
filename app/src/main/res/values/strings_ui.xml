@@ -10,4 +10,5 @@
     <string name="ui_menu_group_session">Session</string>
     <string name="ui_menu_group_app">App</string>
     <string name="ui_menu_title">Terminal</string>
+    <string name="ui_menu_autofill">Autofill</string>
 </resources>

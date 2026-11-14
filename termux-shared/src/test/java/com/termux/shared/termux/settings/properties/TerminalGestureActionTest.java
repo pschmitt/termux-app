@@ -68,6 +68,23 @@ public class TerminalGestureActionTest {
     }
 
     @Test
+    public void openMenuParsesAndIsAcceptedForEveryGestureKey() {
+        assertSame(TerminalGestureAction.OPEN_MENU, TerminalGestureAction.parse("open-menu"));
+        assertSame(TerminalGestureAction.OPEN_MENU, TerminalGestureAction.parse("  Open-Menu "));
+        assertEquals("open-menu", TerminalGestureAction.OPEN_MENU.getValue());
+        for (String key : new String[] {
+            TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION}) {
+            assertSame(TerminalGestureAction.OPEN_MENU, TermuxSharedProperties.getGestureActionInternalPropertyValueFromValue(
+                key, "open-menu", TerminalGestureAction.NONE));
+        }
+        // Needs no keys, so it is never turned into none.
+        assertSame(TerminalGestureAction.OPEN_MENU, TerminalGestureAction.effective(TerminalGestureAction.OPEN_MENU, false));
+    }
+
+    @Test
     public void parseOrDefaultFallsBack() {
         assertSame(TerminalGestureAction.SHOW_KEYBOARD,
             TerminalGestureAction.parseOrDefault("bogus", TerminalGestureAction.SHOW_KEYBOARD));
@@ -77,7 +94,7 @@ public class TerminalGestureActionTest {
 
     @Test
     public void validValuesListsEveryValue() {
-        assertEquals("none, show-keyboard, toggle-keyboard, next-session, previous-session, open-sidebar, send-keys",
+        assertEquals("none, show-keyboard, toggle-keyboard, next-session, previous-session, open-sidebar, open-menu, send-keys",
             TerminalGestureAction.getValidValues());
     }
 
@@ -105,7 +122,8 @@ public class TerminalGestureActionTest {
     public void nonKeyboardActionsLeaveTheKeyboardAlone() {
         for (TerminalGestureAction action : new TerminalGestureAction[] {
             TerminalGestureAction.NONE, TerminalGestureAction.NEXT_SESSION,
-            TerminalGestureAction.PREVIOUS_SESSION, TerminalGestureAction.OPEN_SIDEBAR}) {
+            TerminalGestureAction.PREVIOUS_SESSION, TerminalGestureAction.OPEN_SIDEBAR,
+            TerminalGestureAction.OPEN_MENU}) {
             assertEquals(KeyboardOperation.NONE, action.keyboardOperation(false, false));
             assertEquals(KeyboardOperation.NONE, action.keyboardOperation(false, true));
         }
@@ -127,6 +145,7 @@ public class TerminalGestureActionTest {
         assertEquals(SessionSwitch.NONE, TerminalGestureAction.SHOW_KEYBOARD.sessionSwitch(3));
         assertEquals(SessionSwitch.NONE, TerminalGestureAction.TOGGLE_KEYBOARD.sessionSwitch(3));
         assertEquals(SessionSwitch.NONE, TerminalGestureAction.OPEN_SIDEBAR.sessionSwitch(3));
+        assertEquals(SessionSwitch.NONE, TerminalGestureAction.OPEN_MENU.sessionSwitch(3));
     }
 
     @Test

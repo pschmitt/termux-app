@@ -27,6 +27,7 @@ public class GestureActionDispatcherTest {
         @Override public int getSessionCount() { return sessionCount; }
         @Override public void switchSession(boolean forward) { calls.add(forward ? "next" : "previous"); }
         @Override public void openSidebar() { calls.add("sidebar"); }
+        @Override public void openMenu() { calls.add("menu"); }
         @Override public boolean isSoftKeyboardDisabled() { return keyboardDisabled; }
         @Override public boolean isSoftKeyboardVisible() { visibilityQueries++; return keyboardVisible; }
         @Override public void showSoftKeyboard() { calls.add("show"); }
@@ -85,6 +86,21 @@ public class GestureActionDispatcherTest {
         mTarget.keyboardDisabled = true;
         GestureActionDispatcher.perform(TerminalGestureAction.OPEN_SIDEBAR, mTarget);
         assertEquals(List.of("sidebar"), mTarget.calls);
+    }
+
+    @Test
+    public void openMenuOpensTheMenuOnlyAndNeverTouchesTheKeyboard() {
+        GestureActionDispatcher.perform(TerminalGestureAction.OPEN_MENU, mTarget);
+        assertEquals(List.of("menu"), mTarget.calls);
+        assertEquals(0, mTarget.visibilityQueries);
+    }
+
+    @Test
+    public void openMenuWorksWithTheKeyboardDisabledOrASingleSession() {
+        mTarget.keyboardDisabled = true;
+        mTarget.sessionCount = 1;
+        GestureActionDispatcher.perform(TerminalGestureAction.OPEN_MENU, mTarget);
+        assertEquals(List.of("menu"), mTarget.calls);
     }
 
     @Test

@@ -46,6 +46,8 @@
         <package android:name="moe.shizuku.privileged.api" />
         <package android:name="dev.pschmitt.termux.api" />
         <package android:name="dev.pschmitt.termux.tasker" />
+        <!-- The Style menu entry shows only when Termux:Styling is installed. -->
+        <package android:name="dev.pschmitt.termux.styling" />
     </queries>
 
     <application

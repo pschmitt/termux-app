@@ -28,6 +28,7 @@ import android.widget.Toast;
 
 import com.termux.R;
 import com.termux.app.api.file.FileReceiverActivity;
+import com.termux.app.terminal.StylingApp;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxContextMenuSheet;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
@@ -669,7 +670,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             menu.add(Menu.NONE, CONTEXT_MENU_AUTOFILL_PASSWORD, Menu.NONE, R.string.action_autofill_password);
         menu.add(Menu.NONE, CONTEXT_MENU_RESET_TERMINAL_ID, Menu.NONE, R.string.action_reset_terminal);
         menu.add(Menu.NONE, CONTEXT_MENU_KILL_PROCESS_ID, Menu.NONE, getResources().getString(R.string.action_kill_process, getCurrentSession().getPid())).setEnabled(currentSession.isRunning());
-        menu.add(Menu.NONE, CONTEXT_MENU_STYLING_ID, Menu.NONE, R.string.action_style_terminal);
+        if (StylingApp.isAvailable(getPackageManager()))
+            menu.add(Menu.NONE, CONTEXT_MENU_STYLING_ID, Menu.NONE, R.string.action_style_terminal);
         menu.add(Menu.NONE, CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON, Menu.NONE, R.string.action_toggle_keep_screen_on).setCheckable(true).setChecked(mPreferences.shouldKeepScreenOn());
         menu.add(Menu.NONE, CONTEXT_MENU_HELP_ID, Menu.NONE, R.string.action_open_help);
         menu.add(Menu.NONE, CONTEXT_MENU_SETTINGS_ID, Menu.NONE, R.string.action_open_settings);
@@ -702,8 +704,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             sheet.addItem(CONTEXT_MENU_SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_share);
         sheet.addItem(CONTEXT_MENU_SHARE_TRANSCRIPT_ID, R.string.action_share_transcript, R.drawable.ui_ic_share);
         if (autoFillEnabled) {
-            sheet.addItem(CONTEXT_MENU_AUTOFILL_USERNAME, R.string.action_autofill_username, R.drawable.ui_ic_person);
-            sheet.addItem(CONTEXT_MENU_AUTOFILL_PASSWORD, R.string.action_autofill_password, R.drawable.ui_ic_lock);
+            sheet.addDualAction(R.string.ui_menu_autofill,
+                CONTEXT_MENU_AUTOFILL_USERNAME, R.string.action_autofill_username, R.drawable.ui_ic_person,
+                CONTEXT_MENU_AUTOFILL_PASSWORD, R.string.action_autofill_password, R.drawable.ui_ic_lock);
         }
         sheet.addGroup(R.string.ui_menu_group_session)
             .addItem(CONTEXT_MENU_RESET_TERMINAL_ID, R.string.action_reset_terminal, R.drawable.ui_ic_refresh)
@@ -711,9 +714,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 R.drawable.ui_ic_power, currentSession.isRunning(), true)
             .addToggle(CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_lightbulb,
                 mPreferences.shouldKeepScreenOn())
-            .addGroup(R.string.ui_menu_group_app)
-            .addItem(CONTEXT_MENU_STYLING_ID, R.string.action_style_terminal, R.drawable.ui_ic_palette)
-            .addItem(CONTEXT_MENU_SETTINGS_ID, R.string.action_open_settings, R.drawable.ui_ic_settings)
+            .addGroup(R.string.ui_menu_group_app);
+        // Checked each time the menu opens, so installing or removing Termux:Styling takes effect at once.
+        if (StylingApp.isAvailable(getPackageManager()))
+            sheet.addItem(CONTEXT_MENU_STYLING_ID, R.string.action_style_terminal, R.drawable.ui_ic_palette);
+        sheet.addItem(CONTEXT_MENU_SETTINGS_ID, R.string.action_open_settings, R.drawable.ui_ic_settings)
             .addItem(CONTEXT_MENU_HELP_ID, R.string.action_open_help, R.drawable.ui_ic_help)
             .addItem(CONTEXT_MENU_REPORT_ID, R.string.action_report_issue, R.drawable.ui_ic_bug);
 
@@ -814,8 +819,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void showStylingDialog() {
-        Intent stylingIntent = new Intent();
-        stylingIntent.setClassName(TermuxConstants.TERMUX_STYLING_PACKAGE_NAME, TermuxConstants.TERMUX_STYLING_APP.TERMUX_STYLING_ACTIVITY_NAME);
+        Intent stylingIntent = StylingApp.createIntent();
         try {
             startActivity(stylingIntent);
         } catch (ActivityNotFoundException | IllegalArgumentException e) {

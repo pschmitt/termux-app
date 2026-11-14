@@ -350,6 +350,13 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             }
 
             @Override
+            public void openMenu() {
+                // The one funnel that the long press uses too, so that the same sheet (or the system
+                // menu as its fallback) is shown and a selection is never duplicated.
+                mActivity.getTerminalView().showContextMenu();
+            }
+
+            @Override
             public boolean isSoftKeyboardDisabled() {
                 boolean disabled = KeyboardUtils.areDisableSoftKeyboardFlagsSet(mActivity);
                 if (disabled) Logger.logVerbose(LOG_TAG, "Not touching soft keyboard on gesture since its disabled");

@@ -26,6 +26,7 @@ The four keys are independent and active at the same time. Valid values, case-in
 | `next-session` | Switch to the next session, wrapping around. Does nothing with a single session. |
 | `previous-session` | Switch to the previous session, wrapping around. Does nothing with a single session. |
 | `open-sidebar` | Open the sidebar with the session list. It is not opened while it is locked closed in copy mode. |
+| `open-menu` | Open the terminal menu, the bottom sheet that a long press on the terminal and then "More..." opens (Select URL, Share transcript, Autofill, Reset, Kill process, Style, Settings and so on). It never touches the soft keyboard. |
 | `send-keys` | Send keys to the terminal, like Escape or Ctrl+L, given by the matching `*-keys` key (see below). |
 
 A missing or empty key uses its default. A value that is not listed is logged and the default is
@@ -133,6 +134,9 @@ terminal-double-tap-action = toggle-keyboard
 
 # Triple tap opens the sidebar
 terminal-triple-tap-action = open-sidebar
+
+# Alternatively the triple tap opens the terminal menu, the one that a long press opens
+# terminal-triple-tap-action = open-menu
 
 # Optional: keep the default single tap (show-keyboard) or turn it off with none
 terminal-single-tap-action = show-keyboard
