@@ -1,5 +1,6 @@
 package com.termux.app.update;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -37,6 +38,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * install. The downloaded file lives in the app's private cache and is wiped before each run, after
  * the install and on every failure.
  */
+// The singleton only ever holds the application context.
+@SuppressLint("StaticFieldLeak")
 public final class UpdateController {
 
     public interface Listener {
