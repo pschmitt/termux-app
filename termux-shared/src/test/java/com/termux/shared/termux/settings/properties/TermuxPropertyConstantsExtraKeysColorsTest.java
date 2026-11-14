@@ -22,4 +22,12 @@ public class TermuxPropertyConstantsExtraKeysColorsTest {
         assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST
             .contains(TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR));
     }
+
+    @Test
+    public void extraKeysCornerRadiusKeyIsLoaded() {
+        assertEquals("extra-keys-button-corner-radius",
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS);
+        assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST
+            .contains(TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS));
+    }
 }

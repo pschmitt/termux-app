@@ -79,7 +79,8 @@ import java.util.Set;
  *      - Add `KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT`.
  *
  * - TermuxPP
- *      - Add `KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR` and `KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR`.
+ *      - Add `KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR`, `KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR`
+ *        and `KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS`.
  *
  * - 0.18.0 (2022-06-13)
  *      - Add `KEY_DISABLE_FILE_SHARE_RECEIVER` and `KEY_DISABLE_FILE_VIEW_RECEIVER`.
@@ -347,6 +348,11 @@ public final class TermuxPropertyConstants {
      * defined by the current theme is used. */
     public static final String KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR =  "extra-keys-button-active-background-color"; // Default: "extra-keys-button-active-background-color"
 
+    /** Defines the key for the corner radius in dp of the extra keys button backgrounds, a number
+     * from 0 to 32 like {@code 8} or {@code 6.5}. If not set or invalid, then the shape defined by
+     * the current theme is used. */
+    public static final String KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS =  "extra-keys-button-corner-radius"; // Default: "extra-keys-button-corner-radius"
+
 
 
     /** Defines the key for {@link NightMode}. */
@@ -431,6 +437,9 @@ public final class TermuxPropertyConstants {
 
         /* float */
         KEY_TERMINAL_TOOLBAR_HEIGHT_SCALE_FACTOR,
+
+        /* Float (may be null) */
+        KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS,
 
         /* Integer */
         KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR,

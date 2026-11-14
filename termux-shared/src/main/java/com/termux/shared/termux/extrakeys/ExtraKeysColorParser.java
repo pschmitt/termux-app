@@ -13,7 +13,33 @@ import androidx.annotation.Nullable;
  */
 public final class ExtraKeysColorParser {
 
+    /** The maximum accepted value of {@code extra-keys-button-corner-radius} in dp. Larger radii
+     * are rejected, a radius above half the button height only makes a pill shape anyway. */
+    public static final float MAX_CORNER_RADIUS_DP = 32f;
+
     private ExtraKeysColorParser() {}
+
+    /**
+     * Parse the value of the {@code extra-keys-button-corner-radius} property: a plain decimal
+     * number of dp, for example {@code 8} or {@code 6.5}, from {@code 0} to
+     * {@link #MAX_CORNER_RADIUS_DP}, surrounded by optional whitespace. Signs, exponents,
+     * {@code NaN}, infinity and units are not accepted.
+     *
+     * @param value The value to parse, may be {@code null}.
+     * @return Returns the radius in dp, or {@code null} if the value is {@code null}, empty,
+     * not a valid number or out of range.
+     */
+    @Nullable
+    public static Float parseCornerRadiusDp(@Nullable String value) {
+        if (value == null) return null;
+
+        String number = value.trim();
+        if (!number.matches("[0-9]{1,4}(\\.[0-9]{1,4})?")) return null;
+
+        float radius = Float.parseFloat(number);
+        if (radius > MAX_CORNER_RADIUS_DP) return null;
+        return radius;
+    }
 
     /**
      * Parse a color value.

@@ -280,6 +280,10 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_TERMINAL_TOOLBAR_HEIGHT_SCALE_FACTOR:
                 return (float) getTerminalToolbarHeightScaleFactorInternalPropertyValueFromValue(value);
 
+            /* Float (may be null) */
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS:
+                return (Float) getExtraKeysCornerRadiusInternalPropertyValueFromValue(key, value);
+
             /* Integer (may be null) */
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR:
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_TEXT_COLOR:
@@ -551,6 +555,23 @@ public abstract class TermuxSharedProperties {
     }
 
     /**
+     * Returns the corner radius in dp for the value of the extra keys corner radius property if
+     * it is a number from 0 to {@link ExtraKeysColorParser#MAX_CORNER_RADIUS_DP}, otherwise returns
+     * {@code null} so that the shape defined by the current theme is used.
+     *
+     * @param key The key of the property, used for logging.
+     * @param value The {@link String} value to convert.
+     * @return Returns the internal value for value, which may be {@code null}.
+     */
+    public static Float getExtraKeysCornerRadiusInternalPropertyValueFromValue(String key, String value) {
+        if (value == null) return null;
+        Float radius = ExtraKeysColorParser.parseCornerRadiusDp(value);
+        if (radius == null)
+            Logger.logError(LOG_TAG, "The value \"" + value + "\" for the key \"" + key + "\" is invalid. Expected a number of dp from 0 to " + (int) ExtraKeysColorParser.MAX_CORNER_RADIUS_DP + ". Using the theme shape instead.");
+        return radius;
+    }
+
+    /**
      * Returns the value itself if it is not {@code null}, otherwise returns {@link TermuxPropertyConstants#DEFAULT_IVALUE_EXTRA_KEYS_STYLE}.
      *
      * @param value {@link String} value to convert.
@@ -630,6 +651,12 @@ public abstract class TermuxSharedProperties {
     @Nullable
     public Integer getExtraKeysButtonActiveBackgroundColor() {
         return (Integer) getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR, true);
+    }
+
+    /** The corner radius in dp of the extra keys button backgrounds, or {@code null} to use the theme shape. */
+    @Nullable
+    public Float getExtraKeysButtonCornerRadius() {
+        return (Float) getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_CORNER_RADIUS, true);
     }
 
     public boolean shouldExtraKeysTextBeAllCaps() {

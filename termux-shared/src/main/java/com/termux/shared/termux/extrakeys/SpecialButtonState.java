@@ -40,6 +40,8 @@ public class SpecialButtonState {
         isActive = value;
         for (MaterialButton button : buttons) {
             button.setTextColor(value ? mExtraKeysView.getButtonActiveTextColor() : mExtraKeysView.getButtonTextColor());
+            // Fill the background of an active (latched or locked) button if configured
+            button.setBackgroundColor(mExtraKeysView.getSpecialButtonBackgroundColor(value));
         }
     }
 

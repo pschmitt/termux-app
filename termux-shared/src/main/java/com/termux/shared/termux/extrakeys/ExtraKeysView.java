@@ -177,6 +177,15 @@ public final class ExtraKeysView extends GridLayout {
      * {@link #DEFAULT_BUTTON_ACTIVE_BACKGROUND_COLOR}. */
     protected int mButtonActiveBackgroundColor;
 
+    /** If an active (latched or locked) {@link SpecialButton} should also get the active background
+     * color. Only enabled if {@code extra-keys-button-active-background-color} is set, so that the
+     * theme behavior (colored text only) does not change for existing configurations. */
+    protected boolean mFillActiveSpecialButtons = false;
+
+    /** The corner radius in pixels of the extra keys button backgrounds, or {@code -1} to keep the
+     * shape defined by the current theme. */
+    protected int mButtonCornerRadiusPx = -1;
+
     /** Defines whether text for the extra keys button should be all capitalized automatically. */
     protected boolean mButtonTextAllCaps = true;
 
@@ -296,10 +305,56 @@ public final class ExtraKeysView extends GridLayout {
      */
     public void setButtonActiveColorOverrides(@Nullable Integer activeTextColor, @Nullable Integer activeBackgroundColor) {
         Context context = getContext();
+        mFillActiveSpecialButtons = activeBackgroundColor != null;
         setButtonActiveTextColor(activeTextColor != null ? activeTextColor :
             ThemeUtils.getSystemAttrColor(context, ATTR_BUTTON_ACTIVE_TEXT_COLOR, DEFAULT_BUTTON_ACTIVE_TEXT_COLOR));
         setButtonActiveBackgroundColor(activeBackgroundColor != null ? activeBackgroundColor :
             ThemeUtils.getSystemAttrColor(context, ATTR_BUTTON_ACTIVE_BACKGROUND_COLOR, DEFAULT_BUTTON_ACTIVE_BACKGROUND_COLOR));
+    }
+
+    /**
+     * Set the corner radius of the {@link ExtraKeysView} button backgrounds, for example from the
+     * {@code extra-keys-button-corner-radius} property. A {@code null} radius restores the shape
+     * defined by the current theme. Call {@link #reload(ExtraKeysInfo, float)} afterwards so that
+     * already created buttons are rebuilt.
+     *
+     * @param cornerRadiusDp The radius in dp or {@code null}.
+     */
+    public void setButtonCornerRadiusDp(@Nullable Float cornerRadiusDp) {
+        if (cornerRadiusDp == null) {
+            mButtonCornerRadiusPx = -1;
+        } else {
+            mButtonCornerRadiusPx = Math.round(cornerRadiusDp * getResources().getDisplayMetrics().density);
+        }
+    }
+
+    /** Get {@link #mButtonCornerRadiusPx}. */
+    public int getButtonCornerRadiusPx() {
+        return mButtonCornerRadiusPx;
+    }
+
+    /** Apply {@link #mButtonCornerRadiusPx} to a button, if one is configured. */
+    protected void applyButtonShape(MaterialButton button) {
+        if (mButtonCornerRadiusPx >= 0)
+            button.setCornerRadius(mButtonCornerRadiusPx);
+    }
+
+    /**
+     * Get the background color of a button while it is not being pressed: the active background
+     * color for an active (latched or locked) {@link SpecialButton}, otherwise the normal one.
+     */
+    public int getRestingBackgroundColor(ExtraKeyButton buttonInfo) {
+        if (isSpecialButton(buttonInfo)) {
+            SpecialButtonState state = mSpecialButtons.get(SpecialButton.valueOf(buttonInfo.getKey()));
+            if (state != null)
+                return getSpecialButtonBackgroundColor(state.isActive);
+        }
+        return mButtonBackgroundColor;
+    }
+
+    /** Get the background color of a {@link SpecialButton} that is not being pressed. */
+    public int getSpecialButtonBackgroundColor(boolean active) {
+        return active && mFillActiveSpecialButtons ? mButtonActiveBackgroundColor : mButtonBackgroundColor;
     }
 
     /** Get {@link #mButtonTextColor}. */
@@ -431,6 +486,7 @@ public final class ExtraKeysView extends GridLayout {
                 button.setTextColor(mButtonTextColor);
                 button.setAllCaps(mButtonTextAllCaps);
                 button.setPadding(0, 0, 0, 0);
+                applyButtonShape(button);
 
                 button.setOnClickListener(view -> {
                     performExtraKeyButtonHapticFeedback(view, buttonInfo, button);
@@ -450,7 +506,7 @@ public final class ExtraKeysView extends GridLayout {
                                 // Show popup on swipe up
                                 if (mPopupWindow == null && event.getY() < 0) {
                                     stopScheduledExecutors();
-                                    view.setBackgroundColor(mButtonBackgroundColor);
+                                    view.setBackgroundColor(getRestingBackgroundColor(buttonInfo));
                                     showPopup(view, buttonInfo.getPopup());
                                 }
                                 if (mPopupWindow != null && event.getY() > 0) {
@@ -461,12 +517,12 @@ public final class ExtraKeysView extends GridLayout {
                             return true;
 
                         case MotionEvent.ACTION_CANCEL:
-                            view.setBackgroundColor(mButtonBackgroundColor);
+                            view.setBackgroundColor(getRestingBackgroundColor(buttonInfo));
                             stopScheduledExecutors();
                             return true;
 
                         case MotionEvent.ACTION_UP:
-                            view.setBackgroundColor(mButtonBackgroundColor);
+                            view.setBackgroundColor(getRestingBackgroundColor(buttonInfo));
                             stopScheduledExecutors();
                             // If ACTION_UP up was not from a repetitive key or was with a key with a popup button
                             if (mLongPressCount == 0 || mPopupWindow != null) {
@@ -624,6 +680,7 @@ public final class ExtraKeysView extends GridLayout {
         button.setMinimumHeight(0);
         button.setWidth(width);
         button.setHeight(height);
+        applyButtonShape(button);
         button.setBackgroundColor(mButtonActiveBackgroundColor);
         mPopupWindow = new PopupWindow(this);
         mPopupWindow.setWidth(LayoutParams.WRAP_CONTENT);
@@ -678,6 +735,9 @@ public final class ExtraKeysView extends GridLayout {
         state.setIsCreated(true);
         MaterialButton button = new MaterialButton(getContext(), null, android.R.attr.buttonBarButtonStyle);
         button.setTextColor(state.isActive ? mButtonActiveTextColor : mButtonTextColor);
+        applyButtonShape(button);
+        if (state.isActive && mFillActiveSpecialButtons)
+            button.setBackgroundColor(mButtonActiveBackgroundColor);
         if (needUpdate) {
             state.buttons.add(button);
         }
