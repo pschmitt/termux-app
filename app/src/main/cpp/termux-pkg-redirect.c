@@ -7,13 +7,16 @@
 #include <limits.h>
 #include <spawn.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/statvfs.h>
 #include <sys/time.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 extern char **environ;
@@ -526,8 +529,57 @@ static const char *resolve_exec_path(const char *file, char *buf, size_t buf_siz
     return file;
 }
 
-static int try_execve_shebang(const char *path, char *const argv[], char *const envp[],
-                              int (*real_execve)(const char *, char *const[], char *const[])) {
+/*
+ * Interpreters of the form /bin/NAME or /usr/bin/NAME (including /usr/bin/env)
+ * do not exist on Android. Map them to the matching executable in the app
+ * prefix, but only when the original path is absent, so real system files
+ * (e.g. /system/bin/sh, or a /bin that does exist) are never shadowed.
+ */
+static const char *rewrite_conventional_interp(const char *interp, char *buf, size_t buf_size) {
+    const char *name;
+    if (strncmp(interp, "/usr/bin/", 9) == 0)
+        name = interp + 9;
+    else if (strncmp(interp, "/bin/", 5) == 0)
+        name = interp + 5;
+    else
+        return interp;
+
+    if (!*name || strchr(name, '/') != NULL)
+        return interp;
+
+    typedef int (*access_fn_t)(const char *, int);
+    static access_fn_t real_access = NULL;
+    if (!real_access)
+        real_access = (access_fn_t) dlsym(RTLD_NEXT, "access");
+    if (!real_access || real_access(interp, X_OK) == 0)
+        return interp;
+
+    static const char PREFIX_BIN[] = "/files/usr/bin/";
+    size_t name_len = strlen(name);
+    if (g_target_dir_len + sizeof(PREFIX_BIN) - 1 + name_len >= buf_size)
+        return interp;
+    memcpy(buf, g_target_dir, g_target_dir_len);
+    memcpy(buf + g_target_dir_len, PREFIX_BIN, sizeof(PREFIX_BIN) - 1);
+    memcpy(buf + g_target_dir_len + sizeof(PREFIX_BIN) - 1, name, name_len + 1);
+    if (real_access(buf, X_OK) != 0)
+        return interp;
+    return buf;
+}
+
+struct shebang_exec {
+    char interp[PATH_MAX];
+    char *opt;
+    char **argv;
+};
+
+/*
+ * If PATH is a script whose interpreter must be redirected, fill OUT with the
+ * new interpreter path and an argv equivalent to what the kernel would build
+ * (interpreter, optional single argument, script path, original arguments).
+ * Returns 1 if OUT is filled (caller frees OUT->argv), 0 if the plain
+ * exec/spawn should proceed.
+ */
+static int shebang_prepare(const char *path, char *const argv[], struct shebang_exec *out) {
     if (!path || g_target_dir_len == 0)
         return 0;
 
@@ -570,7 +622,8 @@ static int try_execve_shebang(const char *path, char *const argv[], char *const 
         if (*p) {
             opt_arg = p;
             size_t len = strlen(opt_arg);
-            while (len > 0 && (opt_arg[len - 1] == ' ' || opt_arg[len - 1] == '\t'))
+            while (len > 0 && (opt_arg[len - 1] == ' ' || opt_arg[len - 1] == '\t' ||
+                               opt_arg[len - 1] == '\r'))
                 opt_arg[--len] = '\0';
             if (!*opt_arg)
                 opt_arg = NULL;
@@ -580,31 +633,49 @@ static int try_execve_shebang(const char *path, char *const argv[], char *const 
     char interp_buf[PATH_MAX];
     const char *rewritten_interp = rewrite_path(interp, interp_buf, sizeof(interp_buf));
     if (rewritten_interp == interp)
+        rewritten_interp = rewrite_conventional_interp(interp, interp_buf, sizeof(interp_buf));
+    if (rewritten_interp == interp)
+        return 0;
+    if (strlen(rewritten_interp) >= sizeof(out->interp))
         return 0;
 
     size_t argc = 0;
     while (argv && argv[argc])
         argc++;
 
-    size_t extra = 2 + (opt_arg ? 1 : 0);
-    char **new_argv = malloc((extra + argc) * sizeof(char *));
+    char **new_argv = malloc((4 + argc) * sizeof(char *));
     if (!new_argv)
         return 0;
+    strcpy(out->interp, rewritten_interp);
+
+    /* opt_arg lives in the stack buffer hdr: duplicate it. */
+    char *opt_copy = NULL;
+    if (opt_arg) {
+        opt_copy = strdup(opt_arg);
+        if (!opt_copy) {
+            free(new_argv);
+            return 0;
+        }
+    }
 
     size_t idx = 0;
-    new_argv[idx++] = (char *) rewritten_interp;
-    if (opt_arg)
-        new_argv[idx++] = opt_arg;
+    new_argv[idx++] = out->interp;
+    if (opt_copy)
+        new_argv[idx++] = opt_copy;
     new_argv[idx++] = (char *) path;
     for (size_t i = 1; i < argc; i++)
         new_argv[idx++] = argv[i];
     new_argv[idx] = NULL;
+    out->opt = opt_copy;
+    out->argv = new_argv;
+    return 1;
+}
 
-    real_execve(rewritten_interp, new_argv, envp);
-    int saved_errno = errno;
-    free(new_argv);
-    errno = saved_errno;
-    return -1;
+static void shebang_free(struct shebang_exec *sb) {
+    free(sb->opt);
+    free(sb->argv);
+    sb->opt = NULL;
+    sb->argv = NULL;
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[]) {
@@ -613,8 +684,14 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
         return -1;
     char buf[PATH_MAX];
     const char *rewritten = rewrite_path(pathname, buf, sizeof(buf));
-    if (try_execve_shebang(rewritten, argv, envp, real_fn) < 0)
+    struct shebang_exec sb;
+    if (shebang_prepare(rewritten, argv, &sb)) {
+        real_fn(sb.interp, sb.argv, envp);
+        int saved_errno = errno;
+        shebang_free(&sb);
+        errno = saved_errno;
         return -1;
+    }
     return real_fn(rewritten, argv, envp);
 }
 
@@ -693,6 +770,21 @@ int execle(const char *pathname, const char *arg, ...) {
     return rc;
 }
 
+static int spawn_with_shebang(int (*real_fn)(pid_t *, const char *, const posix_spawn_file_actions_t *,
+                                            const posix_spawnattr_t *, char *const[], char *const[]),
+                             pid_t *pid, const char *path,
+                             const posix_spawn_file_actions_t *file_actions,
+                             const posix_spawnattr_t *attrp, char *const argv[],
+                             char *const envp[]) {
+    struct shebang_exec sb;
+    if (shebang_prepare(path, argv, &sb)) {
+        int rc = real_fn(pid, sb.interp, file_actions, attrp, sb.argv, envp);
+        shebang_free(&sb);
+        return rc;
+    }
+    return real_fn(pid, path, file_actions, attrp, argv, envp);
+}
+
 int posix_spawn(pid_t *pid, const char *path, const posix_spawn_file_actions_t *file_actions,
                 const posix_spawnattr_t *attrp, char *const argv[], char *const envp[]) {
     RESOLVE_REAL(posix_spawn, int, (pid_t *, const char *, const posix_spawn_file_actions_t *,
@@ -700,15 +792,63 @@ int posix_spawn(pid_t *pid, const char *path, const posix_spawn_file_actions_t *
     if (!real_fn)
         return ENOSYS;
     char buf[PATH_MAX];
-    return real_fn(pid, rewrite_path(path, buf, sizeof(buf)), file_actions, attrp, argv, envp);
+    return spawn_with_shebang(real_fn, pid, rewrite_path(path, buf, sizeof(buf)), file_actions, attrp,
+                              argv, envp);
 }
 
 int posix_spawnp(pid_t *pid, const char *file, const posix_spawn_file_actions_t *file_actions,
                  const posix_spawnattr_t *attrp, char *const argv[], char *const envp[]) {
     RESOLVE_REAL(posix_spawnp, int, (pid_t *, const char *, const posix_spawn_file_actions_t *,
-                                     const posix_spawnattr_t *, char *const[], char *const[]));
+                                    const posix_spawnattr_t *, char *const[], char *const[]));
     if (!real_fn)
         return ENOSYS;
     char buf[PATH_MAX];
-    return real_fn(pid, resolve_exec_path(file, buf, sizeof(buf)), file_actions, attrp, argv, envp);
+    return spawn_with_shebang(real_fn, pid, resolve_exec_path(file, buf, sizeof(buf)), file_actions,
+                              attrp, argv, envp);
+}
+
+/* AF_UNIX sockets (e.g. ssh ControlPath) carry filesystem paths too. */
+static const struct sockaddr *rewrite_sockaddr(const struct sockaddr *addr, socklen_t *len,
+                                               struct sockaddr_un *out) {
+    if (!addr || g_target_dir_len == 0 || addr->sa_family != AF_UNIX ||
+        (size_t) *len <= offsetof(struct sockaddr_un, sun_path) || (size_t) *len > sizeof(*out))
+        return addr;
+    const struct sockaddr_un *un = (const struct sockaddr_un *) addr;
+    if (un->sun_path[0] == '\0')
+        return addr; /* abstract socket */
+    size_t max = (size_t) *len - offsetof(struct sockaddr_un, sun_path);
+    char path[sizeof(un->sun_path) + 1];
+    size_t plen = strnlen(un->sun_path, max < sizeof(un->sun_path) ? max : sizeof(un->sun_path));
+    memcpy(path, un->sun_path, plen);
+    path[plen] = '\0';
+    char buf[PATH_MAX];
+    const char *np = rewrite_path(path, buf, sizeof(buf));
+    if (np == path)
+        return addr;
+    size_t nlen = strlen(np);
+    if (nlen >= sizeof(out->sun_path))
+        return addr;
+    memset(out, 0, sizeof(*out));
+    out->sun_family = AF_UNIX;
+    memcpy(out->sun_path, np, nlen + 1);
+    *len = (socklen_t) (offsetof(struct sockaddr_un, sun_path) + nlen + 1);
+    return (const struct sockaddr *) out;
+}
+
+int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+    RESOLVE_REAL(connect, int, (int, const struct sockaddr *, socklen_t));
+    if (!real_fn)
+        return -1;
+    struct sockaddr_un un;
+    const struct sockaddr *a = rewrite_sockaddr(addr, &addrlen, &un);
+    return real_fn(sockfd, a, addrlen);
+}
+
+int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+    RESOLVE_REAL(bind, int, (int, const struct sockaddr *, socklen_t));
+    if (!real_fn)
+        return -1;
+    struct sockaddr_un un;
+    const struct sockaddr *a = rewrite_sockaddr(addr, &addrlen, &un);
+    return real_fn(sockfd, a, addrlen);
 }
