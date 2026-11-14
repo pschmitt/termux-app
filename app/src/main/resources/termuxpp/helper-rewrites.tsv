@@ -1,13 +1,29 @@
-# Exact stock -> fork identity rewrites for termux-tools helper scripts.
+# Exact stock -> fork identity rewrites for the termux-tools package (helpers, login, conffile).
 #
 # Canonical table: it is read by TermuxHelperRewrites (bootstrap extraction) and rendered into
 # $PREFIX/libexec/termuxpp/helper-rewrites.tsv for the APT post-invoke hook (adapt-helpers), so the
 # installer and the hook can never disagree.
 #
-# Format: rule<TAB>file<TAB>stock text<TAB>fork text. Placeholders (@PACKAGE@, @RELOAD_STYLE_ACTION@,
-# @WAKE_LOCK_ACTION@, @WAKE_UNLOCK_ACTION@) are filled from TermuxConstants. Rules are literal, never
-# patterns. Java class names stay under com.termux.* and are deliberately not rewritten. Every stock
-# text includes its opening quote or flag so the fork text never matches it again (idempotent).
+# Row kinds (tab separated), applied in this order to every file they name:
+#   identity <stock text> <fork text>            literal replace in every text file of termux-tools
+#   rule     <file> <stock text> <fork text>     literal replace in one named file
+#   append   <file> <marker> <text>              append text unless the marker is already in the file;
+#                                                \n in the text is a newline
+#   require  <file> <text> <guard>               hook only: the adapted file must contain the text
+#   forbid   <file> <text> <guard>               hook only: the adapted file must not contain the text
+#                                                (the guard is @FORK_ONLY@, so that the checks vanish for
+#                                                the stock identity, and a failed check makes the hook fail)
+# Placeholders (@PACKAGE@, @DATA_DIR@, @RELOAD_STYLE_ACTION@, @WAKE_LOCK_ACTION@, @WAKE_UNLOCK_ACTION@,
+# @REDIRECT_SO_VAR@, @FORK_ONLY@) are filled from TermuxConstants. @REDIRECT_SO_VAR@ is the name of the
+# environment variable that holds the path of the native pkg-redirect library. It and @FORK_ONLY@ are
+# empty for the stock identity, so those rows are dropped and stock stays byte-identical. A row with an
+# unresolved placeholder, or one that would change nothing, is ignored.
+# Rules are literal, never patterns. Java class names stay under com.termux.* and are deliberately not
+# rewritten. Every stock text is chosen so that the fork text never matches it again (idempotent).
+# The path of the pkg-redirect library is never written down: scripts only reference the variable.
+identity	/data/data/com.termux	@DATA_DIR@
+rule	bin/login	export LD_PRELOAD="/	export LD_PRELOAD="${@REDIRECT_SO_VAR@:+$@REDIRECT_SO_VAR@:}/
+append	etc/termux-login.sh	@REDIRECT_SO_VAR@	\nif [ -n "${@REDIRECT_SO_VAR@:-}" ] && [ -f "$@REDIRECT_SO_VAR@" ]; then\n    case ":${LD_PRELOAD:-}:" in\n        *":$@REDIRECT_SO_VAR@:"*) ;;\n        *) export LD_PRELOAD="$@REDIRECT_SO_VAR@${LD_PRELOAD:+:$LD_PRELOAD}" ;;\n    esac\nfi\n
 rule	bin/termux-reload-settings	-a "com.termux.app.reload_style" "com.termux"	-a "@RELOAD_STYLE_ACTION@" "@PACKAGE@"
 rule	bin/termux-setup-storage	"com.termux.app.reload_style"	"@RELOAD_STYLE_ACTION@"
 rule	bin/termux-setup-storage	"com.termux" > /dev/null	"@PACKAGE@" > /dev/null
@@ -18,3 +34,14 @@ rule	bin/termux-wake-unlock	-a "com.termux.service_wake_unlock"	-a "@WAKE_UNLOCK
 rule	bin/termux-wake-unlock	"com.termux/com.termux.app.TermuxService"	"@PACKAGE@/com.termux.app.TermuxService"
 rule	bin/termux-reset	"com.termux/com.termux.app.TermuxService"	"@PACKAGE@/com.termux.app.TermuxService"
 rule	bin/termux-info	echo -n "com.termux" |	echo -n "@PACKAGE@" |
+require	bin/login	${@REDIRECT_SO_VAR@:+$@REDIRECT_SO_VAR@:}	@FORK_ONLY@
+require	etc/termux-login.sh	@REDIRECT_SO_VAR@	@FORK_ONLY@
+forbid	bin/termux-open	"com.termux/	@FORK_ONLY@
+forbid	bin/termux-wake-lock	"com.termux/	@FORK_ONLY@
+forbid	bin/termux-wake-lock	"com.termux.service_	@FORK_ONLY@
+forbid	bin/termux-wake-unlock	"com.termux/	@FORK_ONLY@
+forbid	bin/termux-wake-unlock	"com.termux.service_	@FORK_ONLY@
+forbid	bin/termux-reset	"com.termux/	@FORK_ONLY@
+forbid	bin/termux-reload-settings	"com.termux.app.reload_style"	@FORK_ONLY@
+forbid	bin/termux-setup-storage	"com.termux.app.reload_style"	@FORK_ONLY@
+forbid	bin/termux-info	echo -n "com.termux"	@FORK_ONLY@

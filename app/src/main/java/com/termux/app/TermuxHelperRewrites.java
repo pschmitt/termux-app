@@ -15,13 +15,15 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Exact stock to fork identity rewrites for the {@code termux-tools} helper scripts.
+ * Exact stock to fork identity rewrites for the {@code termux-tools} package: the helper scripts, the
+ * {@code bin/login} script and the {@code etc/termux-login.sh} conffile.
  *
- * <p>The stock helpers address the stock package ({@code com.termux}), which silently misses a fork
- * with another package name. The canonical table lives in {@code termuxpp/helper-rewrites.tsv}. It is
- * applied to the helpers while the bootstrap is extracted and rendered next to {@code adapt-helpers},
- * the APT post-invoke hook that re-applies it after APT replaced the helpers with the stock versions.
- * Rules are literal strings keyed by an exact helper name, never patterns.
+ * <p>The stock files address the stock package ({@code com.termux}), which silently misses a fork
+ * with another package name, and lack the native pkg-redirect preload of the fork. The canonical table
+ * lives in {@code termuxpp/helper-rewrites.tsv}. It is applied while the bootstrap is extracted and
+ * rendered next to {@code adapt-helpers}, the APT post-invoke hook that re-applies it after APT
+ * replaced the files with the stock versions. Rules are literal strings keyed by an exact file name,
+ * never patterns.
  */
 final class TermuxHelperRewrites {
 
@@ -35,18 +37,32 @@ final class TermuxHelperRewrites {
     static final String APT_CONFIG = "etc/apt/apt.conf.d/99termuxpp-helpers";
 
     private static final Pattern UNRESOLVED_PLACEHOLDER = Pattern.compile("@[A-Z_]+@");
-    private static final Pattern HELPER_NAME = Pattern.compile("bin/termux-[a-z-]+");
+    /** The files that named rules may address. */
+    private static final Pattern ADAPTED_FILE = Pattern.compile("bin/termux-[a-z-]+|bin/login|etc/termux-login\\.sh");
     private static final Pattern SAFE_PREFIX = Pattern.compile("/[A-Za-z0-9._/-]+");
 
+    enum Kind { IDENTITY, RULE, APPEND, REQUIRE, FORBID }
+
+    /**
+     * One table row. {@code stock} is the text to replace (IDENTITY, RULE), the marker (APPEND) or the
+     * text to check (REQUIRE, FORBID); {@code fork} is the replacement or the text to append. IDENTITY
+     * rows have no file: they apply to every text file.
+     */
     static final class Rule {
+        final Kind kind;
         final String file;
         final String stock;
         final String fork;
 
-        Rule(String file, String stock, String fork) {
+        Rule(Kind kind, String file, String stock, String fork) {
+            this.kind = kind;
             this.file = file;
             this.stock = stock;
             this.fork = fork;
+        }
+
+        Rule(String file, String stock, String fork) {
+            this(Kind.RULE, file, stock, fork);
         }
     }
 
@@ -65,39 +81,91 @@ final class TermuxHelperRewrites {
     }
 
     /**
-     * Parse a rendered table. Malformed rules, rules for helpers outside the whitelist, rules with an
-     * unresolved placeholder and rules that would change nothing are dropped, so an incomplete
-     * identity fails safe by leaving the helpers alone.
+     * Parse a rendered table. Malformed rows, rows for files outside the whitelist, rows with an
+     * unresolved placeholder and rows that would change nothing (or would not be idempotent) are
+     * dropped, so an incomplete identity fails safe by leaving the files alone.
      */
     @NonNull
     static List<Rule> parse(@NonNull String renderedTable) {
         List<Rule> rules = new ArrayList<>();
         for (String line : renderedTable.split("\n", -1)) {
-            if (!line.startsWith("rule\t")) continue;
             String[] fields = line.split("\t", -1);
-            if (fields.length != 4) continue;
-            String file = fields[1];
-            String stock = fields[2];
-            String fork = fields[3];
-            if (!HELPER_NAME.matcher(file).matches()) continue;
-            if (stock.isEmpty() || fork.isEmpty() || stock.equals(fork)) continue;
-            if (UNRESOLVED_PLACEHOLDER.matcher(fork).find()) continue;
-            rules.add(new Rule(file, stock, fork));
+            switch (fields[0]) {
+                case "identity":
+                    if (fields.length != 3 || !usable(fields[1], fields[2], true)) continue;
+                    rules.add(new Rule(Kind.IDENTITY, "", fields[1], fields[2]));
+                    break;
+                case "rule":
+                    if (fields.length != 4 || !ADAPTED_FILE.matcher(fields[1]).matches()
+                        || !usable(fields[2], fields[3], true)) continue;
+                    rules.add(new Rule(Kind.RULE, fields[1], fields[2], fields[3]));
+                    break;
+                case "append":
+                    if (fields.length != 4 || !ADAPTED_FILE.matcher(fields[1]).matches()
+                        || !usable(fields[2], fields[3], false)) continue;
+                    rules.add(new Rule(Kind.APPEND, fields[1], fields[2], fields[3]));
+                    break;
+                case "require":
+                case "forbid":
+                    // The fourth field is the guard: it only resolves for the fork identity.
+                    if (fields.length != 4 || !ADAPTED_FILE.matcher(fields[1]).matches()
+                        || !usable(fields[2], fields[3], false)) continue;
+                    rules.add(new Rule("require".equals(fields[0]) ? Kind.REQUIRE : Kind.FORBID,
+                        fields[1], fields[2], ""));
+                    break;
+                default:
+                    break;
+            }
         }
         return Collections.unmodifiableList(rules);
     }
 
-    /** Apply the rules for {@code file} (for example {@code bin/termux-open}) to a helper's text. */
+    private static boolean usable(String stock, String fork, boolean mustChangeAndBeIdempotent) {
+        if (stock.isEmpty() || fork.isEmpty()) return false;
+        if (UNRESOLVED_PLACEHOLDER.matcher(stock).find() || UNRESOLVED_PLACEHOLDER.matcher(fork).find()) return false;
+        return !mustChangeAndBeIdempotent || (!stock.equals(fork) && !fork.contains(stock));
+    }
+
+    /**
+     * Apply the rows for {@code file} (for example {@code bin/termux-open}) to a file's text: the
+     * identity rows, then the file's rules, then its appends.
+     */
     @NonNull
     static String apply(@NonNull List<Rule> rules, String file, @NonNull String text) {
         if (file == null) return text;
         String result = text;
         for (Rule rule : rules) {
-            if (rule.file.equals(file) && result.contains(rule.stock)) {
+            if (rule.kind == Kind.IDENTITY && result.contains(rule.stock)) {
                 result = result.replace(rule.stock, rule.fork);
             }
         }
+        for (Rule rule : rules) {
+            if (rule.kind == Kind.RULE && rule.file.equals(file) && result.contains(rule.stock)) {
+                result = result.replace(rule.stock, rule.fork);
+            }
+        }
+        for (Rule rule : rules) {
+            if (rule.kind == Kind.APPEND && rule.file.equals(file) && !result.contains(rule.stock)) {
+                result = result + rule.fork.replace("\\n", "\n");
+            }
+        }
         return result;
+    }
+
+    /** The problems of an adapted file: required text missing or forbidden text still present. */
+    @NonNull
+    static List<String> verify(@NonNull List<Rule> rules, String file, @NonNull String adapted) {
+        List<String> problems = new ArrayList<>();
+        if (file == null) return problems;
+        for (Rule rule : rules) {
+            if (!file.equals(rule.file)) continue;
+            if (rule.kind == Kind.REQUIRE && !adapted.contains(rule.stock)) {
+                problems.add(file + ": missing expected text: " + rule.stock);
+            } else if (rule.kind == Kind.FORBID && adapted.contains(rule.stock)) {
+                problems.add(file + ": still contains stock text: " + rule.stock);
+            }
+        }
+        return problems;
     }
 
     /** The table written next to the hook script: the prefix it may patch, then the rendered rules. */
@@ -115,9 +183,10 @@ final class TermuxHelperRewrites {
 
     @NonNull
     static String aptConfig(@NonNull String prefixPath) {
-        return "// Managed by TermuxPP: re-apply the fork identity to the termux-tools helpers after dpkg ran.\n"
-            + "// The hook never fails apt and never touches anything but the helpers in helper-rewrites.tsv.\n"
-            + "DPkg::Post-Invoke { \"" + prefixPath + "/bin/bash " + prefixPath + "/" + HOOK_SCRIPT + " || true\"; };\n";
+        return "// Managed by TermuxPP: re-apply the fork identity to the termux-tools files after dpkg ran.\n"
+            + "// The hook only touches files of termux-tools. It fails, and so makes apt report an error, when it\n"
+            + "// cannot restore the fork identity, because a silently broken login would lock the user out.\n"
+            + "DPkg::Post-Invoke { \"" + prefixPath + "/bin/bash " + prefixPath + "/" + HOOK_SCRIPT + "\"; };\n";
     }
 
     /** True when the prefix path can be embedded in the APT configuration and the table unambiguously. */

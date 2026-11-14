@@ -76,6 +76,24 @@ public class AdaptHelpersScriptTest {
         Files.setPosixFilePermissions(helper(name).toPath(), PosixFilePermissions.fromString(mode));
     }
 
+    private void installStockFile(String relativePath, String mode) throws IOException {
+        File file = new File(prefix, relativePath);
+        file.getParentFile().mkdirs();
+        write(file, TermuxHelperRewritesTest.stockFile(relativePath));
+        Files.setPosixFilePermissions(file.toPath(), PosixFilePermissions.fromString(mode));
+    }
+
+    /** The dpkg file list of termux-tools; entries are absolute, like the ones dpkg records. */
+    private void writeToolsList(String... entries) throws IOException {
+        File list = new File(prefix, "var/lib/dpkg/info/termux-tools.list");
+        list.getParentFile().mkdirs();
+        StringBuilder content = new StringBuilder("/.\n");
+        for (String entry : entries) {
+            content.append(entry.startsWith("/") ? entry : prefix.getCanonicalPath() + "/" + entry).append('\n');
+        }
+        write(list, content.toString());
+    }
+
     private Result run(String... args) throws Exception {
         List<String> command = new java.util.ArrayList<>();
         command.add("bash");
@@ -107,13 +125,124 @@ public class AdaptHelpersScriptTest {
     @Test
     public void hookProducesExactlyWhatTheInstallerProduces() throws Exception {
         for (String name : TermuxHelperRewritesTest.HELPERS) installStock(name, "rwx------");
+        installStockFile("bin/login", "rwx------");
+        installStockFile("etc/termux-login.sh", "rw-------");
+        installStockFile("bin/pkg", "rwx------");
+        writeToolsList("bin", "bin/login", "bin/pkg", "etc/termux-login.sh");
         Result result = run();
-        Assert.assertEquals(0, result.exit);
+        Assert.assertEquals(result.stderr, 0, result.exit);
         for (String name : TermuxHelperRewritesTest.HELPERS) {
             Assert.assertEquals(name,
                 TermuxHelperRewrites.apply(rules(), "bin/" + name, TermuxHelperRewritesTest.stockHelper(name)),
                 read(helper(name)));
             Assert.assertTrue(result.stderr.contains("adapted bin/" + name));
+        }
+        for (String file : TermuxHelperRewritesTest.STOCK_FILES) {
+            Assert.assertEquals(file,
+                TermuxHelperRewrites.apply(rules(), file, TermuxHelperRewritesTest.stockFile(file)),
+                read(new File(prefix, file)));
+            Assert.assertTrue(result.stderr.contains("adapted " + file));
+        }
+        Assert.assertEquals("rw-------", PosixFilePermissions.toString(
+            Files.getPosixFilePermissions(new File(prefix, "etc/termux-login.sh").toPath())));
+    }
+
+    @Test
+    public void loginAndTheConffileAreRestoredAfterAnUpstreamReinstall() throws Exception {
+        installStockFile("bin/login", "rwx------");
+        installStockFile("etc/termux-login.sh", "rw-------");
+        Assert.assertEquals(0, run().exit);
+        String login = read(new File(prefix, "bin/login"));
+        String conffile = read(new File(prefix, "etc/termux-login.sh"));
+        Assert.assertTrue(login.contains("${TERMUX_PKG_REDIRECT_SO:+$TERMUX_PKG_REDIRECT_SO:}"));
+        Assert.assertTrue(conffile.contains("TERMUX_PKG_REDIRECT_SO"));
+
+        // dpkg unpacks both again; for the conffile the user chose "install the new version".
+        Files.delete(new File(prefix, "bin/login").toPath());
+        Files.delete(new File(prefix, "etc/termux-login.sh").toPath());
+        installStockFile("bin/login", "rwx------");
+        installStockFile("etc/termux-login.sh", "rw-------");
+        Assert.assertEquals(0, run().exit);
+        Assert.assertEquals(login, read(new File(prefix, "bin/login")));
+        Assert.assertEquals(conffile, read(new File(prefix, "etc/termux-login.sh")));
+    }
+
+    @Test
+    public void aChangedUpstreamLoginFailsLoudlyButKeepsTheShebangUsable() throws Exception {
+        String changed = TermuxHelperRewritesTest.stockFile("bin/login")
+            .replace("export LD_PRELOAD=\"/", "export LD_PRELOAD=$LIB/");
+        write(new File(prefix, "bin/login"), changed);
+        Result result = run();
+        Assert.assertEquals(1, result.exit);
+        Assert.assertTrue(result.stderr, result.stderr.contains("ERROR: bin/login: missing expected text"));
+        Assert.assertTrue(read(new File(prefix, "bin/login")).startsWith("#!/data/data/dev.pschmitt.termux/files/usr/bin/sh\n"));
+    }
+
+    @Test
+    public void aNewStockReferenceInAHelperFailsLoudly() throws Exception {
+        write(helper("termux-open"), TermuxHelperRewritesTest.stockHelper("termux-open")
+            + "am broadcast -n \"com.termux/com.termux.app.New\"\n");
+        Result result = run();
+        Assert.assertEquals(1, result.exit);
+        Assert.assertTrue(result.stderr, result.stderr.contains("ERROR: bin/termux-open: still contains stock text"));
+        Assert.assertTrue(result.stderr.contains("could not adapt bin/termux-open"));
+    }
+
+    @Test
+    public void identityOnlyAppliesToTheTextFilesOfTermuxTools() throws Exception {
+        String stockPath = "/data/data/com.termux/files/usr";
+        new File(prefix, "etc").mkdirs();
+        write(helper("listed"), "#!/data/data/com.termux/files/usr/bin/sh\n");
+        write(helper("unlisted"), "#!/data/data/com.termux/files/usr/bin/sh\n");
+        write(new File(prefix, "etc/motd"), "see /data/data/com.termux/files/usr/etc\n");
+        Files.write(new File(prefix, "etc/blob").toPath(), new byte[] {'#', '!', 0, '/', 'd', 'a', 't', 'a', '/', 'c'});
+        File outside = temp.newFile("outside");
+        write(outside, "/data/data/com.termux/x\n");
+        Files.createSymbolicLink(new File(prefix, "etc/link").toPath(), outside.toPath());
+        writeToolsList("bin/listed", "etc/motd", "etc/blob", "etc/link", "bin/missing", "etc/../../outside-escape",
+            stockPath + "/bin/termux-open", "/elsewhere/bin/unlisted");
+        Result result = run();
+        Assert.assertEquals(result.stderr, 0, result.exit);
+        Assert.assertEquals("#!/data/data/dev.pschmitt.termux/files/usr/bin/sh\n", read(helper("listed")));
+        Assert.assertEquals("#!/data/data/com.termux/files/usr/bin/sh\n", read(helper("unlisted")));
+        Assert.assertEquals("see /data/data/dev.pschmitt.termux/files/usr/etc\n", read(new File(prefix, "etc/motd")));
+        Assert.assertEquals("/data/data/com.termux/x\n", read(outside));
+        Assert.assertTrue(Files.isSymbolicLink(new File(prefix, "etc/link").toPath()));
+        Assert.assertEquals(10, Files.readAllBytes(new File(prefix, "etc/blob").toPath()).length);
+    }
+
+    @Test
+    public void textWithMultibyteCharactersIsRewrittenWithoutLosingBytes() throws Exception {
+        new File(prefix, "share/examples").mkdirs();
+        String content = "# äöü — „quoted“\n# dir = /data/data/com.termux/files/home\n✓ done";
+        write(new File(prefix, "share/examples/termux.properties"), content);
+        writeToolsList("share/examples/termux.properties");
+        Result result = run();
+        Assert.assertEquals(result.stderr, 0, result.exit);
+        Assert.assertEquals(content.replace("/data/data/com.termux", "/data/data/dev.pschmitt.termux"),
+            read(new File(prefix, "share/examples/termux.properties")));
+    }
+
+    @Test
+    public void theStockIdentityLeavesEverythingByteIdenticalAndSilent() throws Exception {
+        for (String name : TermuxHelperRewritesTest.HELPERS) installStock(name, "rwx------");
+        installStockFile("bin/login", "rwx------");
+        installStockFile("etc/termux-login.sh", "rw-------");
+        writeToolsList("bin/login", "etc/termux-login.sh");
+        String rendered = TermuxHelperRewrites.render(
+            TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), TermuxHelperRewritesTest.stockValues());
+        write(new File(hookDir, "helper-rewrites.tsv"), TermuxHelperRewrites.hookTable(prefix.getCanonicalPath(), rendered));
+        Result result = run();
+        Assert.assertEquals(result.stderr, 0, result.exit);
+        // Unusable rows (stock equals fork, unresolved guard) are only warnings; nothing is rewritten.
+        Assert.assertFalse(result.stderr, result.stderr.contains("adapted"));
+        Assert.assertFalse(result.stderr, result.stderr.contains("ERROR"));
+        for (String name : TermuxHelperRewritesTest.HELPERS) {
+            Assert.assertEquals(TermuxHelperRewritesTest.stockHelper(name), read(helper(name)));
+        }
+        for (String file : TermuxHelperRewritesTest.STOCK_FILES) {
+            File target = new File(prefix, file);
+            if (target.exists()) Assert.assertEquals(TermuxHelperRewritesTest.stockFile(file), read(target));
         }
     }
 
@@ -184,15 +313,25 @@ public class AdaptHelpersScriptTest {
     }
 
     @Test
-    public void unknownContentBinariesAndNonScriptsAreUntouched() throws Exception {
+    public void unknownButHarmlessContentIsUntouched() throws Exception {
         write(helper("termux-open"), "#!/bin/sh\necho custom\n");
+        write(helper("termux-something-else"), "#!/bin/sh\n");
+        Assert.assertEquals(0, run().exit);
+        Assert.assertEquals("#!/bin/sh\necho custom\n", read(helper("termux-open")));
+    }
+
+    @Test
+    public void filesThatCannotBeAdaptedAreLeftAloneAndReported() throws Exception {
         write(helper("termux-reset"), "not a script \"com.termux/com.termux.app.TermuxService\"\n");
         Files.write(helper("termux-info").toPath(), new byte[] {0x7f, 'E', 'L', 'F', 0, 1, 2});
         // A shebang file with a NUL byte is not a shell script either.
         byte[] withNul = ("#!/bin/sh\n-n \"com.termux/com.termux.app.TermuxOpenReceiver\"\n\0\n").getBytes(StandardCharsets.UTF_8);
         Files.write(helper("termux-wake-lock").toPath(), withNul);
-        Assert.assertEquals(0, run().exit);
-        Assert.assertEquals("#!/bin/sh\necho custom\n", read(helper("termux-open")));
+        Result result = run();
+        Assert.assertEquals(1, result.exit);
+        Assert.assertTrue(result.stderr, result.stderr.contains("ERROR: bin/termux-reset: still contains stock text"));
+        Assert.assertTrue(result.stderr.contains("ERROR: bin/termux-info: not a text file"));
+        Assert.assertTrue(result.stderr.contains("ERROR: bin/termux-wake-lock: not a text file"));
         Assert.assertEquals("not a script \"com.termux/com.termux.app.TermuxService\"\n", read(helper("termux-reset")));
         Assert.assertArrayEquals(new byte[] {0x7f, 'E', 'L', 'F', 0, 1, 2}, Files.readAllBytes(helper("termux-info").toPath()));
         Assert.assertArrayEquals(withNul, Files.readAllBytes(helper("termux-wake-lock").toPath()));
@@ -218,7 +357,7 @@ public class AdaptHelpersScriptTest {
     }
 
     @Test
-    public void invalidTablesAreIgnoredWithoutFailing() throws Exception {
+    public void invalidTablesFailLoudlyAndChangeNothing() throws Exception {
         installStock("termux-open", "rwx------");
         String before = read(helper("termux-open"));
         Path table = new File(hookDir, "helper-rewrites.tsv").toPath();
@@ -233,7 +372,9 @@ public class AdaptHelpersScriptTest {
         };
         for (String content : tables) {
             Files.write(table, content.getBytes(StandardCharsets.UTF_8));
-            Assert.assertEquals(content, 0, run().exit);
+            Result result = run();
+            Assert.assertEquals(content, 1, result.exit);
+            Assert.assertTrue(content + result.stderr, result.stderr.contains("ERROR"));
             Assert.assertEquals(content, before, read(helper("termux-open")));
         }
     }
@@ -261,23 +402,25 @@ public class AdaptHelpersScriptTest {
             + "rule\tbin/../etc/profile\treplaceme\tpwned\n"
             + "rule\tbin/termux-open\treplaceme\tfine\n").getBytes(StandardCharsets.UTF_8));
         Result result = run();
-        Assert.assertEquals(0, result.exit);
+        Assert.assertEquals(1, result.exit);
         Assert.assertEquals("#!/bin/sh\nreplaceme\n", read(new File(victim, "profile")));
         Assert.assertEquals("#!/bin/sh\nfine\n", read(helper("termux-open")));
         Assert.assertTrue(result.stderr.contains("refusing unexpected helper name"));
     }
 
     @Test
-    public void missingTableDoesNothing() throws Exception {
+    public void missingTableFailsLoudly() throws Exception {
         installStock("termux-open", "rwx------");
         Files.delete(new File(hookDir, "helper-rewrites.tsv").toPath());
         String before = read(helper("termux-open"));
-        Assert.assertEquals(0, run().exit);
+        Result result = run();
+        Assert.assertEquals(1, result.exit);
+        Assert.assertTrue(result.stderr.contains("ERROR: missing rewrite table"));
         Assert.assertEquals(before, read(helper("termux-open")));
     }
 
     @Test
-    public void readOnlyBinDirectoryIsReportedWithoutFailing() throws Exception {
+    public void readOnlyBinDirectoryIsReportedAndFails() throws Exception {
         Assume.assumeFalse("root ignores directory permissions", "root".equals(System.getProperty("user.name")));
         installStock("termux-open", "rwx------");
         String before = read(helper("termux-open"));
@@ -285,7 +428,7 @@ public class AdaptHelpersScriptTest {
         Assert.assertTrue(bin.setWritable(false));
         try {
             Result result = run();
-            Assert.assertEquals(0, result.exit);
+            Assert.assertEquals(1, result.exit);
             Assert.assertTrue(result.stderr.contains("could not adapt bin/termux-open"));
             Assert.assertEquals(before, read(helper("termux-open")));
         } finally {

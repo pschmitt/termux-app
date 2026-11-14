@@ -162,6 +162,7 @@ final class TermuxInstaller {
                     Logger.logInfo(LOG_TAG, "Extracting bootstrap zip to prefix staging directory \"" + TERMUX_STAGING_PREFIX_DIR_PATH + "\".");
 
                     final byte[] buffer = new byte[8096];
+                    final Map<String, String> adaptedFiles = new HashMap<>();
                     final List<Pair<String, String>> symlinks = new ArrayList<>(50);
 
                     final byte[] zipBytes = loadZipBytes();
@@ -206,34 +207,11 @@ final class TermuxInstaller {
                                         entryBytes[0] == 0x7F && entryBytes[1] == 'E' && entryBytes[2] == 'L' && entryBytes[3] == 'F';
                                     if (!isElf && !"com.termux".equals(TermuxConstants.TERMUX_PACKAGE_NAME)) {
                                         String text = new String(entryBytes, java.nio.charset.StandardCharsets.UTF_8);
-                                        boolean modified = false;
-                                        if (text.contains("/data/data/com.termux")) {
-                                            text = text.replace("/data/data/com.termux",
-                                                TermuxConstants.TERMUX_INTERNAL_PRIVATE_APP_DATA_DIR_PATH);
-                                            modified = true;
-                                        }
-                                        String adaptedHelper = TermuxHelperRewrites.apply(helperRewrites, zipEntryName, text);
-                                        if (!adaptedHelper.equals(text)) {
-                                            text = adaptedHelper;
-                                            modified = true;
-                                        }
-                                        if ("bin/login".equals(zipEntryName) && text.contains("export LD_PRELOAD=\"")) {
-                                            text = text.replace("export LD_PRELOAD=\"",
-                                                "export LD_PRELOAD=\"${TERMUX_PKG_REDIRECT_SO:+$TERMUX_PKG_REDIRECT_SO:}");
-                                            modified = true;
-                                        }
-                                        if ("etc/termux-login.sh".equals(zipEntryName)) {
-                                            text = text +
-                                                "\nif [ -n \"${TERMUX_PKG_REDIRECT_SO:-}\" ] && [ -f \"$TERMUX_PKG_REDIRECT_SO\" ]; then\n" +
-                                                "    case \":${LD_PRELOAD:-}:\" in\n" +
-                                                "        *\":$TERMUX_PKG_REDIRECT_SO:\"*) ;;\n" +
-                                                "        *) export LD_PRELOAD=\"$TERMUX_PKG_REDIRECT_SO${LD_PRELOAD:+:$LD_PRELOAD}\" ;;\n" +
-                                                "    esac\n" +
-                                                "fi\n";
-                                            modified = true;
-                                        }
-                                        if (modified) {
-                                            entryBytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                                        // Identity, helper, login and conffile rewrites all come from the table.
+                                        String adapted = TermuxHelperRewrites.apply(helperRewrites, zipEntryName, text);
+                                        if (!adapted.equals(text)) {
+                                            adaptedFiles.put(zipEntryName, adapted);
+                                            entryBytes = adapted.getBytes(java.nio.charset.StandardCharsets.UTF_8);
                                         }
                                     }
                                     try (FileOutputStream outStream = new FileOutputStream(targetFile)) {
@@ -261,6 +239,12 @@ final class TermuxInstaller {
                     }
 
                     if (forkIdentity) {
+                        // The same checks the APT hook runs: never ship a half adapted login or helper.
+                        for (Map.Entry<String, String> adapted : adaptedFiles.entrySet()) {
+                            for (String problem : TermuxHelperRewrites.verify(helperRewrites, adapted.getKey(), adapted.getValue())) {
+                                Logger.logError(LOG_TAG, "Fork identity check failed: " + problem);
+                            }
+                        }
                         // Keep the helpers correct after APT replaces them with the stock versions.
                         try {
                             TermuxHelperRewrites.deployHook(TERMUX_STAGING_PREFIX_DIR,
@@ -323,6 +307,9 @@ final class TermuxInstaller {
         values.put("RELOAD_STYLE_ACTION", TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY.ACTION_RELOAD_STYLE);
         values.put("WAKE_LOCK_ACTION", TermuxConstants.TERMUX_APP.TERMUX_SERVICE.ACTION_WAKE_LOCK);
         values.put("WAKE_UNLOCK_ACTION", TermuxConstants.TERMUX_APP.TERMUX_SERVICE.ACTION_WAKE_UNLOCK);
+        values.put("DATA_DIR", TermuxConstants.TERMUX_INTERNAL_PRIVATE_APP_DATA_DIR_PATH);
+        values.put("REDIRECT_SO_VAR", "TERMUX_PKG_REDIRECT_SO");
+        values.put("FORK_ONLY", "fork");
         return values;
     }
 
