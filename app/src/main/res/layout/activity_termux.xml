@@ -35,7 +35,7 @@
 
             <LinearLayout
                 android:id="@+id/left_drawer"
-                android:layout_width="240dp"
+                android:layout_width="@dimen/ui_drawer_width"
                 android:layout_height="match_parent"
                 android:layout_gravity="start"
                 android:choiceMode="singleChoice"
@@ -48,14 +48,28 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:gravity="center_vertical"
+                    android:minHeight="64dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="28dp"
+                    android:paddingEnd="12dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:accessibilityHeading="true"
+                        android:text="@string/ui_drawer_title"
+                        android:textAppearance="@style/TextAppearance.TermuxPP.DrawerTitle"
+                        tools:targetApi="p" />
+
                     <ImageButton
                         android:id="@+id/settings_button"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:src="@drawable/ic_settings"
-                        android:background="@null"
+                        style="@style/Widget.TermuxPP.IconButton"
+                        android:layout_width="@dimen/ui_touch_target"
+                        android:layout_height="@dimen/ui_touch_target"
                         android:contentDescription="@string/action_open_settings"
+                        android:src="@drawable/ui_ic_settings"
                         app:tint="?attr/termuxActivityDrawerImageTint" />
                 </LinearLayout>
 
@@ -66,29 +80,36 @@
                     android:layout_gravity="top"
                     android:layout_weight="1"
                     android:choiceMode="singleChoice"
-                    android:longClickable="true" />
+                    android:clipToPadding="false"
+                    android:divider="@android:color/transparent"
+                    android:dividerHeight="0dp"
+                    android:longClickable="true"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="8dp"
+                    android:scrollbarStyle="outsideOverlay" />
 
                 <LinearLayout
-                    style="?android:attr/buttonBarStyle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/toggle_keyboard_button"
-                        style="?android:attr/buttonBarButtonStyle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/action_toggle_soft_keyboard" />
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/new_session_button"
-                        style="?android:attr/buttonBarButtonStyle"
+                        style="@style/Widget.TermuxPP.Button.Filled"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/action_new_session" />
+                        android:text="@string/action_new_session"
+                        app:icon="@drawable/ui_ic_add" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/toggle_keyboard_button"
+                        style="@style/Widget.TermuxPP.Button.Tonal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/action_toggle_soft_keyboard"
+                        app:icon="@drawable/ui_ic_keyboard" />
                 </LinearLayout>
             </LinearLayout>
 

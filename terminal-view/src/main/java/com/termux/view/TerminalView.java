@@ -34,6 +34,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.widget.Scroller;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
@@ -534,6 +535,30 @@ public final class TerminalView extends View {
             invalidate();
         }
         if (mAccessibilityEnabled) setContentDescription(getText());
+    }
+
+    /** Lets the host replace the system context menu popup with its own presentation. */
+    public interface ContextMenuPresenter {
+        /**
+         * @return true if the menu was presented, false to fall back to the system context menu.
+         * The presenter must call {@link TerminalView#onContextMenuClosed(Menu)} once it is closed.
+         */
+        boolean showContextMenu(@NonNull TerminalView view);
+    }
+
+    @Nullable private ContextMenuPresenter mContextMenuPresenter;
+
+    public void setContextMenuPresenter(@Nullable ContextMenuPresenter presenter) {
+        mContextMenuPresenter = presenter;
+    }
+
+    /** All paths that open the terminal context menu (selection toolbar "More", mouse right click,
+     * keyboard shortcut and the options menu key) call this, so a presenter covers all of them. */
+    @Override
+    public boolean showContextMenu() {
+        ContextMenuPresenter presenter = mContextMenuPresenter;
+        if (presenter != null && presenter.showContextMenu(this)) return true;
+        return super.showContextMenu();
     }
 
     /** This must be called by the hosting activity in {@link Activity#onContextMenuClosed(Menu)}

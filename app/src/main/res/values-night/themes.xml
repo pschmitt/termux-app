@@ -1,8 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!--
      https://material.io/develop/android/theming/dark
     -->
+
+    <!-- TermuxApp DayNight DarkActionBar theme. -->
+    <style name="Theme.TermuxApp.DayNight.DarkActionBar" parent="Theme.BaseActivity.DayNight.DarkActionBar">
+        <!-- TermuxPP UI tokens: see colors_ui.xml. -->
+        <item name="colorPrimary">@color/ui_primary</item>
+        <item name="colorPrimaryVariant">@color/ui_primary</item>
+        <item name="colorOnPrimary">@color/ui_on_primary</item>
+        <item name="colorPrimaryDark" tools:targetApi="l">@color/ui_surface</item>
+        <item name="colorSecondary">@color/ui_primary</item>
+        <item name="colorSecondaryVariant">@color/ui_primary</item>
+        <item name="colorOnSecondary">@color/ui_on_primary</item>
+        <item name="colorSurface">@color/ui_surface</item>
+        <item name="colorOnSurface">@color/ui_on_surface</item>
+        <item name="colorOnBackground">@color/ui_on_surface</item>
+        <item name="android:colorBackground">@color/ui_surface</item>
+        <item name="android:windowBackground">@color/ui_surface</item>
+        <item name="android:textColorPrimary">@color/ui_on_surface</item>
+        <item name="android:textColorSecondary">@color/ui_on_surface_variant</item>
+        <item name="colorControlHighlight">@color/ui_ripple</item>
+        <item name="android:statusBarColor" tools:targetApi="l">@color/ui_surface</item>
+        <item name="android:navigationBarColor" tools:targetApi="l">@color/ui_surface</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+
+        <!-- Settings screens. -->
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.TermuxPP</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.TermuxPP.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.TermuxPP.Dialog</item>
+        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.TermuxPP.BottomSheetDialog</item>
+    </style>
+    <!-- TermuxApp DayNight NoActionBar theme. -->
+    <style name="Theme.TermuxApp.DayNight.NoActionBar" parent="Theme.TermuxApp.DayNight.DarkActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
 
     <!-- TermuxActivity DayNight NoActionBar theme. -->
     <!-- See https://developer.android.com/training/material/theme.html for how to customize the Material theme. -->
@@ -21,14 +56,18 @@
         <item name="android:windowTranslucentStatus">true</item>
         <item name="android:windowTranslucentNavigation">true</item>
 
+        <!-- The terminal is always dark behind the translucent system bars. -->
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+
         <!-- https://developer.android.com/training/tv/start/start.html#transition-color -->
         <item name="android:windowAllowReturnTransitionOverlap">true</item>
         <item name="android:windowAllowEnterTransitionOverlap">true</item>
 
         <!-- Left drawer. -->
         <item name="buttonBarButtonStyle">@style/TermuxActivity.Drawer.ButtonBarStyle.Dark</item>
-        <item name="termuxActivityDrawerBackground">@color/black</item>
-        <item name="termuxActivityDrawerImageTint">@color/white</item>
+        <item name="termuxActivityDrawerBackground">@color/ui_surface</item>
+        <item name="termuxActivityDrawerImageTint">@color/ui_on_surface_variant</item>
 
         <!-- Extra keys colors. -->
         <item name="extraKeysButtonTextColor">@color/white</item>

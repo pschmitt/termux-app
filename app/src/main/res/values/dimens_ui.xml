@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="ui_gutter">16dp</dimen>
+    <dimen name="ui_row_gap">3dp</dimen>
+    <dimen name="ui_row_radius">16dp</dimen>
+    <dimen name="ui_row_min_height">64dp</dimen>
+    <dimen name="ui_icon_container">40dp</dimen>
+    <dimen name="ui_drawer_width">304dp</dimen>
+    <dimen name="ui_sheet_radius">28dp</dimen>
+    <dimen name="ui_touch_target">48dp</dimen>
+</resources>

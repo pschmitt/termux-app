@@ -29,6 +29,7 @@ import android.widget.Toast;
 import com.termux.R;
 import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.terminal.TermuxActivityRootView;
+import com.termux.app.terminal.TermuxContextMenuSheet;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.ExtraKeysSwipeViewPager;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
@@ -196,6 +197,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private static final String LOG_TAG = "TermuxActivity";
 
+    /** The terminal context menu bottom sheet while it is showing. */
+    private android.app.Dialog mContextSheetDialog;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Logger.logDebug(LOG_TAG, "onCreate");
@@ -254,6 +258,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setToggleKeyboardView();
 
         registerForContextMenu(mTerminalView);
+        mTerminalView.setContextMenuPresenter(view -> showTerminalContextSheet());
 
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
 
@@ -348,6 +353,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     @Override
     public void onDestroy() {
+        if (mContextSheetDialog != null) mContextSheetDialog.dismiss();
         super.onDestroy();
 
         Logger.logDebug(LOG_TAG, "onDestroy");
@@ -677,11 +683,64 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return false;
     }
 
+    /**
+     * Present the terminal context menu as a grouped bottom sheet. Falls back to the system
+     * context menu (see {@link #onCreateContextMenu}) when there is no session or the sheet fails.
+     */
+    private boolean showTerminalContextSheet() {
+        if (mContextSheetDialog != null && mContextSheetDialog.isShowing()) return true;
+        TerminalSession currentSession = getCurrentSession();
+        if (currentSession == null || isFinishing() || isDestroyed()) return false;
+
+        boolean autoFillEnabled = mTerminalView.isAutoFillEnabled();
+        boolean hasSelectedText = !DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText());
+
+        TermuxContextMenuSheet sheet = new TermuxContextMenuSheet(this)
+            .addGroup(R.string.ui_menu_group_text)
+            .addItem(CONTEXT_MENU_SELECT_URL_ID, R.string.action_select_url, R.drawable.ui_ic_link);
+        if (hasSelectedText)
+            sheet.addItem(CONTEXT_MENU_SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_share);
+        sheet.addItem(CONTEXT_MENU_SHARE_TRANSCRIPT_ID, R.string.action_share_transcript, R.drawable.ui_ic_share);
+        if (autoFillEnabled) {
+            sheet.addItem(CONTEXT_MENU_AUTOFILL_USERNAME, R.string.action_autofill_username, R.drawable.ui_ic_person);
+            sheet.addItem(CONTEXT_MENU_AUTOFILL_PASSWORD, R.string.action_autofill_password, R.drawable.ui_ic_lock);
+        }
+        sheet.addGroup(R.string.ui_menu_group_session)
+            .addItem(CONTEXT_MENU_RESET_TERMINAL_ID, R.string.action_reset_terminal, R.drawable.ui_ic_refresh)
+            .addItem(CONTEXT_MENU_KILL_PROCESS_ID, getResources().getString(R.string.action_kill_process, currentSession.getPid()),
+                R.drawable.ui_ic_power, currentSession.isRunning(), true)
+            .addToggle(CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_lightbulb,
+                mPreferences.shouldKeepScreenOn())
+            .addGroup(R.string.ui_menu_group_app)
+            .addItem(CONTEXT_MENU_STYLING_ID, R.string.action_style_terminal, R.drawable.ui_ic_palette)
+            .addItem(CONTEXT_MENU_SETTINGS_ID, R.string.action_open_settings, R.drawable.ui_ic_settings)
+            .addItem(CONTEXT_MENU_HELP_ID, R.string.action_open_help, R.drawable.ui_ic_help)
+            .addItem(CONTEXT_MENU_REPORT_ID, R.string.action_report_issue, R.drawable.ui_ic_bug);
+
+        try {
+            mContextSheetDialog = sheet.show(chosenItemId -> {
+                mContextSheetDialog = null;
+                // Same order as the system menu: run the chosen action, then release the stored selected text.
+                if (chosenItemId >= 0) handleContextMenuAction(chosenItemId);
+                mTerminalView.onContextMenuClosed(null);
+            });
+            return true;
+        } catch (RuntimeException e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to show context menu sheet", e);
+            return false;
+        }
+    }
+
     @Override
     public boolean onContextItemSelected(MenuItem item) {
+        if (handleContextMenuAction(item.getItemId())) return true;
+        return super.onContextItemSelected(item);
+    }
+
+    private boolean handleContextMenuAction(int itemId) {
         TerminalSession session = getCurrentSession();
 
-        switch (item.getItemId()) {
+        switch (itemId) {
             case CONTEXT_MENU_SELECT_URL_ID:
                 mTermuxTerminalViewClient.showUrlSelection();
                 return true;
@@ -719,7 +778,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mTermuxTerminalViewClient.reportIssueFromTranscript();
                 return true;
             default:
-                return super.onContextItemSelected(item);
+                return false;
         }
     }
 

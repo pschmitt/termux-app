@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Session row: transparent, filled container when it is the current session (activated). -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/ui_ripple">
+    <item android:id="@android:id/mask">
+        <inset
+            android:insetLeft="12dp"
+            android:insetRight="12dp"
+            android:insetTop="2dp"
+            android:insetBottom="2dp">
+            <shape android:shape="rectangle">
+                <solid android:color="#FF000000" />
+                <corners android:radius="28dp" />
+            </shape>
+        </inset>
+    </item>
+    <item>
+        <selector>
+            <item android:state_activated="true">
+                <inset
+                    android:insetLeft="12dp"
+                    android:insetRight="12dp"
+                    android:insetTop="2dp"
+                    android:insetBottom="2dp">
+                    <shape android:shape="rectangle">
+                        <solid android:color="@color/ui_container" />
+                        <corners android:radius="28dp" />
+                    </shape>
+                </inset>
+            </item>
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="@android:color/transparent" />
+                </shape>
+            </item>
+        </selector>
+    </item>
+</ripple>

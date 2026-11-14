@@ -2,12 +2,14 @@
 
     <Preference
         app:key="termux"
+        app:icon="@drawable/ui_ic_terminal"
         app:title="@string/termux_preferences_title"
         app:summary="@string/termux_preferences_summary"
         app:fragment="com.termux.app.fragments.settings.TermuxPreferencesFragment"/>
 
     <Preference
         app:key="termux_api"
+        app:icon="@drawable/ui_ic_extension"
         app:title="@string/termux_api_preferences_title"
         app:summary="@string/termux_api_preferences_summary"
         app:isPreferenceVisible="false"
@@ -15,6 +17,7 @@
 
     <Preference
         app:key="termux_float"
+        app:icon="@drawable/ui_ic_float"
         app:title="@string/termux_float_preferences_title"
         app:summary="@string/termux_float_preferences_summary"
         app:isPreferenceVisible="false"
@@ -22,6 +25,7 @@
 
     <Preference
         app:key="termux_tasker"
+        app:icon="@drawable/ui_ic_bolt"
         app:title="@string/termux_tasker_preferences_title"
         app:summary="@string/termux_tasker_preferences_summary"
         app:isPreferenceVisible="false"
@@ -29,19 +33,29 @@
 
     <Preference
         app:key="termux_widget"
+        app:icon="@drawable/ui_ic_widgets"
         app:title="@string/termux_widget_preferences_title"
         app:summary="@string/termux_widget_preferences_summary"
         app:isPreferenceVisible="false"
         app:fragment="com.termux.app.fragments.settings.TermuxWidgetPreferencesFragment"/>
 
     <Preference
+        app:key="updates"
+        app:icon="@drawable/ui_ic_system_update"
+        app:title="@string/termux_updates_title"
+        app:summary="@string/termux_updates_summary"
+        app:fragment="com.termux.app.fragments.settings.UpdatesPreferencesFragment"/>
+
+    <Preference
         app:key="about"
+        app:icon="@drawable/ui_ic_info"
         app:title="@string/about_preference_title"
         app:persistent="false"/>
     <!-- app:layout="@layout/preference_markdown_text" -->
 
     <Preference
         app:key="donate"
+        app:icon="@drawable/ui_ic_favorite"
         app:title="@string/donate_preference_title"
         app:persistent="false"
         app:isPreferenceVisible="false"/>

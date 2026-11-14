@@ -1,13 +1,8 @@
 package com.termux.app.terminal;
 
 import android.annotation.SuppressLint;
-import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Typeface;
-import android.text.SpannableString;
-import android.text.Spanned;
 import android.text.TextUtils;
-import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,8 +16,6 @@ import androidx.core.content.ContextCompat;
 import com.termux.R;
 import com.termux.app.TermuxActivity;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
-import com.termux.shared.theme.NightMode;
-import com.termux.shared.theme.ThemeUtils;
 import com.termux.terminal.TerminalSession;
 
 import java.util.List;
@@ -30,9 +23,6 @@ import java.util.List;
 public class TermuxSessionsListViewController extends ArrayAdapter<TermuxSession> implements AdapterView.OnItemClickListener, AdapterView.OnItemLongClickListener {
 
     final TermuxActivity mActivity;
-
-    final StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
-    final StyleSpan italicSpan = new StyleSpan(Typeface.ITALIC);
 
     public TermuxSessionsListViewController(TermuxActivity activity, List<TermuxSession> sessionList) {
         super(activity.getApplicationContext(), R.layout.item_terminal_sessions_list, sessionList);
@@ -49,46 +39,60 @@ public class TermuxSessionsListViewController extends ArrayAdapter<TermuxSession
             sessionRowView = inflater.inflate(R.layout.item_terminal_sessions_list, parent, false);
         }
 
+        TextView sessionIndexView = sessionRowView.findViewById(R.id.session_index);
         TextView sessionTitleView = sessionRowView.findViewById(R.id.session_title);
+        TextView sessionSubtitleView = sessionRowView.findViewById(R.id.session_subtitle);
+
+        int number = position + 1;
+        sessionIndexView.setText(String.valueOf(number));
 
         TerminalSession sessionAtRow = getItem(position).getTerminalSession();
         if (sessionAtRow == null) {
-            sessionTitleView.setText("null session");
+            sessionTitleView.setText(R.string.ui_session_null);
+            sessionTitleView.setPaintFlags(sessionTitleView.getPaintFlags() & ~Paint.STRIKE_THRU_TEXT_FLAG);
+            sessionTitleView.setTextColor(ContextCompat.getColor(mActivity, R.color.ui_on_surface));
+            sessionSubtitleView.setVisibility(View.GONE);
+            sessionRowView.setContentDescription(number + ", " + mActivity.getString(R.string.ui_session_null));
             return sessionRowView;
         }
 
-        boolean shouldEnableDarkTheme = ThemeUtils.shouldEnableDarkTheme(mActivity, NightMode.getAppNightMode().getName());
+        String name = sessionAtRow.mSessionName;
+        String terminalTitle = sessionAtRow.getTitle();
+        boolean hasName = !TextUtils.isEmpty(name);
+        boolean hasTitle = !TextUtils.isEmpty(terminalTitle);
+        boolean sessionRunning = sessionAtRow.isRunning();
 
-        if (shouldEnableDarkTheme) {
-            sessionTitleView.setBackground(
-                ContextCompat.getDrawable(mActivity, R.drawable.session_background_black_selected)
-            );
+        // The name is what the user chose, so it leads; the terminal title (usually the running
+        // program or directory) follows beneath it. Unnamed sessions lead with their title.
+        String title;
+        String subtitle = "";
+        if (hasName) {
+            title = name;
+            if (hasTitle) subtitle = terminalTitle;
+        } else if (hasTitle) {
+            title = terminalTitle;
+        } else {
+            title = mActivity.getString(R.string.ui_session_unnamed, number);
         }
 
-        String name = sessionAtRow.mSessionName;
-        String sessionTitle = sessionAtRow.getTitle();
+        if (!sessionRunning) {
+            String exited = mActivity.getString(R.string.ui_session_exited, sessionAtRow.getExitStatus());
+            subtitle = subtitle.isEmpty() ? exited : subtitle + " - " + exited;
+        }
 
-        String numberPart = "[" + (position + 1) + "] ";
-        String sessionNamePart = (TextUtils.isEmpty(name) ? "" : name);
-        String sessionTitlePart = (TextUtils.isEmpty(sessionTitle) ? "" : ((sessionNamePart.isEmpty() ? "" : "\n") + sessionTitle));
-
-        String fullSessionTitle = numberPart + sessionNamePart + sessionTitlePart;
-        SpannableString fullSessionTitleStyled = new SpannableString(fullSessionTitle);
-        fullSessionTitleStyled.setSpan(boldSpan, 0, numberPart.length() + sessionNamePart.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        fullSessionTitleStyled.setSpan(italicSpan, numberPart.length() + sessionNamePart.length(), fullSessionTitle.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-        sessionTitleView.setText(fullSessionTitleStyled);
-
-        boolean sessionRunning = sessionAtRow.isRunning();
+        sessionTitleView.setText(title);
+        sessionSubtitleView.setText(subtitle);
+        sessionSubtitleView.setVisibility(subtitle.isEmpty() ? View.GONE : View.VISIBLE);
 
         if (sessionRunning) {
             sessionTitleView.setPaintFlags(sessionTitleView.getPaintFlags() & ~Paint.STRIKE_THRU_TEXT_FLAG);
         } else {
             sessionTitleView.setPaintFlags(sessionTitleView.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         }
-        int defaultColor = shouldEnableDarkTheme ? Color.WHITE : Color.BLACK;
-        int color = sessionRunning || sessionAtRow.getExitStatus() == 0 ? defaultColor : Color.RED;
-        sessionTitleView.setTextColor(color);
+        boolean failed = !sessionRunning && sessionAtRow.getExitStatus() != 0;
+        sessionTitleView.setTextColor(ContextCompat.getColor(mActivity, failed ? R.color.ui_danger : R.color.ui_on_surface));
+
+        sessionRowView.setContentDescription(subtitle.isEmpty() ? number + ", " + title : number + ", " + title + ", " + subtitle);
         return sessionRowView;
     }
 

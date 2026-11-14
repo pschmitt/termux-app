@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TermuxPP UI tokens (light). Purple identity taken from the launcher icon (#3B1D6A / #D8B4FE). -->
+<resources>
+    <color name="ui_primary">#6A3FB5</color>
+    <color name="ui_on_primary">#FFFFFF</color>
+    <color name="ui_container">#EBDDFF</color>
+    <color name="ui_on_container">#2A0F55</color>
+    <color name="ui_surface">#FCF8FF</color>
+    <color name="ui_row">#F2ECFA</color>
+    <color name="ui_on_surface">#1D1A22</color>
+    <color name="ui_on_surface_variant">#4A4453</color>
+    <color name="ui_outline">#7B7385</color>
+    <color name="ui_divider">#E3DCEB</color>
+    <color name="ui_danger">#B3261E</color>
+    <color name="ui_ripple">#1F6A3FB5</color>
+    <color name="ui_scrim">#52000000</color>
+</resources>
