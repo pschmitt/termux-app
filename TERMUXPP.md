@@ -33,6 +33,12 @@ adb -s SERIAL shell am instrument -w \
 This test passed on a device with the matching core and signing certificate.
 It does not modify existing Tasker profiles.
 
+`ExecutionIntegrationTest` fires from the plug-in's own UID, which Android always allows,
+so it cannot detect host discovery or permission problems. `PluginHostDiscoveryTest`
+resolves the fire/edit components like a real host and checks that the installed Tasker
+(`net.dinglisch.android.taskerm`, override with
+`-e termuxpp.hostPackage PACKAGE`) holds the receiver's permission.
+
 ## Install and verify
 
 Sign with the same certificate as the installed TermuxPP core. The checked-in
@@ -43,7 +49,15 @@ The plug-in appears separately from stock Termux in Tasker. Existing tasks
 must reselect the TermuxPP plug-in: saved upstream package references are not
 migrated automatically. Scripts live in TermuxPP's `~/.termux/tasker`.
 
-Grant Tasker the fork's command execution permission when Android requests it.
+Plug-in hosts such as Tasker only request the stock `com.termux.permission.RUN_COMMAND`
+permission and cannot be granted `dev.pschmitt.termux.permission.RUN_COMMAND`. The
+plug-in's fire receiver is therefore protected with the stock permission name, which
+Tasker holds once you granted it for stock Termux (Android app info, permissions).
+The stock Termux app (or any app declaring that permission) must stay installed: if
+the permission is undeclared, Tasker reports "plugin error: missing, disabled, not
+exported or no permission receiver, or too many receivers". The core's own
+`RunCommandService` still requires the TermuxPP permission and is only reached from
+the plug-in's shared UID.
 Keep the existing command permission and external-execution policy checks;
 configure `allow-external-apps` explicitly only when required by your workflow.
 Test a foreground and background script, arguments, stdin, stdout, stderr,

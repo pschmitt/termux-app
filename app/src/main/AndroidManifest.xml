@@ -64,13 +64,17 @@
         - The BroadcastReceiver isn't exported (e.g. android:exported="false")
         - The BroadcastReceiver isn't enabled (e.g. android:enabled="false")
         - The BroadcastReceiver requires permissions not available to Locale
+          Plug-in hosts such as Tasker only request the stock "com.termux.permission.RUN_COMMAND"
+          permission and cannot hold the TermuxPP-specific "dev.pschmitt.termux.permission.RUN_COMMAND",
+          so the receiver must be protected with the stock permission name (keep in sync with
+          PluginUtils.PLUGIN_HOST_PERMISSION).
         - There are multiple BroadcastReceivers for com.twofortyfouram.locale.intent.action.FIRE_SETTING
         -->
         <receiver
             android:name=".FireReceiver"
             android:exported="true"
             android:process=":background"
-            android:permission="${TERMUX_PACKAGE_NAME}.permission.RUN_COMMAND">
+            android:permission="com.termux.permission.RUN_COMMAND">
             <!-- This Intent filter allows the plug-in to discovered by Locale. -->
             <intent-filter>
                 <action android:name="com.twofortyfouram.locale.intent.action.FIRE_SETTING" />

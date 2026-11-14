@@ -140,6 +140,14 @@ public class PluginUtils {
     private static final String LOG_TAG = "PluginUtils";
 
     /**
+     * The permission plugin host apps (Tasker etc.) must hold to fire the plugin. Hosts only request
+     * the stock {@code com.termux.permission.RUN_COMMAND} and cannot be granted the TermuxPP one
+     * ({@link TermuxConstants#PERMISSION_RUN_COMMAND}), so the FireReceiver is protected with this
+     * name. Keep in sync with the receiver in AndroidManifest.xml.
+     */
+    public static final String PLUGIN_HOST_PERMISSION = "com.termux.permission.RUN_COMMAND";
+
+    /**
      * Send execution intent to execution service containing command information and original intent
      * received by {@link FireReceiver}.
      *
@@ -469,21 +477,21 @@ public class PluginUtils {
 
 
     /**
-     * Check if package has {@link TermuxConstants#PERMISSION_RUN_COMMAND}.
+     * Check if package has {@link #PLUGIN_HOST_PERMISSION}.
      *
      * @param context The {@link Context} to get error string.
      * @param packageName The package name to check.
      * @return Returns the {@code errmsg} if package has not been granted
-     * {@link TermuxConstants#PERMISSION_RUN_COMMAND}, otherwise {@code null}.
+     * {@link #PLUGIN_HOST_PERMISSION}, otherwise {@code null}.
      */
     public static String checkIfPackageHasPermissionRunCommand(final Context context, final String packageName) {
 
         String errmsg = null;
 
-        // Check if packageName has been granted PERMISSION_RUN_COMMAND
+        // Check if packageName has been granted PLUGIN_HOST_PERMISSION
         PackageManager packageManager = context.getPackageManager();
         // If permission not granted
-        if (packageManager.checkPermission(TermuxConstants.PERMISSION_RUN_COMMAND, packageName) != PackageManager.PERMISSION_GRANTED) {
+        if (packageManager.checkPermission(PLUGIN_HOST_PERMISSION, packageName) != PackageManager.PERMISSION_GRANTED) {
             ApplicationInfo applicationInfo;
             try {
                 applicationInfo = packageManager.getApplicationInfo(packageName, 0);
@@ -491,7 +499,7 @@ public class PluginUtils {
                 applicationInfo = null;
             }
             final String appName = (String) (applicationInfo != null ? packageManager.getApplicationLabel(applicationInfo) : context.getString(R.string.error_unknown_app));
-            errmsg = context.getString(R.string.error_plugin_permission_ungranted_warning, appName, packageName, TermuxConstants.PERMISSION_RUN_COMMAND);
+            errmsg = context.getString(R.string.error_plugin_permission_ungranted_warning, appName, packageName, PLUGIN_HOST_PERMISSION);
         }
 
         return errmsg;
