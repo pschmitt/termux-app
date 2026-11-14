@@ -296,11 +296,18 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
                 return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION).getValue();
 
+            /* Volume key action (never null): "modifier" or a TerminalGestureAction value */
+            case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION:
+            case TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION:
+                return getVolumeKeyActionInternalPropertyValueFromValue(key, value);
+
             /* TerminalKeySequence String (may be null), stored as its normalized value */
             case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_KEYS:
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_KEYS:
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS:
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS:
+            case TermuxPropertyConstants.KEY_VOLUME_UP_KEYS:
+            case TermuxPropertyConstants.KEY_VOLUME_DOWN_KEYS:
                 return getKeySequenceInternalPropertyValueFromValue(key, value);
 
             /* Integer (may be null) */
@@ -612,6 +619,29 @@ public abstract class TermuxSharedProperties {
     }
 
     /**
+     * Returns the internal value of a volume key action property: {@link TermuxPropertyConstants#VOLUME_KEY_ACTION_MODIFIER}
+     * or the value of a {@link TerminalGestureAction}. A missing value is the modifier. An invalid
+     * value is logged and also the modifier, the behaviour of the volume buttons without configuration.
+     *
+     * @param key The key of the property, used for logging.
+     * @param value The {@link String} value to convert.
+     * @return Returns the internal value for value, which is never {@code null}.
+     */
+    @NonNull
+    public static String getVolumeKeyActionInternalPropertyValueFromValue(String key, String value) {
+        if (value == null) return TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER;
+        String normalized = SharedProperties.toLowerCase(value.trim());
+        if (TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER.equals(normalized))
+            return TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER;
+        TerminalGestureAction action = TerminalGestureAction.parse(value);
+        if (action == null) {
+            Logger.logError(LOG_TAG, "The value \"" + value + "\" for the key \"" + key + "\" is invalid. Expected one of: " + TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER + ", " + TerminalGestureAction.getValidValues() + ". Using the default \"" + TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER + "\" instead.");
+            return TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER;
+        }
+        return action.getValue();
+    }
+
+    /**
      * Returns the normalized {@link TerminalKeySequence#getNormalizedValue()} for the value of a
      * {@code *-keys} property, or {@code null} if the property is not set or not valid. An invalid
      * value is logged and the action {@link TerminalGestureAction#SEND_KEYS} then does nothing.
@@ -726,8 +756,20 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_KEYS;
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS;
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS;
+            case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION: return TermuxPropertyConstants.KEY_VOLUME_UP_KEYS;
+            case TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION: return TermuxPropertyConstants.KEY_VOLUME_DOWN_KEYS;
             default: return null;
         }
+    }
+
+    /**
+     * Get the cached {@link TerminalGestureAction} of a volume key action key as configured, or
+     * {@code null} for the virtual modifier (the default, also for an invalid value).
+     */
+    @Nullable
+    private TerminalGestureAction getConfiguredVolumeKeyAction(String key) {
+        Object value = getInternalPropertyValue(key, true);
+        return value instanceof String ? TerminalGestureAction.parse((String) value) : null;
     }
 
     /** Get the cached {@link TerminalGestureAction} of a gesture key as configured, its default if it is not usable. */
@@ -764,10 +806,15 @@ public abstract class TermuxSharedProperties {
             TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION,
             TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION,
             TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION,
-            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION,
+            TermuxPropertyConstants.KEY_VOLUME_UP_ACTION,
+            TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION
         };
         for (String actionKey : actionKeys) {
-            if (getConfiguredGestureAction(actionKey) != TerminalGestureAction.SEND_KEYS) continue;
+            boolean volumeKey = actionKey.equals(TermuxPropertyConstants.KEY_VOLUME_UP_ACTION)
+                || actionKey.equals(TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION);
+            TerminalGestureAction configured = volumeKey ? getConfiguredVolumeKeyAction(actionKey) : getConfiguredGestureAction(actionKey);
+            if (configured != TerminalGestureAction.SEND_KEYS) continue;
             String keysKey = getKeysKeyOfGestureActionKey(actionKey);
             // An invalid value was logged when it was loaded.
             if (getInternalPropertyValue(keysKey, true) == null)
@@ -795,6 +842,47 @@ public abstract class TermuxSharedProperties {
     @Nullable
     public TerminalKeySequence getExtraKeysSwipeLeftKeys() {
         return getKeySequence(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS);
+    }
+
+    /**
+     * What the volume up button does, see {@link TermuxPropertyConstants#KEY_VOLUME_UP_ACTION}.
+     *
+     * @return The action that is really performed, or {@code null} for the virtual Fn modifier,
+     * which is the default. {@link TerminalGestureAction#NONE} leaves the button to the system.
+     */
+    @Nullable
+    public TerminalGestureAction getVolumeUpAction() {
+        return getVolumeKeyAction(TermuxPropertyConstants.KEY_VOLUME_UP_ACTION);
+    }
+
+    /**
+     * What the volume down button does, see {@link TermuxPropertyConstants#KEY_VOLUME_DOWN_ACTION}.
+     *
+     * @return The action that is really performed, or {@code null} for the virtual Ctrl modifier,
+     * which is the default. {@link TerminalGestureAction#NONE} leaves the button to the system.
+     */
+    @Nullable
+    public TerminalGestureAction getVolumeDownAction() {
+        return getVolumeKeyAction(TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION);
+    }
+
+    @Nullable
+    private TerminalGestureAction getVolumeKeyAction(String key) {
+        TerminalGestureAction action = getConfiguredVolumeKeyAction(key);
+        if (action == null) return null;
+        return TerminalGestureAction.effective(action, getKeySequence(getKeysKeyOfGestureActionKey(key)) != null);
+    }
+
+    /** The keys that {@link TerminalGestureAction#SEND_KEYS} sends for the volume up button, or {@code null}. */
+    @Nullable
+    public TerminalKeySequence getVolumeUpKeys() {
+        return getKeySequence(TermuxPropertyConstants.KEY_VOLUME_UP_KEYS);
+    }
+
+    /** The keys that {@link TerminalGestureAction#SEND_KEYS} sends for the volume down button, or {@code null}. */
+    @Nullable
+    public TerminalKeySequence getVolumeDownKeys() {
+        return getKeySequence(TermuxPropertyConstants.KEY_VOLUME_DOWN_KEYS);
     }
 
     /** The action of a single finger tap on the terminal, see {@link TermuxPropertyConstants#KEY_TERMINAL_SINGLE_TAP_ACTION}. */

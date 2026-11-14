@@ -94,7 +94,7 @@ public class TerminalGestureActionTest {
 
     @Test
     public void validValuesListsEveryValue() {
-        assertEquals("none, show-keyboard, toggle-keyboard, next-session, previous-session, open-sidebar, open-menu, send-keys",
+        assertEquals("none, show-keyboard, toggle-keyboard, next-session, previous-session, open-sidebar, open-menu, font-size-up, font-size-down, send-keys",
             TerminalGestureAction.getValidValues());
     }
 
@@ -123,7 +123,8 @@ public class TerminalGestureActionTest {
         for (TerminalGestureAction action : new TerminalGestureAction[] {
             TerminalGestureAction.NONE, TerminalGestureAction.NEXT_SESSION,
             TerminalGestureAction.PREVIOUS_SESSION, TerminalGestureAction.OPEN_SIDEBAR,
-            TerminalGestureAction.OPEN_MENU}) {
+            TerminalGestureAction.OPEN_MENU, TerminalGestureAction.FONT_SIZE_UP,
+            TerminalGestureAction.FONT_SIZE_DOWN}) {
             assertEquals(KeyboardOperation.NONE, action.keyboardOperation(false, false));
             assertEquals(KeyboardOperation.NONE, action.keyboardOperation(false, true));
         }
@@ -192,6 +193,59 @@ public class TerminalGestureActionTest {
         assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST.contains(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION));
         assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST.contains(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION));
         assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST.contains(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION));
+    }
+
+    @Test
+    public void fontSizeActionsParseAndNeedNoKeys() {
+        assertSame(TerminalGestureAction.FONT_SIZE_UP, TerminalGestureAction.parse("font-size-up"));
+        assertSame(TerminalGestureAction.FONT_SIZE_DOWN, TerminalGestureAction.parse(" Font-Size-Down "));
+        assertEquals("font-size-up", TerminalGestureAction.FONT_SIZE_UP.getValue());
+        assertEquals("font-size-down", TerminalGestureAction.FONT_SIZE_DOWN.getValue());
+        assertSame(TerminalGestureAction.FONT_SIZE_UP, TerminalGestureAction.effective(TerminalGestureAction.FONT_SIZE_UP, false));
+        assertSame(TerminalGestureAction.FONT_SIZE_DOWN, TerminalGestureAction.effective(TerminalGestureAction.FONT_SIZE_DOWN, false));
+        assertEquals(SessionSwitch.NONE, TerminalGestureAction.FONT_SIZE_UP.sessionSwitch(5));
+        for (String key : new String[] {
+            TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION}) {
+            assertSame(TerminalGestureAction.FONT_SIZE_UP, TermuxSharedProperties.getGestureActionInternalPropertyValueFromValue(
+                key, "font-size-up", TerminalGestureAction.NONE));
+            assertSame(TerminalGestureAction.FONT_SIZE_DOWN, TermuxSharedProperties.getGestureActionInternalPropertyValueFromValue(
+                key, "font-size-down", TerminalGestureAction.NONE));
+        }
+    }
+
+    @Test
+    public void onlyTheFontSizeActionsRepeatWhileAKeyIsHeld() {
+        for (TerminalGestureAction action : TerminalGestureAction.values()) {
+            boolean font = action == TerminalGestureAction.FONT_SIZE_UP || action == TerminalGestureAction.FONT_SIZE_DOWN;
+            assertEquals(action.getValue(), font, action.isRepeatable());
+            // The initial press always runs, repeats only for repeatable actions.
+            assertTrue(action.runsOnKeyDown(0));
+            assertEquals(action.getValue(), font, action.runsOnKeyDown(1));
+            assertEquals(action.getValue(), font, action.runsOnKeyDown(7));
+        }
+    }
+
+    @Test
+    public void volumeKeyActionValuesAreModifierOrAnAction() {
+        assertEquals("modifier", TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER);
+        // Missing is the modifier, the behaviour without configuration.
+        for (String key : new String[] {TermuxPropertyConstants.KEY_VOLUME_UP_ACTION, TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION}) {
+            assertEquals("modifier", TermuxSharedProperties.getVolumeKeyActionInternalPropertyValueFromValue(key, null));
+            assertEquals("modifier", TermuxSharedProperties.getVolumeKeyActionInternalPropertyValueFromValue(key, " Modifier "));
+            assertEquals("font-size-up", TermuxSharedProperties.getVolumeKeyActionInternalPropertyValueFromValue(key, "FONT-SIZE-UP"));
+            assertEquals("font-size-down", TermuxSharedProperties.getVolumeKeyActionInternalPropertyValueFromValue(key, "font-size-down"));
+            assertEquals("none", TermuxSharedProperties.getVolumeKeyActionInternalPropertyValueFromValue(key, "none"));
+            assertEquals("send-keys", TermuxSharedProperties.getVolumeKeyActionInternalPropertyValueFromValue(key, "send-keys"));
+            assertEquals("next-session", TermuxSharedProperties.getVolumeKeyActionInternalPropertyValueFromValue(key, "next-session"));
+        }
+        // The two keys are independent properties that are loaded and kept apart.
+        assertEquals("volume-up-action", TermuxPropertyConstants.KEY_VOLUME_UP_ACTION);
+        assertEquals("volume-down-action", TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION);
+        assertEquals("volume-up-keys", TermuxPropertyConstants.KEY_VOLUME_UP_KEYS);
+        assertEquals("volume-down-keys", TermuxPropertyConstants.KEY_VOLUME_DOWN_KEYS);
     }
 
 }

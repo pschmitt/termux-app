@@ -27,6 +27,8 @@ The four keys are independent and active at the same time. Valid values, case-in
 | `previous-session` | Switch to the previous session, wrapping around. Does nothing with a single session. |
 | `open-sidebar` | Open the sidebar with the session list. It is not opened while it is locked closed in copy mode. |
 | `open-menu` | Open the terminal menu, the bottom sheet that a long press on the terminal and then "More..." opens (Extract URL, Share transcript, Autofill, Reset, Kill process, Style, Settings and so on). It never touches the soft keyboard. |
+| `font-size-up` | Increase the terminal font size by one step, like pinching out. It never touches the soft keyboard. |
+| `font-size-down` | Decrease the terminal font size by one step, like pinching in. It never touches the soft keyboard. |
 | `send-keys` | Send keys to the terminal, like Escape or Ctrl+L, given by the matching `*-keys` key (see below). |
 
 A missing or empty key uses its default. A value that is not listed is logged and the default is
@@ -111,6 +113,48 @@ runs while `extra-keys-swipe-left-action` is not `none`, and not when the system
 turned off (animator duration scale 0), the action itself still runs then. With `none` the swipe is
 not recognized at all and the row behaves exactly as without this feature.
 
+## Volume buttons
+
+The two volume buttons can run the same actions. They are configured with their own keys in the
+same file:
+
+| Key | Button | Default |
+| --- | --- | --- |
+| `volume-up-action` | Volume up | `modifier` |
+| `volume-down-action` | Volume down | `modifier` |
+| `volume-up-keys` | The keys that volume up sends with `send-keys` | none |
+| `volume-down-keys` | The keys that volume down sends with `send-keys` | none |
+
+The two buttons are independent. Valid values of the action keys, case-insensitive, are `modifier`
+and every action of the table above (`none`, `show-keyboard`, `toggle-keyboard`, `next-session`,
+`previous-session`, `open-sidebar`, `open-menu`, `font-size-up`, `font-size-down`, `send-keys`).
+The `*-keys` keys are written as described in "Sending keys".
+
+* `modifier` is the default and the behaviour without any configuration: while the button is held,
+  volume down is a virtual Ctrl key and volume up is a virtual Fn key (Fn plus a letter or digit
+  gives arrows, Page Up and so on), and the system volume does not change. Note that a plain press
+  of a volume button does not change the font size by default, the font size is changed by
+  pinching or by the `font-size-up` and `font-size-down` actions.
+* `none` gives the button back to Android: it changes the system volume as in any other app.
+* Any other action replaces the modifier role of that button and runs when the button is pressed.
+  The button is consumed, so the system volume does not change either, also when the button is
+  released.
+* The action runs once for each press and never on release. A held button auto repeats, and only
+  `font-size-up` and `font-size-down` repeat with it, so that holding the button keeps growing or
+  shrinking the text. Every other action (a session switch, the sidebar, the menu, the keyboard,
+  keys) runs once however long the button is held.
+* The soft keyboard flags that disable the keyboard win as for every other gesture: `show-keyboard`
+  and `toggle-keyboard` do nothing while it is disabled, the other actions still work.
+* `send-keys` without a usable `volume-up-keys` or `volume-down-keys` is logged and does nothing,
+  as if the action were `none`, which gives the button back to the system volume.
+* A value that is not listed is logged and `modifier` is used.
+* `volume-keys = volume` (the existing key) still wins over everything: both buttons then always
+  change the system volume and these keys are ignored.
+* Volume buttons of a full external (alphabetic) keyboard are never taken over, they stay with
+  the system.
+* A change takes effect after `termux-reload-settings`. A button that is held at that moment is not
+  left stuck as a modifier.
+
 ## Locking a modifier
 
 The modifier keys of the extra keys row (`CTRL`, `ALT`, `SHIFT`, `FN`) have three ways to be used:
@@ -159,6 +203,22 @@ terminal-triple-tap-keys = CTRL l
 # The swipe sends Escape, then ":q", then Enter, for example to leave vim
 extra-keys-swipe-left-action = send-keys
 extra-keys-swipe-left-keys = ESC :q ENTER
+```
+
+Volume buttons:
+
+```properties
+# Volume up grows the text, volume down shrinks it (hold to keep going)
+volume-up-action = font-size-up
+volume-down-action = font-size-down
+
+# Alternatively: volume up switches to the next session, volume down stays the virtual Ctrl key
+# volume-up-action = next-session
+
+# Alternatively: volume down sends Escape, volume up keeps the system volume
+# volume-down-action = send-keys
+# volume-down-keys = ESC
+# volume-up-action = none
 ```
 
 Run `termux-reload-settings` after editing the file. Stock Termux does not read these keys and

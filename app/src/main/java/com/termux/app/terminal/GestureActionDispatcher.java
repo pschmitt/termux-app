@@ -26,6 +26,9 @@ public final class GestureActionDispatcher {
         /** Open the terminal menu (the bottom sheet), the same one that the long press opens. */
         void openMenu();
 
+        /** Increase or decrease the terminal font size by one step, like pinching does. */
+        void changeFontSize(boolean increase);
+
         /** Whether the user's flags disable the soft keyboard. */
         boolean isSoftKeyboardDisabled();
 
@@ -81,6 +84,14 @@ public final class GestureActionDispatcher {
 
             case OPEN_MENU:
                 target.openMenu();
+                break;
+
+            case FONT_SIZE_UP:
+                target.changeFontSize(true);
+                break;
+
+            case FONT_SIZE_DOWN:
+                target.changeFontSize(false);
                 break;
 
             case SHOW_KEYBOARD:

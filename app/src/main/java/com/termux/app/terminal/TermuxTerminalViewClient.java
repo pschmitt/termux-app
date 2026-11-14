@@ -27,6 +27,7 @@ import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.shell.ShellUtils;
 import com.termux.shared.termux.TermuxBootstrap;
 import com.termux.shared.termux.settings.properties.TerminalGestureAction;
+import com.termux.shared.termux.settings.properties.TermuxSharedProperties;
 import com.termux.shared.termux.terminal.TermuxTerminalViewClientBase;
 import com.termux.shared.termux.extrakeys.SpecialButton;
 import com.termux.shared.termux.extrakeys.TerminalKeySequence;
@@ -357,6 +358,11 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             }
 
             @Override
+            public void changeFontSize(boolean increase) {
+                TermuxTerminalViewClient.this.changeFontSize(increase);
+            }
+
+            @Override
             public boolean isSoftKeyboardDisabled() {
                 boolean disabled = KeyboardUtils.areDisableSoftKeyboardFlagsSet(mActivity);
                 if (disabled) Logger.logVerbose(LOG_TAG, "Not touching soft keyboard on gesture since its disabled");
@@ -493,22 +499,69 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         return handleVirtualKeys(keyCode, e, false);
     }
 
-    /** Handle dedicated volume buttons as virtual keys if applicable. */
+    /** What to do with a volume button event, see {@link #resolveVolumeKey}. */
+    enum VolumeKeyOutcome {
+        /** Not handled here: the system adjusts the volume. */
+        PASS_THROUGH,
+        /** The button is the virtual Ctrl (volume down) or Fn (volume up) key while it is held. */
+        MODIFIER,
+        /** Swallowed without effect, so that the volume does not change either. */
+        CONSUME,
+        /** Swallowed, and the configured action is performed. */
+        PERFORM
+    }
+
+    /**
+     * Decides what a volume button event does.
+     *
+     * @param action What the button is configured to do: {@code null} for the virtual modifier
+     *               (the default), see {@link TermuxSharedProperties#getVolumeUpAction()}.
+     * @param down Whether this is a key down (otherwise a key up) event.
+     * @param repeatCount {@link KeyEvent#getRepeatCount()}, above 0 while a held button auto repeats.
+     */
+    static VolumeKeyOutcome resolveVolumeKey(@Nullable TerminalGestureAction action, boolean down, int repeatCount) {
+        if (action == null) return VolumeKeyOutcome.MODIFIER;
+        if (action == TerminalGestureAction.NONE) return VolumeKeyOutcome.PASS_THROUGH;
+        // An action runs on the press and never on the release, and only the font size actions
+        // run again for every auto repeat of a held button.
+        return down && action.runsOnKeyDown(repeatCount) ? VolumeKeyOutcome.PERFORM : VolumeKeyOutcome.CONSUME;
+    }
+
+    /** Handle dedicated volume buttons as virtual keys or configured actions if applicable. */
     private boolean handleVirtualKeys(int keyCode, KeyEvent event, boolean down) {
         InputDevice inputDevice = event.getDevice();
-        if (mActivity.getProperties().areVirtualVolumeKeysDisabled()) {
+        if (keyCode != KeyEvent.KEYCODE_VOLUME_DOWN && keyCode != KeyEvent.KEYCODE_VOLUME_UP) {
+            return false;
+        } else if (mActivity.getProperties().areVirtualVolumeKeysDisabled()) {
             return false;
         } else if (inputDevice != null && inputDevice.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
             // Do not steal dedicated buttons from a full external keyboard.
             return false;
-        } else if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
-            mVirtualControlKeyDown = down;
-            return true;
-        } else if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            mVirtualFnKeyDown = down;
-            return true;
         }
-        return false;
+
+        boolean volumeUp = keyCode == KeyEvent.KEYCODE_VOLUME_UP;
+        TermuxSharedProperties properties = mActivity.getProperties();
+        TerminalGestureAction action = volumeUp ? properties.getVolumeUpAction() : properties.getVolumeDownAction();
+        VolumeKeyOutcome outcome = resolveVolumeKey(action, down, event.getRepeatCount());
+
+        // A modifier that was pressed before the configuration was reloaded must not stay stuck.
+        if (outcome != VolumeKeyOutcome.MODIFIER) {
+            if (volumeUp) mVirtualFnKeyDown = false; else mVirtualControlKeyDown = false;
+        }
+
+        switch (outcome) {
+            case MODIFIER:
+                if (volumeUp) mVirtualFnKeyDown = down; else mVirtualControlKeyDown = down;
+                return true;
+            case PERFORM:
+                performGestureAction(action, volumeUp ? properties.getVolumeUpKeys() : properties.getVolumeDownKeys());
+                return true;
+            case CONSUME:
+                return true;
+            case PASS_THROUGH:
+            default:
+                return false;
+        }
     }
 
 

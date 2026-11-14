@@ -28,6 +28,7 @@ public class GestureActionDispatcherTest {
         @Override public void switchSession(boolean forward) { calls.add(forward ? "next" : "previous"); }
         @Override public void openSidebar() { calls.add("sidebar"); }
         @Override public void openMenu() { calls.add("menu"); }
+        @Override public void changeFontSize(boolean increase) { calls.add(increase ? "fontUp" : "fontDown"); }
         @Override public boolean isSoftKeyboardDisabled() { return keyboardDisabled; }
         @Override public boolean isSoftKeyboardVisible() { visibilityQueries++; return keyboardVisible; }
         @Override public void showSoftKeyboard() { calls.add("show"); }
@@ -101,6 +102,23 @@ public class GestureActionDispatcherTest {
         mTarget.sessionCount = 1;
         GestureActionDispatcher.perform(TerminalGestureAction.OPEN_MENU, mTarget);
         assertEquals(List.of("menu"), mTarget.calls);
+    }
+
+    @Test
+    public void fontSizeActionsChangeTheFontSizeOnlyAndNeverTouchTheKeyboard() {
+        GestureActionDispatcher.perform(TerminalGestureAction.FONT_SIZE_UP, mTarget);
+        GestureActionDispatcher.perform(TerminalGestureAction.FONT_SIZE_DOWN, mTarget);
+        assertEquals(List.of("fontUp", "fontDown"), mTarget.calls);
+        assertEquals(0, mTarget.visibilityQueries);
+    }
+
+    @Test
+    public void fontSizeActionsWorkWithTheKeyboardDisabledOrASingleSession() {
+        mTarget.keyboardDisabled = true;
+        mTarget.sessionCount = 1;
+        GestureActionDispatcher.perform(TerminalGestureAction.FONT_SIZE_UP, mTarget);
+        GestureActionDispatcher.perform(TerminalGestureAction.FONT_SIZE_DOWN, mTarget);
+        assertEquals(List.of("fontUp", "fontDown"), mTarget.calls);
     }
 
     @Test

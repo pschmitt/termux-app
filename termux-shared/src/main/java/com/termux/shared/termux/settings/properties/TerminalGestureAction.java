@@ -11,7 +11,9 @@ import java.util.Locale;
  * {@link TermuxPropertyConstants#KEY_TERMINAL_DOUBLE_TAP_ACTION},
  * {@link TermuxPropertyConstants#KEY_TERMINAL_TRIPLE_TAP_ACTION} and
  * {@link TermuxPropertyConstants#KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION} properties of
- * {@code termux.properties}.
+ * {@code termux.properties}, and that a volume button can be mapped to with the
+ * {@link TermuxPropertyConstants#KEY_VOLUME_UP_ACTION} and
+ * {@link TermuxPropertyConstants#KEY_VOLUME_DOWN_ACTION} properties.
  *
  * This is pure policy without any Android dependency, so that it can be unit tested.
  */
@@ -40,6 +42,12 @@ public enum TerminalGestureAction {
      * "More" opens.
      */
     OPEN_MENU("open-menu"),
+
+    /** Increase the font size of the terminal by one step, like pinching out does. */
+    FONT_SIZE_UP("font-size-up"),
+
+    /** Decrease the font size of the terminal by one step, like pinching in does. */
+    FONT_SIZE_DOWN("font-size-down"),
 
     /**
      * Send keys to the terminal, like Escape or Ctrl+L, given by the {@code *-keys} property of the
@@ -97,6 +105,25 @@ public enum TerminalGestureAction {
             builder.append(action.mValue);
         }
         return builder.toString();
+    }
+
+    /**
+     * Whether holding a key that the action is mapped to repeats the action. This is only for the
+     * font size actions, so that holding the key keeps growing or shrinking the text. Every other
+     * action (a session switch, the sidebar, the menu, the keyboard, keys) runs once per press.
+     */
+    public boolean isRepeatable() {
+        return this == FONT_SIZE_UP || this == FONT_SIZE_DOWN;
+    }
+
+    /**
+     * Whether the action runs for a key down event.
+     *
+     * @param repeatCount {@code KeyEvent#getRepeatCount()}: 0 for the initial press, more for the
+     *                    auto repeated events of a held key.
+     */
+    public boolean runsOnKeyDown(int repeatCount) {
+        return repeatCount <= 0 || isRepeatable();
     }
 
     /**

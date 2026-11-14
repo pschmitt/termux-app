@@ -86,6 +86,8 @@ import java.util.Set;
  *      - Add `KEY_TERMINAL_SINGLE_TAP_KEYS`, `KEY_TERMINAL_DOUBLE_TAP_KEYS`,
  *        `KEY_TERMINAL_TRIPLE_TAP_KEYS` and `KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS`, the keys that the
  *        `send-keys` gesture action sends.
+ *      - Add `KEY_VOLUME_UP_ACTION` and `KEY_VOLUME_DOWN_ACTION`, with their `KEY_VOLUME_UP_KEYS` and
+ *        `KEY_VOLUME_DOWN_KEYS`, to map the volume buttons to a gesture action.
  *
  * - 0.18.0 (2022-06-13)
  *      - Add `KEY_DISABLE_FILE_SHARE_RECEIVER` and `KEY_DISABLE_FILE_VIEW_RECEIVER`.
@@ -381,6 +383,24 @@ public final class TermuxPropertyConstants {
 
 
 
+    /* Volume key action (never null) */
+
+    /** The value of the volume key actions for the virtual modifier that the volume buttons are
+     * without configuration: volume down is Ctrl and volume up is Fn while held. */
+    public static final String VOLUME_KEY_ACTION_MODIFIER = "modifier";
+
+    /** Defines the key for what the volume up button does, either {@link #VOLUME_KEY_ACTION_MODIFIER}
+     * (the virtual Fn key while held, the default) or a {@link TerminalGestureAction}. Only used if
+     * {@link #KEY_VOLUME_KEYS_BEHAVIOUR} is {@code virtual}. */
+    public static final String KEY_VOLUME_UP_ACTION =  "volume-up-action"; // Default: "modifier"
+
+    /** Defines the key for what the volume down button does, either {@link #VOLUME_KEY_ACTION_MODIFIER}
+     * (the virtual Ctrl key while held, the default) or a {@link TerminalGestureAction}. Only used if
+     * {@link #KEY_VOLUME_KEYS_BEHAVIOUR} is {@code virtual}. */
+    public static final String KEY_VOLUME_DOWN_ACTION =  "volume-down-action"; // Default: "modifier"
+
+
+
     /* TerminalKeySequence String (may be null) */
 
     /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for a single tap
@@ -396,6 +416,12 @@ public final class TermuxPropertyConstants {
     /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for the swipe on
      * the normal extra keys row, see {@link #KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION}. */
     public static final String KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS =  "extra-keys-swipe-left-keys"; // Default: "extra-keys-swipe-left-keys"
+
+    /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for the volume up button. */
+    public static final String KEY_VOLUME_UP_KEYS =  "volume-up-keys"; // Default: "volume-up-keys"
+
+    /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for the volume down button. */
+    public static final String KEY_VOLUME_DOWN_KEYS =  "volume-down-keys"; // Default: "volume-down-keys"
 
 
 
@@ -491,11 +517,17 @@ public final class TermuxPropertyConstants {
         KEY_TERMINAL_SINGLE_TAP_ACTION,
         KEY_TERMINAL_TRIPLE_TAP_ACTION,
 
+        /* Volume key action: VOLUME_KEY_ACTION_MODIFIER or a TerminalGestureAction */
+        KEY_VOLUME_DOWN_ACTION,
+        KEY_VOLUME_UP_ACTION,
+
         /* TerminalKeySequence String (may be null) */
         KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS,
         KEY_TERMINAL_DOUBLE_TAP_KEYS,
         KEY_TERMINAL_SINGLE_TAP_KEYS,
         KEY_TERMINAL_TRIPLE_TAP_KEYS,
+        KEY_VOLUME_DOWN_KEYS,
+        KEY_VOLUME_UP_KEYS,
 
         /* Integer */
         KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR,
