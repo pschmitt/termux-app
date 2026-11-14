@@ -661,9 +661,16 @@ public final class TermuxConstants {
     public static final File TERMUX_HOME_DIR = new File(TERMUX_HOME_DIR_PATH);
 
 
-    /** Termux app config home directory path */
+    /** TermuxPP canonical user config directory path. This is where all settings, fonts, colors,
+     * Tasker scripts and boot scripts are looked up first and where new files are written. */
+    public static final String TERMUX_CONFIG_TERMUXPP_DIR_PATH = TERMUX_HOME_DIR_PATH + "/.config/termuxpp"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp"
+    /** TermuxPP canonical user config directory */
+    public static final File TERMUX_CONFIG_TERMUXPP_DIR = new File(TERMUX_CONFIG_TERMUXPP_DIR_PATH);
+
+    /** Termux app legacy (stock) XDG config home directory path. Second in the lookup order after
+     * {@link #TERMUX_CONFIG_TERMUXPP_DIR_PATH}. */
     public static final String TERMUX_CONFIG_HOME_DIR_PATH = TERMUX_HOME_DIR_PATH + "/.config/termux"; // Default: "/data/data/com.termux/files/home/.config/termux"
-    /** Termux app config home directory */
+    /** Termux app legacy (stock) XDG config home directory */
     public static final File TERMUX_CONFIG_HOME_DIR = new File(TERMUX_CONFIG_HOME_DIR_PATH);
 
     /** Termux app config $PREFIX directory path */
@@ -672,10 +679,19 @@ public final class TermuxConstants {
     public static final File TERMUX_CONFIG_PREFIX_DIR = new File(TERMUX_CONFIG_PREFIX_DIR_PATH);
 
 
-    /** Termux app data home directory path */
+    /** Termux app legacy (stock) data home directory path. Last in the lookup order after
+     * {@link #TERMUX_CONFIG_TERMUXPP_DIR_PATH} and {@link #TERMUX_CONFIG_HOME_DIR_PATH}. */
     public static final String TERMUX_DATA_HOME_DIR_PATH = TERMUX_HOME_DIR_PATH + "/.termux"; // Default: "/data/data/com.termux/files/home/.termux"
-    /** Termux app data home directory */
+    /** Termux app legacy (stock) data home directory */
     public static final File TERMUX_DATA_HOME_DIR = new File(TERMUX_DATA_HOME_DIR_PATH);
+
+
+    /** The user config directory paths in lookup order: {@code ~/.config/termuxpp} (canonical),
+     * {@code ~/.config/termux}, {@code ~/.termux}. See {@link TermuxConfigDirs}. */
+    public static final List<String> TERMUX_CONFIG_DIR_PATHS_LIST = Arrays.asList(
+        TERMUX_CONFIG_TERMUXPP_DIR_PATH,
+        TERMUX_CONFIG_HOME_DIR_PATH,
+        TERMUX_DATA_HOME_DIR_PATH);
 
 
     /** Termux app storage home directory path */
@@ -724,28 +740,34 @@ public final class TermuxConstants {
 
 
 
-    /** Termux app properties primary file path */
-    public static final String TERMUX_PROPERTIES_PRIMARY_FILE_PATH = TERMUX_DATA_HOME_DIR_PATH + "/termux.properties"; // Default: "/data/data/com.termux/files/home/.termux/termux.properties"
+    /** Termux app properties primary (canonical) file path */
+    public static final String TERMUX_PROPERTIES_PRIMARY_FILE_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/termux.properties"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/termux.properties"
     /** Termux app properties primary file */
     public static final File TERMUX_PROPERTIES_PRIMARY_FILE = new File(TERMUX_PROPERTIES_PRIMARY_FILE_PATH);
 
-    /** Termux app properties secondary file path */
+    /** Termux app properties secondary (legacy XDG) file path */
     public static final String TERMUX_PROPERTIES_SECONDARY_FILE_PATH = TERMUX_CONFIG_HOME_DIR_PATH + "/termux.properties"; // Default: "/data/data/com.termux/files/home/.config/termux/termux.properties"
     /** Termux app properties secondary file */
     public static final File TERMUX_PROPERTIES_SECONDARY_FILE = new File(TERMUX_PROPERTIES_SECONDARY_FILE_PATH);
 
-    /** Termux app properties file paths list. **DO NOT** allow these files to be modified by
+    /** Termux app properties tertiary (legacy) file path */
+    public static final String TERMUX_PROPERTIES_TERTIARY_FILE_PATH = TERMUX_DATA_HOME_DIR_PATH + "/termux.properties"; // Default: "/data/data/com.termux/files/home/.termux/termux.properties"
+    /** Termux app properties tertiary file */
+    public static final File TERMUX_PROPERTIES_TERTIARY_FILE = new File(TERMUX_PROPERTIES_TERTIARY_FILE_PATH);
+
+    /** Termux app properties file paths list, in lookup order. **DO NOT** allow these files to be modified by
      * {@link android.content.ContentProvider} exposed to external apps, since they may silently
      * modify the values for security properties like {@link #PROP_ALLOW_EXTERNAL_APPS} set by users
      * without their explicit consent. */
     public static final List<String> TERMUX_PROPERTIES_FILE_PATHS_LIST = Arrays.asList(
         TERMUX_PROPERTIES_PRIMARY_FILE_PATH,
-        TERMUX_PROPERTIES_SECONDARY_FILE_PATH);
+        TERMUX_PROPERTIES_SECONDARY_FILE_PATH,
+        TERMUX_PROPERTIES_TERTIARY_FILE_PATH);
 
 
 
-    /** Termux:Float app properties primary file path */
-    public static final String TERMUX_FLOAT_PROPERTIES_PRIMARY_FILE_PATH = TERMUX_DATA_HOME_DIR_PATH + "/termux.float.properties"; // Default: "/data/data/com.termux/files/home/.termux/termux.float.properties"
+    /** Termux:Float app properties primary (canonical) file path */
+    public static final String TERMUX_FLOAT_PROPERTIES_PRIMARY_FILE_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/termux.float.properties"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/termux.float.properties"
     /** Termux:Float app properties primary file */
     public static final File TERMUX_FLOAT_PROPERTIES_PRIMARY_FILE = new File(TERMUX_FLOAT_PROPERTIES_PRIMARY_FILE_PATH);
 
@@ -754,35 +776,41 @@ public final class TermuxConstants {
     /** Termux:Float app properties secondary file */
     public static final File TERMUX_FLOAT_PROPERTIES_SECONDARY_FILE = new File(TERMUX_FLOAT_PROPERTIES_SECONDARY_FILE_PATH);
 
-    /** Termux:Float app properties file paths list. **DO NOT** allow these files to be modified by
+    /** Termux:Float app properties tertiary (legacy) file path */
+    public static final String TERMUX_FLOAT_PROPERTIES_TERTIARY_FILE_PATH = TERMUX_DATA_HOME_DIR_PATH + "/termux.float.properties"; // Default: "/data/data/com.termux/files/home/.termux/termux.float.properties"
+    /** Termux:Float app properties tertiary file */
+    public static final File TERMUX_FLOAT_PROPERTIES_TERTIARY_FILE = new File(TERMUX_FLOAT_PROPERTIES_TERTIARY_FILE_PATH);
+
+    /** Termux:Float app properties file paths list, in lookup order. **DO NOT** allow these files to be modified by
      * {@link android.content.ContentProvider} exposed to external apps, since they may silently
      * modify the values for security properties like {@link #PROP_ALLOW_EXTERNAL_APPS} set by users
      * without their explicit consent. */
     public static final List<String> TERMUX_FLOAT_PROPERTIES_FILE_PATHS_LIST = Arrays.asList(
         TERMUX_FLOAT_PROPERTIES_PRIMARY_FILE_PATH,
-        TERMUX_FLOAT_PROPERTIES_SECONDARY_FILE_PATH);
+        TERMUX_FLOAT_PROPERTIES_SECONDARY_FILE_PATH,
+        TERMUX_FLOAT_PROPERTIES_TERTIARY_FILE_PATH);
 
 
 
-    /** Termux app and Termux:Styling colors.properties file path */
-    public static final String TERMUX_COLOR_PROPERTIES_FILE_PATH = TERMUX_DATA_HOME_DIR_PATH + "/colors.properties"; // Default: "/data/data/com.termux/files/home/.termux/colors.properties"
+    /** Termux app and Termux:Styling colors.properties canonical file path. Read it through {@link TermuxConfigDirs#resolveFile(java.util.List, String, boolean)} to honor the legacy fallbacks. */
+    public static final String TERMUX_COLOR_PROPERTIES_FILE_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/colors.properties"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/colors.properties"
     /** Termux app and Termux:Styling colors.properties file */
     public static final File TERMUX_COLOR_PROPERTIES_FILE = new File(TERMUX_COLOR_PROPERTIES_FILE_PATH);
 
     /** Termux app and Termux:Styling font.ttf file path */
-    public static final String TERMUX_FONT_FILE_PATH = TERMUX_DATA_HOME_DIR_PATH + "/font.ttf"; // Default: "/data/data/com.termux/files/home/.termux/font.ttf"
+    public static final String TERMUX_FONT_FILE_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/font.ttf"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/font.ttf"
     /** Termux app and Termux:Styling font.ttf file */
     public static final File TERMUX_FONT_FILE = new File(TERMUX_FONT_FILE_PATH);
     /** Termux app and Termux:Styling font-italic.ttf file path */
-    public static final String TERMUX_ITALIC_FONT_FILE_PATH = TERMUX_DATA_HOME_DIR_PATH + "/font-italic.ttf"; // Default: "/data/data/com.termux/files/home/.termux/font-italic.ttf"
+    public static final String TERMUX_ITALIC_FONT_FILE_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/font-italic.ttf"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/font-italic.ttf"
     /** Termux app and Termux:Styling font-italic.ttf file */
     public static final File TERMUX_ITALIC_FONT_FILE = new File(TERMUX_ITALIC_FONT_FILE_PATH);
     /** Termux app and Termux:Styling font-bold.ttf file path */
-    public static final String TERMUX_BOLD_FONT_FILE_PATH = TERMUX_DATA_HOME_DIR_PATH + "/font-bold.ttf"; // Default: "/data/data/com.termux/files/home/.termux/font-bold.ttf"
+    public static final String TERMUX_BOLD_FONT_FILE_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/font-bold.ttf"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/font-bold.ttf"
     /** Termux app and Termux:Styling font-bold.ttf file */
     public static final File TERMUX_BOLD_FONT_FILE = new File(TERMUX_BOLD_FONT_FILE_PATH);
     /** Termux app and Termux:Styling font-bold-italic.ttf file path */
-    public static final String TERMUX_BOLD_ITALIC_FONT_FILE_PATH = TERMUX_DATA_HOME_DIR_PATH + "/font-bold-italic.ttf"; // Default: "/data/data/com.termux/files/home/.termux/font-bold-italic.ttf"
+    public static final String TERMUX_BOLD_ITALIC_FONT_FILE_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/font-bold-italic.ttf"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/font-bold-italic.ttf"
     /** Termux app and Termux:Styling font-bold-italic.ttf file */
     public static final File TERMUX_BOLD_ITALIC_FONT_FILE = new File(TERMUX_BOLD_ITALIC_FONT_FILE_PATH);
 
@@ -808,7 +836,7 @@ public final class TermuxConstants {
      */
 
     /** Termux app directory path to store scripts to be run at boot by Termux:Boot */
-    public static final String TERMUX_BOOT_SCRIPTS_DIR_PATH = TERMUX_DATA_HOME_DIR_PATH + "/boot"; // Default: "/data/data/com.termux/files/home/.termux/boot"
+    public static final String TERMUX_BOOT_SCRIPTS_DIR_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/boot"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/boot"
     /** Termux app directory to store scripts to be run at boot by Termux:Boot */
     public static final File TERMUX_BOOT_SCRIPTS_DIR = new File(TERMUX_BOOT_SCRIPTS_DIR_PATH);
 
@@ -843,9 +871,16 @@ public final class TermuxConstants {
 
     /** Termux app directory path to store scripts to be run by 3rd party twofortyfouram locale plugin
      * host apps like Tasker app via the Termux:Tasker plugin client */
-    public static final String TERMUX_TASKER_SCRIPTS_DIR_PATH = TERMUX_DATA_HOME_DIR_PATH + "/tasker"; // Default: "/data/data/com.termux/files/home/.termux/tasker"
+    public static final String TERMUX_TASKER_SCRIPTS_DIR_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/tasker"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/tasker"
     /** Termux app directory to store scripts to be run by 3rd party twofortyfouram locale plugin host apps like Tasker app via the Termux:Tasker plugin client */
     public static final File TERMUX_TASKER_SCRIPTS_DIR = new File(TERMUX_TASKER_SCRIPTS_DIR_PATH);
+
+    /** The Tasker scripts directory paths in lookup order: the canonical one and the legacy ones.
+     * Executables below any of them are treated as scripts directory executables. */
+    public static final List<String> TERMUX_TASKER_SCRIPTS_DIR_PATHS_LIST = Arrays.asList(
+        TERMUX_TASKER_SCRIPTS_DIR_PATH,
+        TERMUX_CONFIG_HOME_DIR_PATH + "/tasker",
+        TERMUX_DATA_HOME_DIR_PATH + "/tasker");
 
 
 

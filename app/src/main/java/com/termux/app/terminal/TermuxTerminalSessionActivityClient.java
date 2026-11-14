@@ -22,6 +22,7 @@ import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.interact.TextInputDialogUtils;
 import com.termux.app.TermuxActivity;
 import com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
+import com.termux.shared.termux.TermuxConfigDirs;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.app.TermuxService;
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
@@ -35,6 +36,7 @@ import com.termux.terminal.TextStyle;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Properties;
 
 /** The {@link TerminalSessionClient} implementation that may require an {@link Activity} for its interface methods. */
@@ -493,8 +495,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     public void checkForFontAndColors() {
         try {
-            File colorsFile = TermuxConstants.TERMUX_COLOR_PROPERTIES_FILE;
-            File fontFile = TermuxConstants.TERMUX_FONT_FILE;
+            // Looked up per file: ~/.config/termuxpp, then ~/.config/termux, then ~/.termux
+            final List<String> configDirs = TermuxConstants.TERMUX_CONFIG_DIR_PATHS_LIST;
+            File colorsFile = TermuxConfigDirs.resolveFile(configDirs, "colors.properties", false);
+            File fontFile = TermuxConfigDirs.resolveFile(configDirs, "font.ttf", true);
 
             final Properties props = new Properties();
             if (colorsFile.isFile()) {
@@ -511,9 +515,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             updateBackgroundColor();
 
             final Typeface normalTypeface = loadTypeface(fontFile, Typeface.MONOSPACE);
-            final Typeface italicTypeface = loadTypeface(TermuxConstants.TERMUX_ITALIC_FONT_FILE, null);
-            final Typeface boldTypeface = loadTypeface(TermuxConstants.TERMUX_BOLD_FONT_FILE, null);
-            final Typeface boldItalicTypeface = loadTypeface(TermuxConstants.TERMUX_BOLD_ITALIC_FONT_FILE, null);
+            final Typeface italicTypeface = loadTypeface(TermuxConfigDirs.resolveFile(configDirs, "font-italic.ttf", true), null);
+            final Typeface boldTypeface = loadTypeface(TermuxConfigDirs.resolveFile(configDirs, "font-bold.ttf", true), null);
+            final Typeface boldItalicTypeface = loadTypeface(TermuxConfigDirs.resolveFile(configDirs, "font-bold-italic.ttf", true), null);
             mActivity.getTerminalView().setTypeface(normalTypeface, italicTypeface, boldTypeface, boldItalicTypeface);
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error in checkForFontAndColors()", e);

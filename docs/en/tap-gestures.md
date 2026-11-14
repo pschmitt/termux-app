@@ -6,8 +6,8 @@ page_ref: /docs/apps/termux/tap-gestures.html
 
 TermuxPP can run an action for a single, a double and a triple tap on the terminal, and for a
 swipe on the extra keys row. They are configured only in the text file
-`~/.termux/termux.properties` (or `~/.config/termux/termux.properties`), the same file as every
-other TermuxPP and Termux setting. There is no entry in the Android settings screens.
+`~/.config/termuxpp/termux.properties`, the same file as every other TermuxPP and Termux setting
+(see [config-dir.md](config-dir.md) for the legacy locations that are still read). There is no entry in the Android settings screens.
 
 | Key | Gesture | Default |
 | --- | --- | --- |

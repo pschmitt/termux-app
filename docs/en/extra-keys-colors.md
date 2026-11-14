@@ -5,7 +5,7 @@ page_ref: /docs/apps/termux/extra-keys-colors.html
 # Extra Keys Active Colors and Corner Radius
 
 TermuxPP can recolor the pressed and latched states of the extra keys row above the soft keyboard
-from `~/.termux/termux.properties`. Both keys are optional. When a key is absent, empty or not a
+from `~/.config/termuxpp/termux.properties` (see [config-dir.md](config-dir.md)). Both keys are optional. When a key is absent, empty or not a
 valid color, the color of the current theme is used, so the behavior of an existing configuration
 does not change.
 
