@@ -5,6 +5,9 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,7 +17,10 @@ import android.widget.Toast;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.StringRes;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -56,6 +62,8 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
     private UpdateController controller;
     private boolean shizukuListening;
     @Nullable private CharSequence previousTitle;
+    /** Whether the icon currently set on each app row is the installed app's own, to set it only when that changes. */
+    private final Boolean[] appIconInstalled = new Boolean[UpdateTarget.values().length];
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -100,6 +108,7 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
             previousTitle = activity.getTitle();
             activity.setTitle(R.string.termux_updates_title);
         }
+        java.util.Arrays.fill(appIconInstalled, null);
         controller.addListener(this);
         try {
             Shizuku.addBinderReceivedListener(binderReceived);
@@ -221,6 +230,56 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
             UpdateState state = controller.getState(target);
             app.setSummary(appSummary(context, target, state));
             app.setEnabled(state.phase != UpdateState.Phase.NOT_INSTALLED);
+            updateAppIcon(context, app, target, state.phase != UpdateState.Phase.NOT_INSTALLED);
+        }
+    }
+
+    /**
+     * The row shows the application's own launcher icon (untinted), and a bundled stand-in with the same
+     * identity while that application is not installed.
+     */
+    private void updateAppIcon(@NonNull Context context, @NonNull Preference app, @NonNull UpdateTarget target,
+                               boolean installed) {
+        if (appIconInstalled[target.ordinal()] != null && appIconInstalled[target.ordinal()] == installed) return;
+        appIconInstalled[target.ordinal()] = installed;
+        app.setIcon(appIcon(context, target, installed));
+    }
+
+    @NonNull
+    static Drawable appIcon(@NonNull Context context, @NonNull UpdateTarget target, boolean installed) {
+        if (installed) {
+            try {
+                Drawable icon = context.getPackageManager().getApplicationIcon(target.packageName);
+                if (icon != null) return icon;
+            } catch (PackageManager.NameNotFoundException ignored) {
+                // Fall through to the stand-in.
+            }
+        }
+        return fallbackAppIcon(context, target);
+    }
+
+    @NonNull
+    private static Drawable fallbackAppIcon(@NonNull Context context, @NonNull UpdateTarget target) {
+        Drawable container = ContextCompat.getDrawable(context, R.drawable.ui_icon_container);
+        Drawable glyph = ContextCompat.getDrawable(context, fallbackGlyph(target));
+        if (container == null || glyph == null) throw new IllegalStateException("Missing bundled icon");
+        glyph = DrawableCompat.wrap(glyph.mutate());
+        DrawableCompat.setTint(glyph, ContextCompat.getColor(context, R.color.ui_on_container));
+        LayerDrawable layers = new LayerDrawable(new Drawable[]{container.mutate(), glyph});
+        int inset = Math.round(8 * context.getResources().getDisplayMetrics().density);
+        layers.setLayerInset(1, inset, inset, inset, inset);
+        // Dimmed, as the row is disabled while the app is missing.
+        layers.setAlpha(128);
+        return layers;
+    }
+
+    @DrawableRes
+    private static int fallbackGlyph(@NonNull UpdateTarget target) {
+        switch (target) {
+            case API: return R.drawable.ui_ic_extension;
+            case TASKER: return R.drawable.ui_ic_bolt;
+            case CORE:
+            default: return R.drawable.ui_ic_terminal;
         }
     }
 

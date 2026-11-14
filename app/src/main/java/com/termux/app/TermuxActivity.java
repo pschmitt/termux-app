@@ -28,7 +28,9 @@ import android.widget.Toast;
 
 import com.termux.R;
 import com.termux.app.api.file.FileReceiverActivity;
+import com.termux.app.terminal.ReportIssueRequest;
 import com.termux.app.terminal.StylingApp;
+import com.termux.app.terminal.TerminalContextMenu;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxContextMenuSheet;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
@@ -42,7 +44,6 @@ import com.termux.shared.android.PermissionUtils;
 import com.termux.shared.data.DataUtils;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY;
-import com.termux.app.activities.HelpActivity;
 import com.termux.app.activities.SettingsActivity;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
@@ -180,19 +181,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private float mTerminalToolbarDefaultHeight;
 
 
-    private static final int CONTEXT_MENU_SELECT_URL_ID = 0;
-    private static final int CONTEXT_MENU_SHARE_TRANSCRIPT_ID = 1;
-    private static final int CONTEXT_MENU_SHARE_SELECTED_TEXT = 10;
-    private static final int CONTEXT_MENU_AUTOFILL_USERNAME = 11;
-    private static final int CONTEXT_MENU_AUTOFILL_PASSWORD = 2;
-    private static final int CONTEXT_MENU_RESET_TERMINAL_ID = 3;
-    private static final int CONTEXT_MENU_KILL_PROCESS_ID = 4;
-    private static final int CONTEXT_MENU_STYLING_ID = 5;
-    private static final int CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON = 6;
-    private static final int CONTEXT_MENU_HELP_ID = 7;
-    private static final int CONTEXT_MENU_SETTINGS_ID = 8;
-    private static final int CONTEXT_MENU_REPORT_ID = 9;
-
     private static final String ARG_TERMINAL_TOOLBAR_TEXT_INPUT = "terminal_toolbar_text_input";
     private static final String ARG_ACTIVITY_RECREATED = "activity_recreated";
 
@@ -326,6 +314,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Check if a crash happened on last run of the app or if a plugin crashed and show a
         // notification with the crash details if it did
         TermuxCrashUtils.notifyAppCrashFromCrashLogFile(this, LOG_TAG);
+
+        // Settings > Report issue brings the terminal back and asks it to run the usual Report issue flow, which
+        // reports the current session. It asks for consent first and the request only exists for a short time.
+        if (mTermuxTerminalViewClient != null && getCurrentSession() != null && ReportIssueRequest.consume())
+            mTermuxTerminalViewClient.reportIssueFromTranscript();
 
         mIsOnResumeAfterOnCreate = false;
     }
@@ -658,24 +651,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         TerminalSession currentSession = getCurrentSession();
         if (currentSession == null) return;
 
-        boolean autoFillEnabled = mTerminalView.isAutoFillEnabled();
-
-        menu.add(Menu.NONE, CONTEXT_MENU_SELECT_URL_ID, Menu.NONE, R.string.action_select_url);
-        menu.add(Menu.NONE, CONTEXT_MENU_SHARE_TRANSCRIPT_ID, Menu.NONE, R.string.action_share_transcript);
-        if (!DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText()))
-            menu.add(Menu.NONE, CONTEXT_MENU_SHARE_SELECTED_TEXT, Menu.NONE, R.string.action_share_selected_text);
-        if (autoFillEnabled)
-            menu.add(Menu.NONE, CONTEXT_MENU_AUTOFILL_USERNAME, Menu.NONE, R.string.action_autofill_username);
-        if (autoFillEnabled)
-            menu.add(Menu.NONE, CONTEXT_MENU_AUTOFILL_PASSWORD, Menu.NONE, R.string.action_autofill_password);
-        menu.add(Menu.NONE, CONTEXT_MENU_RESET_TERMINAL_ID, Menu.NONE, R.string.action_reset_terminal);
-        menu.add(Menu.NONE, CONTEXT_MENU_KILL_PROCESS_ID, Menu.NONE, getResources().getString(R.string.action_kill_process, getCurrentSession().getPid())).setEnabled(currentSession.isRunning());
-        if (StylingApp.isAvailable(getPackageManager()))
-            menu.add(Menu.NONE, CONTEXT_MENU_STYLING_ID, Menu.NONE, R.string.action_style_terminal);
-        menu.add(Menu.NONE, CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON, Menu.NONE, R.string.action_toggle_keep_screen_on).setCheckable(true).setChecked(mPreferences.shouldKeepScreenOn());
-        menu.add(Menu.NONE, CONTEXT_MENU_HELP_ID, Menu.NONE, R.string.action_open_help);
-        menu.add(Menu.NONE, CONTEXT_MENU_SETTINGS_ID, Menu.NONE, R.string.action_open_settings);
-        menu.add(Menu.NONE, CONTEXT_MENU_REPORT_ID, Menu.NONE, R.string.action_report_issue);
+        TerminalContextMenu.populateMenu(menu, getResources(), getContextMenuState(currentSession));
     }
 
     /** Hook system menu to show context menu instead. */
@@ -683,6 +659,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public boolean onCreateOptionsMenu(Menu menu) {
         mTerminalView.showContextMenu();
         return false;
+    }
+
+    private TerminalContextMenu.State getContextMenuState(@NonNull TerminalSession session) {
+        // Styling is checked each time the menu opens, so installing or removing Termux:Styling takes effect at once.
+        return new TerminalContextMenu.State(mTerminalView.isAutoFillEnabled(),
+            !DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText()),
+            StylingApp.isAvailable(getPackageManager()),
+            session.getPid(), session.isRunning(), mPreferences.shouldKeepScreenOn());
     }
 
     /**
@@ -694,33 +678,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         TerminalSession currentSession = getCurrentSession();
         if (currentSession == null || isFinishing() || isDestroyed()) return false;
 
-        boolean autoFillEnabled = mTerminalView.isAutoFillEnabled();
-        boolean hasSelectedText = !DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText());
-
-        TermuxContextMenuSheet sheet = new TermuxContextMenuSheet(this)
-            .addGroup(R.string.ui_menu_group_text)
-            .addItem(CONTEXT_MENU_SELECT_URL_ID, R.string.action_select_url, R.drawable.ui_ic_link);
-        if (hasSelectedText)
-            sheet.addItem(CONTEXT_MENU_SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_share);
-        sheet.addItem(CONTEXT_MENU_SHARE_TRANSCRIPT_ID, R.string.action_share_transcript, R.drawable.ui_ic_share);
-        if (autoFillEnabled) {
-            sheet.addDualAction(R.string.ui_menu_autofill,
-                CONTEXT_MENU_AUTOFILL_USERNAME, R.string.action_autofill_username, R.drawable.ui_ic_person,
-                CONTEXT_MENU_AUTOFILL_PASSWORD, R.string.action_autofill_password, R.drawable.ui_ic_lock);
-        }
-        sheet.addGroup(R.string.ui_menu_group_session)
-            .addItem(CONTEXT_MENU_RESET_TERMINAL_ID, R.string.action_reset_terminal, R.drawable.ui_ic_refresh)
-            .addItem(CONTEXT_MENU_KILL_PROCESS_ID, getResources().getString(R.string.action_kill_process, currentSession.getPid()),
-                R.drawable.ui_ic_power, currentSession.isRunning(), true)
-            .addToggle(CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_lightbulb,
-                mPreferences.shouldKeepScreenOn())
-            .addGroup(R.string.ui_menu_group_app);
-        // Checked each time the menu opens, so installing or removing Termux:Styling takes effect at once.
-        if (StylingApp.isAvailable(getPackageManager()))
-            sheet.addItem(CONTEXT_MENU_STYLING_ID, R.string.action_style_terminal, R.drawable.ui_ic_palette);
-        sheet.addItem(CONTEXT_MENU_SETTINGS_ID, R.string.action_open_settings, R.drawable.ui_ic_settings)
-            .addItem(CONTEXT_MENU_HELP_ID, R.string.action_open_help, R.drawable.ui_ic_help)
-            .addItem(CONTEXT_MENU_REPORT_ID, R.string.action_report_issue, R.drawable.ui_ic_bug);
+        TermuxContextMenuSheet sheet = TerminalContextMenu.populateSheet(new TermuxContextMenuSheet(this),
+            getResources(), getContextMenuState(currentSession));
 
         try {
             mContextSheetDialog = sheet.show(chosenItemId -> {
@@ -746,41 +705,35 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         TerminalSession session = getCurrentSession();
 
         switch (itemId) {
-            case CONTEXT_MENU_SELECT_URL_ID:
+            case TerminalContextMenu.SELECT_URL:
                 mTermuxTerminalViewClient.showUrlSelection();
                 return true;
-            case CONTEXT_MENU_SHARE_TRANSCRIPT_ID:
+            case TerminalContextMenu.SHARE_TRANSCRIPT:
                 mTermuxTerminalViewClient.shareSessionTranscript();
                 return true;
-            case CONTEXT_MENU_SHARE_SELECTED_TEXT:
+            case TerminalContextMenu.SHARE_SELECTED_TEXT:
                 mTermuxTerminalViewClient.shareSelectedText();
                 return true;
-            case CONTEXT_MENU_AUTOFILL_USERNAME:
+            case TerminalContextMenu.AUTOFILL_USERNAME:
                 mTerminalView.requestAutoFillUsername();
                 return true;
-            case CONTEXT_MENU_AUTOFILL_PASSWORD:
+            case TerminalContextMenu.AUTOFILL_PASSWORD:
                 mTerminalView.requestAutoFillPassword();
                 return true;
-            case CONTEXT_MENU_RESET_TERMINAL_ID:
+            case TerminalContextMenu.RESET_TERMINAL:
                 onResetTerminalSession(session);
                 return true;
-            case CONTEXT_MENU_KILL_PROCESS_ID:
+            case TerminalContextMenu.KILL_PROCESS:
                 showKillSessionDialog(session);
                 return true;
-            case CONTEXT_MENU_STYLING_ID:
+            case TerminalContextMenu.STYLING:
                 showStylingDialog();
                 return true;
-            case CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON:
+            case TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON:
                 toggleKeepScreenOn();
                 return true;
-            case CONTEXT_MENU_HELP_ID:
-                ActivityUtils.startActivity(this, new Intent(this, HelpActivity.class));
-                return true;
-            case CONTEXT_MENU_SETTINGS_ID:
+            case TerminalContextMenu.SETTINGS:
                 ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class));
-                return true;
-            case CONTEXT_MENU_REPORT_ID:
-                mTermuxTerminalViewClient.reportIssueFromTranscript();
                 return true;
             default:
                 return false;

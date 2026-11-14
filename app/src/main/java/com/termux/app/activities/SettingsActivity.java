@@ -1,6 +1,7 @@
 package com.termux.app.activities;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
 
@@ -13,7 +14,9 @@ import com.termux.R;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.models.ReportInfo;
+import com.termux.app.TermuxActivity;
 import com.termux.app.models.UserAction;
+import com.termux.app.terminal.ReportIssueRequest;
 import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.android.PackageUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAPIAppSharedPreferences;
@@ -59,6 +62,8 @@ public class SettingsActivity extends AppCompatActivity {
             if (context == null) return;
 
             setPreferencesFromResource(R.xml.root_preferences, rootKey);
+
+            configureReportIssuePreference(context);
 
             new Thread() {
                 @Override
@@ -106,6 +111,24 @@ public class SettingsActivity extends AppCompatActivity {
                 TermuxWidgetAppSharedPreferences preferences = TermuxWidgetAppSharedPreferences.build(context, false);
                 // If failed to get app preferences, then likely app is not installed, so do not show its preference
                 termuxWidgetPreference.setVisible(preferences != null);
+            }
+        }
+
+        /**
+         * Report issue runs the existing terminal flow (consent dialog, then a report the user reviews):
+         * bring the terminal back and ask it to start that flow. Nothing is collected here.
+         */
+        private void configureReportIssuePreference(@NonNull Context context) {
+            Preference reportIssuePreference = findPreference("report_issue");
+            if (reportIssuePreference != null) {
+                reportIssuePreference.setOnPreferenceClickListener(preference -> {
+                    ReportIssueRequest.request();
+                    Intent intent = TermuxActivity.newInstance(context);
+                    // TermuxActivity is singleTask: this returns to it and closes Settings on top of it.
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    context.startActivity(intent);
+                    return true;
+                });
             }
         }
 

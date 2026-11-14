@@ -1,4 +1,5 @@
-<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory
         app:key="updates_source"
@@ -8,21 +9,25 @@
             app:defaultValue="latest"
             app:entries="@array/termux_update_channel_entries"
             app:entryValues="@array/termux_update_channel_values"
+            app:icon="@drawable/ui_ic_system_update"
             app:key="update_channel"
             app:title="@string/termux_update_channel_title"
             app:useSimpleSummaryProvider="true" />
 
         <Preference
+            app:icon="@drawable/ui_ic_power"
             app:key="update_shizuku"
             app:title="@string/termux_update_shizuku_title" />
 
         <Preference
+            app:icon="@drawable/ui_ic_info"
             app:key="update_warning"
             app:selectable="false"
             app:summary="@string/termux_update_warning_summary"
             app:title="@string/termux_update_warning_title" />
 
         <Preference
+            app:icon="@drawable/ui_ic_refresh"
             app:key="update_check"
             app:summary="@string/termux_update_check_summary"
             app:title="@string/termux_update_check" />
@@ -34,14 +39,17 @@
         app:title="@string/termux_update_apps_title">
 
         <Preference
+            android:layout="@layout/ui_preference_row_app"
             app:key="update_app_core"
             app:title="@string/termux_update_app_core" />
 
         <Preference
+            android:layout="@layout/ui_preference_row_app"
             app:key="update_app_api"
             app:title="@string/termux_update_app_api" />
 
         <Preference
+            android:layout="@layout/ui_preference_row_app"
             app:key="update_app_tasker"
             app:title="@string/termux_update_app_tasker" />
 

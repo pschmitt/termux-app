@@ -4,7 +4,7 @@ page_ref: /docs/apps/termux/urls-and-hyperlinks.html
 
 # URLs and OSC 8 Hyperlinks
 
-TermuxPP finds URLs in the terminal text (tap on a URL, and the long press menu entry *Select URL*)
+TermuxPP finds URLs in the terminal text (tap on a URL, and the long press menu entry *Extract URL*)
 and supports terminal hyperlinks (`OSC 8`). Both are shown and opened by the same actions.
 
 Opening a link is always something you do: nothing is ever opened when a program prints a link.
@@ -20,9 +20,9 @@ The tap opens links only when `terminal-onclick-url-open` is set to `true` in `t
   below);
 - anything else is a normal tap.
 
-## Select URL
+## Extract URL
 
-*Select URL* lists the hyperlinks and URLs of the transcript and screen, latest first, the
+*Extract URL* lists the hyperlinks and URLs of the transcript and screen, latest first, the
 hyperlinks before the URLs found in the text. A hyperlink whose text is not its address is listed as
 `text → address`. A click copies the address, a long press opens it.
 
@@ -58,7 +58,7 @@ A link that is not accepted is ignored: its text is shown as usual, without a li
 | Length | URI at most 2083 characters, `id` at most 250 (a longer `id` is dropped, the link stays) |
 | Sequence size | An escape sequence longer than 16384 characters is not executed |
 | Distinct links | At most 8192 at the same time, and 1 MiB of characters in all. When this is exceeded further links are shown without a link (never with another link); space is freed when the text that carries them is erased or scrolled out. After a bulk erase it can take some more links until the space is available again |
-| Select URL | At most 2000 hyperlinks are listed |
+| Extract URL | At most 2000 hyperlinks are listed |
 
 A hyperlink whose label is the address (with or without scheme, with or without a trailing `/`,
 ignoring whitespace the application inserted) is opened without asking. Anything else, including a
@@ -98,6 +98,6 @@ rule above joins a row such as `report` after a URL that ends at the edge).
 | `terminal-emulator` `TerminalHyperlink`, `TerminalHyperlinkRegistry` | validation, interning and the limits |
 | `TerminalRow`, `TerminalBuffer`, `TerminalEmulator` | the hyperlink of each cell, its lifetime, `OSC 8` parsing |
 | `termux-shared` `TermuxUrlUtils` | URLs in the text, joining rows |
-| `TermuxTerminalViewClient` | tap, the confirmation and *Select URL* |
+| `TermuxTerminalViewClient` | tap, the confirmation and *Extract URL* |
 
 Tests: `HyperlinkTest` (emulator) and `TermuxUrlUtilsTest` (`termux-shared`).

@@ -132,4 +132,43 @@ public class TermuxContextMenuSheetTest {
         Assert.assertTrue(withKeyboard <= 1300 - Math.round(48 * density));
         Assert.assertEquals(-1, TermuxContextMenuSheet.computeMaxHeight(0, density));
     }
+    @Test
+    public void headerIsOnlyTheDragHandleWithoutAVisibleTitle() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = sheet(activity).show(id -> { });
+        View items = dialog.findViewById(R.id.context_sheet_items);
+        Assert.assertNotNull(items);
+
+        // Content root: the handle, then the scrolling list. No heading in between.
+        android.view.ViewGroup root = (android.view.ViewGroup) items.getParent().getParent();
+        Assert.assertEquals(2, root.getChildCount());
+        Assert.assertFalse(root.getChildAt(0) instanceof android.widget.TextView);
+        Assert.assertTrue(root.getChildAt(1) instanceof androidx.core.widget.NestedScrollView);
+
+        // The group labels stay, and the old heading text is not drawn anywhere.
+        Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_title)));
+        Assert.assertTrue(containsVisibleText(root, activity.getString(R.string.ui_menu_group_text)));
+    }
+
+    @Test
+    public void screenReadersStillGetATitle() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = sheet(activity).show(id -> { });
+        View items = dialog.findViewById(R.id.context_sheet_items);
+        android.view.ViewGroup root = (android.view.ViewGroup) items.getParent().getParent();
+        Assert.assertEquals(activity.getString(R.string.ui_menu_title),
+            String.valueOf(androidx.core.view.ViewCompat.getAccessibilityPaneTitle(root)));
+    }
+
+    private static boolean containsVisibleText(View view, String text) {
+        if (view instanceof android.widget.TextView && view.getVisibility() == View.VISIBLE
+            && text.contentEquals(((android.widget.TextView) view).getText())) return true;
+        if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++)
+                if (containsVisibleText(group.getChildAt(i), text)) return true;
+        }
+        return false;
+    }
+
 }

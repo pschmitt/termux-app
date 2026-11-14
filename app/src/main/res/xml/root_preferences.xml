@@ -47,6 +47,13 @@
         app:fragment="com.termux.app.fragments.settings.UpdatesPreferencesFragment"/>
 
     <Preference
+        app:key="report_issue"
+        app:icon="@drawable/ui_ic_bug"
+        app:title="@string/action_report_issue"
+        app:summary="@string/ui_report_issue_summary"
+        app:persistent="false"/>
+
+    <Preference
         app:key="about"
         app:icon="@drawable/ui_ic_info"
         app:title="@string/about_preference_title"

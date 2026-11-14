@@ -139,6 +139,20 @@ public class TermuxContextMenuSheet {
         return this;
     }
 
+    /** The ids of all items and buttons that the sheet offers, in order. */
+    List<Integer> getItemIds() {
+        List<Integer> ids = new ArrayList<>();
+        for (Object row : mRows) {
+            if (row instanceof Entry) {
+                ids.add(((Entry) row).id);
+            } else if (row instanceof DualEntry) {
+                ids.add(((DualEntry) row).first.id);
+                ids.add(((DualEntry) row).second.id);
+            }
+        }
+        return ids;
+    }
+
     /**
      * The height that the sheet may start out with, in pixels, or -1 for no limit if the available
      * height is unknown.
@@ -196,6 +210,10 @@ public class TermuxContextMenuSheet {
         }
 
         dialog.setContentView(content);
+        // No visible heading, but screen readers still announce what this window is.
+        String title = mActivity.getString(R.string.ui_menu_title);
+        dialog.setTitle(title);
+        ViewCompat.setAccessibilityPaneTitle(content, title);
 
         // Keep the bottom of the list reachable above the navigation bar or the soft keyboard when
         // the sheet is drawn under them. With no inset the padding is left as the layout has it.

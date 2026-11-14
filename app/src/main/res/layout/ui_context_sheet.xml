@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The header stays fixed, only the list scrolls: the scroll view takes the height that is left under the
-     maximum height that TermuxContextMenuSheet gives the bottom sheet. -->
+<!-- The header is only the drag handle and stays fixed, only the list scrolls: the scroll view takes the
+     height that is left under the maximum height that TermuxContextMenuSheet gives the bottom sheet.
+     There is deliberately no visible title: screen readers get one from the pane title that
+     TermuxContextMenuSheet sets. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -14,16 +16,6 @@
         android:layout_marginBottom="12dp"
         android:background="@drawable/ui_sheet_handle"
         android:importantForAccessibility="no" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:accessibilityHeading="true"
-        android:paddingStart="28dp"
-        android:paddingEnd="28dp"
-        android:paddingBottom="4dp"
-        android:text="@string/ui_menu_title"
-        android:textAppearance="@style/TextAppearance.TermuxPP.DrawerTitle" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
