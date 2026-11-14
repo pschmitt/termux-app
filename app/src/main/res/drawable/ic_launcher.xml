@@ -5,30 +5,20 @@
     android:viewportHeight="108">
 
     <path
-        android:fillColor="#000000"
+        android:fillColor="#431407"
         android:pathData="M18,54
                           A36,36 0 1,1 90,54
                           A36,36 0 1,1 18,54 Z" />
 
     <!-- Keep in sync with adaptive ic_foreground.xml: -->
+    <!-- TermuxPP:Tasker: prompt chevron (shared with core) plus an automation
+         lightning bolt. -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M34,38
-                          h6
-                          l12,16
-                          l-12,16
-                          h-6
-                          l12,-16
-                          "
-        />
+        android:pathData="M34,38 h6 l12,16 l-12,16 h-6 l12,-16 z" />
 
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M56,66
-                          h18
-                          v4
-                          h-18
-                          "
-        />
+        android:fillColor="#FBBF24"
+        android:pathData="M72,34 L58,56 h9 l-4,14 L78,46 h-9 z" />
 
 </vector>
