@@ -61,6 +61,24 @@ int main(int argc, char **argv) {
 EOC
 gcc -o "$work/sock" "$work/sock.c"
 
+cat >"$work/showpre.c" <<'EOC'
+#include <stdio.h>
+#include <stdlib.h>
+int main(void) {
+    const char *v = getenv("LD_PRELOAD");
+    printf("PRE=%s\n", v ? v : "(unset)");
+    return 0;
+}
+EOC
+gcc -o "$prefix/bin/showpre" "$work/showpre.c"
+
+mkdir -p "$prefix/lib"
+cat >"$work/marker.c" <<'EOC'
+#include <unistd.h>
+__attribute__((constructor)) static void marker(void) { (void) !write(1, "MARKER\n", 7); }
+EOC
+gcc -shared -fPIC -o "$prefix/lib/libmarker.so" "$work/marker.c"
+
 mk() { printf '%s\n' "$2" "printf 'ARGS:%s|%s|%s\n' \"\$0\" \"\$1\" \"\$2\"" >"$work/scripts/$1"; chmod +x "$work/scripts/$1"; }
 mk env-bash '#!/usr/bin/env bash'
 mk env-opt '#!/usr/bin/env  -S bash -u   '
@@ -101,6 +119,30 @@ check existing-interp-untouched "SYSSH" "$("$B" -c "\"$S/sys-sh\"")"
 mkdir -p "$WORK/stock"
 printf '#!/data/data/com.termux/files/usr/bin/bash\necho STOCK\n' >"$S/stock"; chmod +x "$S/stock"
 check stock-prefix "STOCK" "$("$B" -c "\"$S/stock\"")"
+# LD_PRELOAD normalization: the linker reads it before redirection, so stock-prefix
+# entries must be rewritten in the environment of the new image.
+SP=$PREFIX/bin/showpre
+STOCK_LIB=/data/data/com.termux/files/usr/lib
+cat >"$S/launcher" <<EOL
+#!$B
+LD_PRELOAD="\$LD_PRELOAD:$STOCK_LIB/libmarker.so" exec "$STOCK_LIB/../bin/showpre" "\$@"
+EOL
+chmod +x "$S/launcher"
+check preload-launcher-loads-lib "$(printf 'MARKER\nPRE=%s:%s/files/usr/lib/libmarker.so' "$WORK/libredir.so" "$DATA")" \
+    "$("$B" -c "\"$S/launcher\"" 2>/dev/null)"
+MIXED="$WORK/libredir.so:$STOCK_LIB/libx.so /other/keep.so /data/data/com.termux2/x.so:$STOCK_LIB/liby.so"
+MIXED_EXPECT="$WORK/libredir.so:$DATA/files/usr/lib/libx.so /other/keep.so /data/data/com.termux2/x.so:$DATA/files/usr/lib/liby.so"
+check preload-preserves-others "PRE=$MIXED_EXPECT" "$(LD_PRELOAD=$MIXED "$B" -c "exec $SP" 2>/dev/null)"
+check preload-posix_spawn "PRE=$MIXED_EXPECT" "$(LD_PRELOAD=$MIXED "$WORK/spawn" spawn "$SP" 2>/dev/null)"
+check preload-posix_spawnp "PRE=$MIXED_EXPECT" "$(LD_PRELOAD=$MIXED "$WORK/spawn" spawnp showpre 2>/dev/null)"
+check preload-user-prefix "PRE=$WORK/libredir.so:$DATA/files/usr/lib/libz.so" \
+    "$(LD_PRELOAD=$WORK/libredir.so:/data/user/0/com.termux/files/usr/lib/libz.so "$B" -c "exec $SP" 2>/dev/null)"
+check preload-fork-only-untouched "PRE=$WORK/libredir.so" "$("$B" -c "exec $SP")"
+# Stock Termux: no fork data dir (or the stock one) means no rewriting at all.
+check stock-unset-noop "PRE=$MIXED" \
+    "$(unset TERMUX_APP__DATA_DIR; LD_PRELOAD=$MIXED "$B" -c "exec $SP" 2>/dev/null)"
+check stock-dir-noop "PRE=$MIXED" \
+    "$(TERMUX_APP__DATA_DIR=/data/data/com.termux LD_PRELOAD=$MIXED "$B" -c "exec $SP" 2>/dev/null)"
 # AF_UNIX path rewriting (stock com.termux path lands in the fork data dir).
 mkdir -p "$DATA/files/home"
 check af-unix "SOCK_OK" "$("$WORK/sock" /data/data/com.termux/files/home/test.sock)"

@@ -678,21 +678,154 @@ static void shebang_free(struct shebang_exec *sb) {
     sb->argv = NULL;
 }
 
+/*
+ * The dynamic linker reads LD_PRELOAD of the new image before any path
+ * redirection can happen, so a stock-prefix absolute path there (for example
+ * Termux's neovim launcher preloading /data/data/com.termux/.../libluajit.so)
+ * would be looked up in the wrong app. Entries are separated by ':' or ' ';
+ * rewrite those that start with a stock prefix and keep all others, and their
+ * order, untouched. Only active when the redirect target is configured, so
+ * stock Termux (no TERMUX_APP__DATA_DIR) is never affected.
+ */
+static const char LD_PRELOAD_KEY[] = "LD_PRELOAD=";
+#define LD_PRELOAD_KEY_LEN (sizeof(LD_PRELOAD_KEY) - 1)
+
+static int is_preload_sep(char c) {
+    return c == ':' || c == ' ';
+}
+
+/* Returns a malloc'd rewritten value, or NULL if nothing changed or on error. */
+static char *rewrite_preload_value(const char *value) {
+    size_t cap = strlen(value) + 1;
+    size_t changed = 0;
+    for (const char *p = value; *p; p++) {
+        if (*p == '/' && (p == value || is_preload_sep(p[-1])))
+            cap += g_target_dir_len;
+    }
+    char *out = malloc(cap);
+    if (!out)
+        return NULL;
+
+    size_t len = 0;
+    const char *p = value;
+    while (*p) {
+        if (is_preload_sep(*p)) {
+            out[len++] = *p++;
+            continue;
+        }
+        size_t tok_len = 0;
+        while (p[tok_len] && !is_preload_sep(p[tok_len]))
+            tok_len++;
+        char tok[PATH_MAX];
+        char buf[PATH_MAX];
+        const char *res = NULL;
+        size_t res_len = tok_len;
+        if (tok_len < sizeof(tok)) {
+            memcpy(tok, p, tok_len);
+            tok[tok_len] = '\0';
+            res = rewrite_path(tok, buf, sizeof(buf));
+            if (res != tok) {
+                res_len = strlen(res);
+                changed++;
+            } else {
+                res = NULL;
+            }
+        }
+        if (len + res_len >= cap) {
+            free(out);
+            return NULL;
+        }
+        memcpy(out + len, res ? res : p, res_len);
+        len += res_len;
+        p += tok_len;
+    }
+    out[len] = '\0';
+    if (!changed) {
+        free(out);
+        return NULL;
+    }
+    return out;
+}
+
+struct env_rewrite {
+    char **envp;
+    char *entry;
+};
+
+/*
+ * If ENVP carries an LD_PRELOAD that needs rewriting, fill OUT with a modified
+ * copy (caller frees with env_rewrite_free) and return 1. Otherwise return 0
+ * and the original ENVP must be used unchanged.
+ */
+static int env_rewrite_prepare(char *const envp[], struct env_rewrite *out) {
+    if (!envp || g_target_dir_len == 0)
+        return 0;
+
+    size_t count = 0;
+    ssize_t idx = -1;
+    for (; envp[count]; count++) {
+        if (idx < 0 && strncmp(envp[count], LD_PRELOAD_KEY, LD_PRELOAD_KEY_LEN) == 0)
+            idx = (ssize_t) count;
+    }
+    if (idx < 0)
+        return 0;
+
+    char *value = rewrite_preload_value(envp[idx] + LD_PRELOAD_KEY_LEN);
+    if (!value)
+        return 0;
+
+    size_t value_len = strlen(value);
+    char *entry = malloc(LD_PRELOAD_KEY_LEN + value_len + 1);
+    char **copy = malloc((count + 1) * sizeof(char *));
+    if (!entry || !copy) {
+        free(value);
+        free(entry);
+        free(copy);
+        return 0;
+    }
+    memcpy(entry, LD_PRELOAD_KEY, LD_PRELOAD_KEY_LEN);
+    memcpy(entry + LD_PRELOAD_KEY_LEN, value, value_len + 1);
+    free(value);
+    for (size_t i = 0; i < count; i++)
+        copy[i] = (char *) envp[i];
+    copy[idx] = entry;
+    copy[count] = NULL;
+    out->envp = copy;
+    out->entry = entry;
+    return 1;
+}
+
+static void env_rewrite_free(struct env_rewrite *er) {
+    free(er->entry);
+    free(er->envp);
+    er->entry = NULL;
+    er->envp = NULL;
+}
+
 int execve(const char *pathname, char *const argv[], char *const envp[]) {
     RESOLVE_REAL(execve, int, (const char *, char *const[], char *const[]));
     if (!real_fn)
         return -1;
     char buf[PATH_MAX];
     const char *rewritten = rewrite_path(pathname, buf, sizeof(buf));
+    struct env_rewrite er;
+    int env_changed = env_rewrite_prepare(envp, &er);
+    char *const *use_envp = env_changed ? er.envp : envp;
     struct shebang_exec sb;
+    int rc;
+    int saved_errno;
     if (shebang_prepare(rewritten, argv, &sb)) {
-        real_fn(sb.interp, sb.argv, envp);
-        int saved_errno = errno;
+        rc = real_fn(sb.interp, sb.argv, use_envp);
+        saved_errno = errno;
         shebang_free(&sb);
-        errno = saved_errno;
-        return -1;
+    } else {
+        rc = real_fn(rewritten, argv, use_envp);
+        saved_errno = errno;
     }
-    return real_fn(rewritten, argv, envp);
+    if (env_changed)
+        env_rewrite_free(&er);
+    errno = saved_errno;
+    return rc;
 }
 
 int execv(const char *pathname, char *const argv[]) {
@@ -776,13 +909,20 @@ static int spawn_with_shebang(int (*real_fn)(pid_t *, const char *, const posix_
                              const posix_spawn_file_actions_t *file_actions,
                              const posix_spawnattr_t *attrp, char *const argv[],
                              char *const envp[]) {
+    struct env_rewrite er;
+    int env_changed = env_rewrite_prepare(envp, &er);
+    char *const *use_envp = env_changed ? er.envp : envp;
     struct shebang_exec sb;
+    int rc;
     if (shebang_prepare(path, argv, &sb)) {
-        int rc = real_fn(pid, sb.interp, file_actions, attrp, sb.argv, envp);
+        rc = real_fn(pid, sb.interp, file_actions, attrp, sb.argv, use_envp);
         shebang_free(&sb);
-        return rc;
+    } else {
+        rc = real_fn(pid, path, file_actions, attrp, argv, use_envp);
     }
-    return real_fn(pid, path, file_actions, attrp, argv, envp);
+    if (env_changed)
+        env_rewrite_free(&er);
+    return rc;
 }
 
 int posix_spawn(pid_t *pid, const char *path, const posix_spawn_file_actions_t *file_actions,

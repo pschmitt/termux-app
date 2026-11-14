@@ -99,6 +99,18 @@ applies to whichever `TERMUX_PACKAGE_VARIANT` is selected; the archive must matc
 A universal build still downloads the other three ABIs, so for device builds use the split
 `arm64-v8a` APK.
 
+## Prefix redirection of stock paths
+
+`libtermux-pkg-redirect.so` is preloaded in fork shells and maps stock `/data/data/com.termux` and
+`/data/user/0/com.termux` paths to the fork data dir (`TERMUX_APP__DATA_DIR`). That includes
+shebang interpreters and the `LD_PRELOAD` of the environment passed to `exec*`/`posix_spawn*`,
+because the Android linker reads `LD_PRELOAD` before any path can be redirected. Packages from the
+Termux repository that launch with a stock absolute preload (for example neovim preloading
+`libluajit.so`) therefore work unchanged, also after `apt upgrade`. Entries are rewritten only when
+they start with a stock prefix; other entries, their order and the `:`/space separators are kept.
+Without `TERMUX_APP__DATA_DIR` (stock Termux) nothing is rewritten. `scripts/test-pkg-redirect.sh`
+covers both cases; run it on a disposable worker.
+
 ## Fork-compatible Android helpers
 
 Stock `termux-am` embeds `com.termux` as its Android caller identity. Stock
