@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tile of the terminal menu grid for a destructive action. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/ui_ripple">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/ui_danger_container" />
+            <corners android:radius="@dimen/ui_row_radius" />
+        </shape>
+    </item>
+</ripple>

@@ -1,9 +1,9 @@
 package com.termux.app.terminal;
 
 import android.app.Activity;
+import android.content.res.Resources;
 import android.view.Menu;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -100,47 +100,70 @@ public class TerminalContextMenuTest {
         Assert.assertTrue(activity.getString(R.string.msg_confirm_kill_process).contains("process will stop"));
     }
 
+    private static TerminalContextMenu.State session(String name, boolean running, int number, int count) {
+        return new TerminalContextMenu.State(true, true, 4182, running, false,
+            name, "zsh", "~/devel", number, count, 2);
+    }
+
     @Test
-    public void shareAndSessionRowsHaveLeadingIconsAndAccessibleActions() {
+    public void headerNamesTheSessionItsDirectoryPidAndPosition() {
+        Resources resources = activity().getResources();
+        Assert.assertEquals("zsh", TerminalContextMenu.headerTitle(resources, session(null, true, 2, 3)));
+        Assert.assertEquals("build", TerminalContextMenu.headerTitle(resources, session("build", true, 2, 3)));
+        Assert.assertEquals("Session 1", TerminalContextMenu.headerTitle(resources, minimal()));
+
+        Assert.assertEquals("~/devel · pid 4182 · 2 of 3",
+            TerminalContextMenu.headerDetail(resources, session(null, true, 2, 3)));
+        Assert.assertEquals("~/devel · pid 4182",
+            TerminalContextMenu.headerDetail(resources, session(null, true, 1, 1)));
+        Assert.assertEquals("~/devel · not running",
+            TerminalContextMenu.headerDetail(resources, session(null, false, 1, 1)));
+    }
+
+    @Test
+    public void tilesAreLabelledWithWhatTheyDo() {
         Activity activity = activity();
         BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
-            new TermuxContextMenuSheet(activity), activity.getResources(), everything()).show(id -> { });
-        View share = dualRow(dialog, activity, R.string.ui_menu_share);
-        View session = dualRow(dialog, activity, R.string.ui_menu_session_controls);
-
-        assertLeadingIcon(share);
-        assertLeadingIcon(session);
-        ImageView rowShare = share.findViewById(R.id.context_dual_icon);
-        ImageView selectedText = share.findViewById(R.id.context_dual_first);
-        ImageView transcript = share.findViewById(R.id.context_dual_second);
-        Assert.assertEquals(activity.getString(R.string.action_share_selected_text),
-            selectedText.getContentDescription().toString());
-        Assert.assertEquals(activity.getString(R.string.action_share_transcript),
-            transcript.getContentDescription().toString());
-        Assert.assertNotNull(selectedText.getDrawable());
-        Assert.assertNotNull(transcript.getDrawable());
-        Assert.assertNotNull(rowShare.getDrawable());
-        Assert.assertNotSame(rowShare.getDrawable().getConstantState(),
-            selectedText.getDrawable().getConstantState());
-        Assert.assertNotSame(selectedText.getDrawable().getConstantState(),
-            transcript.getDrawable().getConstantState());
-    }
-
-    private static void assertLeadingIcon(View row) {
-        ImageView leading = row.findViewById(R.id.context_dual_icon);
-        Assert.assertNotNull(leading);
-        Assert.assertEquals(View.VISIBLE, leading.getVisibility());
-        Assert.assertNotNull(leading.getDrawable());
-        Assert.assertNull(leading.getContentDescription());
-    }
-
-    private static View dualRow(BottomSheetDialog dialog, Activity activity, int labelId) {
-        String label = activity.getString(labelId);
+            new TermuxContextMenuSheet(activity), activity.getResources(), session(null, true, 2, 3)).show(id -> { });
+        List<String> titles = new ArrayList<>();
+        List<String> details = new ArrayList<>();
         for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
-            if (view instanceof TextView && label.contentEquals(((TextView) view).getText()))
-                return (View) view.getParent();
+            if (view.getId() == R.id.context_tile_title) titles.add(((TextView) view).getText().toString());
+            if (view.getId() == R.id.context_tile_detail) details.add(((TextView) view).getText().toString());
         }
-        throw new AssertionError("Missing dual-action row: " + label);
+        Assert.assertEquals(Arrays.asList("Open URL", "Share", "Share", "Username", "Password", "Reset", "Kill zsh"),
+            titles);
+        Assert.assertEquals(Arrays.asList("2 found", "selected text", "transcript", "autofill", "autofill",
+            "terminal state", "hold to kill now"), details);
+    }
+
+    @Test
+    public void killTileFallsBackToTheSessionAndSaysWhenNothingRuns() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
+            new TermuxContextMenuSheet(activity), activity.getResources(), minimal()).show(id -> { });
+        boolean found = false;
+        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
+            if (view.getId() == R.id.context_tile_title && "Kill session".contentEquals(((TextView) view).getText())) {
+                View tile = (View) view.getParent().getParent();
+                Assert.assertFalse(tile.isEnabled());
+                Assert.assertEquals("not running",
+                    ((TextView) tile.findViewById(R.id.context_tile_detail)).getText().toString());
+                found = true;
+            }
+        }
+        Assert.assertTrue(found);
+    }
+
+    @Test
+    public void processInfoAbbreviatesTheHomeDirectory() {
+        String home = "/data/data/com.termux/files/home";
+        Assert.assertEquals("~", ProcessInfo.abbreviateHome(home, home));
+        Assert.assertEquals("~/devel", ProcessInfo.abbreviateHome(home + "/devel", home + "/"));
+        Assert.assertEquals(home + "x/devel", ProcessInfo.abbreviateHome(home + "x/devel", home));
+        Assert.assertEquals("/sdcard", ProcessInfo.abbreviateHome("/sdcard", home));
+        Assert.assertNull(ProcessInfo.readName(-1));
+        Assert.assertNull(ProcessInfo.readCwd(0));
     }
 
     private static List<View> allViews(View root) {

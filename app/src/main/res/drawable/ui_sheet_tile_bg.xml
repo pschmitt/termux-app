@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tonal tile of the terminal menu grid. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/ui_ripple">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/ui_row" />
+            <corners android:radius="@dimen/ui_row_radius" />
+        </shape>
+    </item>
+</ripple>

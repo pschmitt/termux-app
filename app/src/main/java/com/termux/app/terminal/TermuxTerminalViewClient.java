@@ -960,12 +960,14 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             selectedText, mActivity.getString(R.string.title_share_selected_text_with));
     }
 
-    public void showUrlSelection() {
-        TerminalSession session = mActivity.getCurrentSession();
-        if (session == null) return;
-
+    /**
+     * The URLs that {@link #showUrlSelection()} lists for a session, keyed by what is listed, with the
+     * address to copy or open as value, or null if the session has no terminal yet.
+     */
+    @Nullable
+    public Map<String, String> collectUrlItems(@NonNull TerminalSession session) {
         TerminalEmulator emulator = session.getEmulator();
-        if (emulator == null) return;
+        if (emulator == null) return null;
         TerminalBuffer screen = emulator.getScreen();
 
         // Rows that the terminal wrapped itself are joined, the ones an application broke are joined
@@ -983,6 +985,15 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
                 ? mActivity.getString(R.string.item_select_url_hyperlink, getLabelForDisplay(span.label), uri) : uri;
             if (!addressOfItem.containsKey(item)) addressOfItem.put(item, uri);
         }
+        return addressOfItem;
+    }
+
+    public void showUrlSelection() {
+        TerminalSession session = mActivity.getCurrentSession();
+        if (session == null) return;
+
+        final Map<String, String> addressOfItem = collectUrlItems(session);
+        if (addressOfItem == null) return;
         List<CharSequence> items = new ArrayList<>(addressOfItem.keySet());
 
         if (items.isEmpty()) {

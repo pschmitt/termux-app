@@ -2,9 +2,14 @@ package com.termux.app.terminal;
 
 import android.app.Activity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.termux.R;
@@ -23,6 +28,8 @@ public class TermuxContextMenuSheetTest {
     private static final int PASSWORD = 2;
     private static final int RESET = 3;
     private static final int KILL = 4;
+    private static final int KILL_NOW = 12;
+    private static final int SETTINGS = 8;
     private static final int OTHER = 99;
 
     private static Activity activity() {
@@ -31,128 +38,136 @@ public class TermuxContextMenuSheetTest {
         return activity;
     }
 
-    private static TermuxContextMenuSheet sheet(Activity activity) {
+    private static TermuxContextMenuSheet sheet(Activity activity, boolean killEnabled) {
         return new TermuxContextMenuSheet(activity)
-            .addDualAction(R.string.ui_menu_autofill, R.drawable.ui_ic_bolt,
-                USERNAME, R.string.action_autofill_username, R.drawable.ui_ic_person, true,
-                PASSWORD, R.string.action_autofill_password, R.drawable.ui_ic_lock, true)
-            .addDualAction(R.string.ui_menu_share, R.drawable.ui_ic_share,
-                TerminalContextMenu.SHARE_SELECTED_TEXT, R.string.action_share_selected_text,
-                R.drawable.ui_ic_select_text, true,
-                TerminalContextMenu.SHARE_TRANSCRIPT, R.string.action_share_transcript,
-                R.drawable.ui_ic_share, true)
-            .addDualAction(R.string.ui_menu_session_controls, R.drawable.ui_ic_terminal,
-                RESET, R.string.action_reset_terminal, R.drawable.ui_ic_refresh, true,
-                KILL, R.string.action_kill_process_accessibility, R.drawable.ui_ic_delete, false)
-            .addItem(OTHER, R.string.action_select_url, R.drawable.ui_ic_link);
+            .setHeader("zsh", "~/devel · pid 4182", SETTINGS, "Settings", R.drawable.ui_ic_settings)
+            .addTile(USERNAME, "Username", "autofill", R.drawable.ui_ic_person)
+            .addTile(PASSWORD, "Password", "autofill", R.drawable.ui_ic_lock)
+            .addTile(RESET, "Reset", null, R.drawable.ui_ic_refresh)
+            .addDangerTile(KILL, "Kill zsh", "hold to kill now", R.drawable.ui_ic_delete, killEnabled,
+                KILL_NOW, "Kill now")
+            .addTile(TerminalContextMenu.SELECT_URL, "Open URL", "2 found", R.drawable.ui_ic_link)
+            .addItem(OTHER, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_lightbulb);
     }
 
-    private static int clickAndGetChosen(Activity activity, int viewId) {
+    private static TermuxContextMenuSheet sheet(Activity activity) {
+        return sheet(activity, true);
+    }
+
+    private static View tile(BottomSheetDialog dialog, String title) {
+        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
+            if (view.getId() == R.id.context_tile_title && title.contentEquals(((TextView) view).getText()))
+                return (View) view.getParent().getParent();
+        }
+        throw new AssertionError("Missing tile: " + title);
+    }
+
+    private static int clickTile(Activity activity, String title, boolean longPress) {
         int[] chosen = {Integer.MIN_VALUE};
         BottomSheetDialog dialog = sheet(activity).show(id -> chosen[0] = id);
-        View button = dialog.findViewById(viewId);
-        Assert.assertNotNull(button);
-        Assert.assertTrue(button.performClick());
+        View view = tile(dialog, title);
+        Assert.assertTrue(longPress ? view.performLongClick() : view.performClick());
         // The dismiss callback is delivered through the main looper.
         ShadowLooper.idleMainLooper();
         return chosen[0];
     }
 
-    private static View dualRow(BottomSheetDialog dialog, Activity activity, int labelId) {
-        String label = activity.getString(labelId);
-        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
-            if (view instanceof android.widget.TextView
-                && label.contentEquals(((android.widget.TextView) view).getText())) {
-                return (View) view.getParent();
-            }
+    @Test
+    public void tilesChooseTheirOwnIds() {
+        Activity activity = activity();
+        Assert.assertEquals(USERNAME, clickTile(activity, "Username", false));
+        Assert.assertEquals(PASSWORD, clickTile(activity, "Password", false));
+        Assert.assertEquals(RESET, clickTile(activity, "Reset", false));
+        Assert.assertEquals(KILL, clickTile(activity, "Kill zsh", false));
+    }
+
+    @Test
+    public void holdingKillChoosesKillNowAndIsOfferedToScreenReaders() {
+        Activity activity = activity();
+        Assert.assertEquals(KILL_NOW, clickTile(activity, "Kill zsh", true));
+
+        BottomSheetDialog dialog = sheet(activity).show(id -> { });
+        AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
+        ViewCompat.onInitializeAccessibilityNodeInfo(tile(dialog, "Kill zsh"), info);
+        boolean labelled = false;
+        for (AccessibilityNodeInfoCompat.AccessibilityActionCompat action : info.getActionList()) {
+            if (action.getId() == AccessibilityNodeInfoCompat.ACTION_LONG_CLICK)
+                labelled = "Kill now".contentEquals(action.getLabel());
         }
-        throw new AssertionError("Missing dual-action row: " + label);
+        Assert.assertTrue(labelled);
     }
 
     @Test
-    public void usernameAndPasswordButtonsChooseTheirOwnIds() {
-        Assert.assertEquals(USERNAME, clickAndGetChosen(activity(), R.id.context_dual_first));
-        Assert.assertEquals(PASSWORD, clickAndGetChosen(activity(), R.id.context_dual_second));
-    }
-
-    @Test
-    public void sessionButtonsKeepIndependentLabelsAndDisabledKillState() {
-        Activity activity = activity();
-        BottomSheetDialog dialog = sheet(activity).show(id -> { });
-        View row = dualRow(dialog, activity, R.string.ui_menu_session_controls);
-        ImageView first = row.findViewById(R.id.context_dual_first);
-        ImageView second = row.findViewById(R.id.context_dual_second);
-        Assert.assertEquals(activity.getString(R.string.action_reset_terminal), first.getContentDescription().toString());
-        Assert.assertEquals(activity.getString(R.string.action_kill_process_accessibility), second.getContentDescription().toString());
-        ImageView leading = row.findViewById(R.id.context_dual_icon);
-        Assert.assertEquals(View.VISIBLE, leading.getVisibility());
-        Assert.assertNotNull(leading.getDrawable());
-        Assert.assertTrue(first.isEnabled());
-        Assert.assertTrue(first.isClickable());
-        Assert.assertFalse(second.isEnabled());
-        Assert.assertFalse(second.isFocusable());
-        Assert.assertFalse(row.isClickable());
-    }
-
-    @Test
-    public void shareRowHasItsOwnLeadingIconAndDistinctAccessibleActions() {
-        Activity activity = activity();
-        BottomSheetDialog dialog = sheet(activity).show(id -> { });
-        View row = dualRow(dialog, activity, R.string.ui_menu_share);
-        ImageView leading = row.findViewById(R.id.context_dual_icon);
-        ImageView selectedText = row.findViewById(R.id.context_dual_first);
-        ImageView transcript = row.findViewById(R.id.context_dual_second);
-
-        Assert.assertEquals(View.VISIBLE, leading.getVisibility());
-        Assert.assertNotNull(leading.getDrawable());
-        Assert.assertEquals(activity.getString(R.string.action_share_selected_text),
-            selectedText.getContentDescription().toString());
-        Assert.assertEquals(activity.getString(R.string.action_share_transcript),
-            transcript.getContentDescription().toString());
-        Assert.assertNotNull(selectedText.getDrawable());
-        Assert.assertNotNull(transcript.getDrawable());
-    }
-
-    @Test
-    public void resetAndKillButtonsChooseTheirOwnIds() {
+    public void disabledKillTileChoosesNothing() {
         Activity activity = activity();
         int[] chosen = {Integer.MIN_VALUE};
-        BottomSheetDialog dialog = sheet(activity).show(id -> chosen[0] = id);
-        View row = dualRow(dialog, activity, R.string.ui_menu_session_controls);
-        Assert.assertTrue(row.findViewById(R.id.context_dual_first).performClick());
-        ShadowLooper.idleMainLooper();
-        Assert.assertEquals(RESET, chosen[0]);
-
-        chosen[0] = Integer.MIN_VALUE;
-        dialog = sheet(activity).show(id -> chosen[0] = id);
-        row = dualRow(dialog, activity, R.string.ui_menu_session_controls);
-        Assert.assertFalse(row.findViewById(R.id.context_dual_second).performClick());
+        BottomSheetDialog dialog = sheet(activity, false).show(id -> chosen[0] = id);
+        View kill = tile(dialog, "Kill zsh");
+        Assert.assertFalse(kill.isEnabled());
+        Assert.assertFalse(kill.performClick());
+        Assert.assertFalse(kill.performLongClick());
         ShadowLooper.idleMainLooper();
         Assert.assertEquals(Integer.MIN_VALUE, chosen[0]);
     }
 
     @Test
-    public void autofillButtonsAreLabelledAndTheRowIsNotClickable() {
+    public void tilesAreLaidOutTwoPerRowAndKeepTheTouchTarget() {
         Activity activity = activity();
         BottomSheetDialog dialog = sheet(activity).show(id -> { });
-        View row = dualRow(dialog, activity, R.string.ui_menu_autofill);
-        ImageView first = row.findViewById(R.id.context_dual_first);
-        ImageView second = row.findViewById(R.id.context_dual_second);
-        Assert.assertEquals(activity.getString(R.string.action_autofill_username), first.getContentDescription().toString());
-        Assert.assertEquals(activity.getString(R.string.action_autofill_password), second.getContentDescription().toString());
-        ImageView leading = row.findViewById(R.id.context_dual_icon);
-        Assert.assertEquals(View.VISIBLE, leading.getVisibility());
+        ViewGroup first = (ViewGroup) tile(dialog, "Username").getParent();
+        Assert.assertSame(first, tile(dialog, "Password").getParent());
+        Assert.assertNotSame(first, tile(dialog, "Reset").getParent());
+
+        // The fifth tile is alone in its row, and only takes half of it.
+        ViewGroup last = (ViewGroup) tile(dialog, "Open URL").getParent();
+        Assert.assertEquals(3, last.getChildCount());
+        Assert.assertEquals(1f, ((LinearLayout.LayoutParams) last.getChildAt(2).getLayoutParams()).weight, 0f);
 
         float density = activity.getResources().getDisplayMetrics().density;
-        Assert.assertTrue(first.getLayoutParams().width >= Math.round(48 * density));
-        Assert.assertTrue(first.getLayoutParams().height >= Math.round(48 * density));
-        Assert.assertTrue(second.getLayoutParams().width >= Math.round(48 * density));
-        Assert.assertTrue(second.getLayoutParams().height >= Math.round(48 * density));
-        Assert.assertTrue(first.isClickable() && first.isFocusable());
-        Assert.assertTrue(second.isClickable() && second.isFocusable());
+        Assert.assertTrue(tile(dialog, "Username").getMinimumHeight() >= Math.round(48 * density));
+    }
 
-        Assert.assertFalse(row.isClickable());
-        Assert.assertFalse(row.isFocusable());
+    @Test
+    public void tilesShowTheirDetailOnlyWhenThereIsOne() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = sheet(activity).show(id -> { });
+        TextView withDetail = tile(dialog, "Open URL").findViewById(R.id.context_tile_detail);
+        TextView without = tile(dialog, "Reset").findViewById(R.id.context_tile_detail);
+        Assert.assertEquals(View.VISIBLE, withDetail.getVisibility());
+        Assert.assertEquals("2 found", withDetail.getText().toString());
+        Assert.assertEquals(View.GONE, without.getVisibility());
+    }
+
+    @Test
+    public void headerNamesTheSessionAndItsActionChoosesItsId() {
+        Activity activity = activity();
+        int[] chosen = {Integer.MIN_VALUE};
+        BottomSheetDialog dialog = sheet(activity).show(id -> chosen[0] = id);
+        View header = dialog.findViewById(R.id.context_sheet_header);
+        Assert.assertEquals(View.VISIBLE, header.getVisibility());
+        Assert.assertEquals("zsh", ((TextView) header.findViewById(R.id.context_header_title)).getText().toString());
+        Assert.assertEquals("~/devel · pid 4182",
+            ((TextView) header.findViewById(R.id.context_header_subtitle)).getText().toString());
+        ImageView action = header.findViewById(R.id.context_header_action);
+        Assert.assertEquals("Settings", action.getContentDescription().toString());
+        Assert.assertTrue(action.performClick());
+        ShadowLooper.idleMainLooper();
+        Assert.assertEquals(SETTINGS, chosen[0]);
+    }
+
+    @Test
+    public void headerActionIsListedLast() {
+        Assert.assertEquals(java.util.Arrays.asList(USERNAME, PASSWORD, RESET, KILL,
+                TerminalContextMenu.SELECT_URL, OTHER, SETTINGS),
+            sheet(activity()).getItemIds());
+    }
+
+    @Test
+    public void withoutAHeaderNothingIsShownAboveTheList() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = new TermuxContextMenuSheet(activity)
+            .addItem(OTHER, R.string.action_select_url, R.drawable.ui_ic_link).show(id -> { });
+        Assert.assertEquals(View.GONE, dialog.findViewById(R.id.context_sheet_header).getVisibility());
     }
 
     @Test
@@ -160,10 +175,10 @@ public class TermuxContextMenuSheetTest {
         Activity activity = activity();
         int[] chosen = {Integer.MIN_VALUE};
         BottomSheetDialog dialog = sheet(activity).show(id -> chosen[0] = id);
-        android.widget.TextView title = null;
+        TextView title = null;
         for (View v : allViews(dialog.findViewById(R.id.context_sheet_items))) {
             if (v.getId() == R.id.context_item_title) {
-                title = (android.widget.TextView) v;
+                title = (TextView) v;
                 break;
             }
         }
@@ -177,8 +192,8 @@ public class TermuxContextMenuSheetTest {
     private static java.util.List<View> allViews(View root) {
         java.util.List<View> out = new java.util.ArrayList<>();
         out.add(root);
-        if (root instanceof android.view.ViewGroup) {
-            android.view.ViewGroup group = (android.view.ViewGroup) root;
+        if (root instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) root;
             for (int i = 0; i < group.getChildCount(); i++) out.addAll(allViews(group.getChildAt(i)));
         }
         return out;
@@ -211,19 +226,20 @@ public class TermuxContextMenuSheetTest {
         Assert.assertEquals(-1, TermuxContextMenuSheet.computeMaxHeight(0, density));
     }
     @Test
-    public void headerIsOnlyTheDragHandleWithoutAVisibleTitle() {
+    public void headerIsTheDragHandleAndTheSessionWithoutAMenuTitle() {
         Activity activity = activity();
         BottomSheetDialog dialog = sheet(activity).show(id -> { });
         View items = dialog.findViewById(R.id.context_sheet_items);
         Assert.assertNotNull(items);
 
-        // Content root: the handle, then the scrolling list. No heading in between.
-        android.view.ViewGroup root = (android.view.ViewGroup) items.getParent().getParent();
-        Assert.assertEquals(2, root.getChildCount());
-        Assert.assertFalse(root.getChildAt(0) instanceof android.widget.TextView);
-        Assert.assertTrue(root.getChildAt(1) instanceof androidx.core.widget.NestedScrollView);
+        // Content root: the handle, the session header, then the scrolling list.
+        ViewGroup root = (ViewGroup) items.getParent().getParent();
+        Assert.assertEquals(3, root.getChildCount());
+        Assert.assertFalse(root.getChildAt(0) instanceof TextView);
+        Assert.assertEquals(R.id.context_sheet_header, root.getChildAt(1).getId());
+        Assert.assertTrue(root.getChildAt(2) instanceof androidx.core.widget.NestedScrollView);
 
-        // Neither section labels nor a visible title are rendered in the menu.
+        // Neither section labels nor a visible menu title are rendered.
         Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_title)));
         Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_group_text)));
         Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_group_session)));
@@ -235,7 +251,7 @@ public class TermuxContextMenuSheetTest {
         Activity activity = activity();
         BottomSheetDialog dialog = sheet(activity).show(id -> { });
         View items = dialog.findViewById(R.id.context_sheet_items);
-        android.view.ViewGroup root = (android.view.ViewGroup) items.getParent().getParent();
+        ViewGroup root = (ViewGroup) items.getParent().getParent();
         Assert.assertEquals(activity.getString(R.string.ui_menu_title),
             String.valueOf(androidx.core.view.ViewCompat.getAccessibilityPaneTitle(root)));
     }
@@ -263,10 +279,10 @@ public class TermuxContextMenuSheetTest {
     }
 
     private static boolean containsVisibleText(View view, String text) {
-        if (view instanceof android.widget.TextView && view.getVisibility() == View.VISIBLE
-            && text.contentEquals(((android.widget.TextView) view).getText())) return true;
-        if (view instanceof android.view.ViewGroup) {
-            android.view.ViewGroup group = (android.view.ViewGroup) view;
+        if (view instanceof TextView && view.getVisibility() == View.VISIBLE
+            && text.contentEquals(((TextView) view).getText())) return true;
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++)
                 if (containsVisibleText(group.getChildAt(i), text)) return true;
         }

@@ -4,10 +4,12 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.res.ColorStateList;
 import android.graphics.Rect;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -31,7 +33,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Terminal context menu presented as a Material bottom sheet.
+ * Terminal context menu presented as a Material bottom sheet: a header naming the session, a two-column grid
+ * of labelled actions, and full-width items such as toggles.
  * <p>
  * Items keep the ids of the system context menu entries they replace. A chosen action is delivered
  * to the {@link Listener} only after the sheet is dismissed, which matches the order of the system
@@ -62,32 +65,45 @@ public class TermuxContextMenuSheet {
         }
     }
 
-    /** One label with two independently clickable icon buttons, like Autofill username / password. */
-    private static final class DualEntry {
-        final CharSequence label;
-        @DrawableRes final int icon;
-        final Action first;
-        final Action second;
+    /** The session the actions act on, with one icon action (Settings) at its end. */
+    private static final class Header {
+        final CharSequence title;
+        final CharSequence detail;
+        final int actionId;
+        final CharSequence actionDescription;
+        @DrawableRes final int actionIcon;
 
-        DualEntry(CharSequence label, int icon, Action first, Action second) {
-            this.label = label;
-            this.icon = icon;
-            this.first = first;
-            this.second = second;
+        Header(CharSequence title, CharSequence detail, int actionId, CharSequence actionDescription, int actionIcon) {
+            this.title = title;
+            this.detail = detail;
+            this.actionId = actionId;
+            this.actionDescription = actionDescription;
+            this.actionIcon = actionIcon;
         }
     }
 
-    private static final class Action {
+    /** One labelled action of the two-column grid. */
+    private static final class Tile {
         final int id;
-        final CharSequence description;
+        final CharSequence title;
+        @Nullable final CharSequence detail;
         @DrawableRes final int icon;
         final boolean enabled;
+        final boolean danger;
+        /** The id chosen by a long press, or -1 for none. */
+        final int longPressId;
+        @Nullable final CharSequence longPressLabel;
 
-        Action(int id, CharSequence description, int icon, boolean enabled) {
+        Tile(int id, CharSequence title, @Nullable CharSequence detail, int icon, boolean enabled, boolean danger,
+             int longPressId, @Nullable CharSequence longPressLabel) {
             this.id = id;
-            this.description = description;
+            this.title = title;
+            this.detail = detail;
             this.icon = icon;
             this.enabled = enabled;
+            this.danger = danger;
+            this.longPressId = longPressId;
+            this.longPressLabel = longPressLabel;
         }
     }
 
@@ -97,9 +113,12 @@ public class TermuxContextMenuSheet {
     static final int MIN_MAX_HEIGHT_DP = 300;
     /** The part of the screen above the sheet that stays visible, so that the scrim can be tapped. */
     static final int TOP_GAP_DP = 48;
+    /** The space between two tiles of the grid, across and down. */
+    static final int TILE_GAP_DP = 8;
 
     private final Activity mActivity;
     private final List<Object> mRows = new ArrayList<>();
+    @Nullable private Header mHeader;
 
     public TermuxContextMenuSheet(@NonNull Activity activity) {
         mActivity = activity;
@@ -124,51 +143,37 @@ public class TermuxContextMenuSheet {
         return this;
     }
 
-    /**
-     * Add one row with a label and two icon buttons, each choosing its own item id.
-     * The row itself is not clickable.
-     */
-    public TermuxContextMenuSheet addDualAction(@StringRes int label,
-                                                int firstId, @StringRes int firstDescription, @DrawableRes int firstIcon,
-                                                int secondId, @StringRes int secondDescription, @DrawableRes int secondIcon) {
-        return addDualAction(label, 0,
-            firstId, firstDescription, firstIcon, true,
-            secondId, secondDescription, secondIcon, true);
-    }
-
-    /** Add one row with independently labelled and enabled icon buttons. */
-    public TermuxContextMenuSheet addDualAction(@StringRes int label,
-                                                int firstId, @StringRes int firstDescription, @DrawableRes int firstIcon,
-                                                boolean firstEnabled,
-                                                int secondId, @StringRes int secondDescription, @DrawableRes int secondIcon,
-                                                boolean secondEnabled) {
-        return addDualAction(label, 0, firstId, firstDescription, firstIcon, firstEnabled,
-            secondId, secondDescription, secondIcon, secondEnabled);
-    }
-
-    /** Add one row with a leading icon and independently labelled and enabled icon buttons. */
-    public TermuxContextMenuSheet addDualAction(@StringRes int label, @DrawableRes int rowIcon,
-                                                int firstId, @StringRes int firstDescription, @DrawableRes int firstIcon,
-                                                boolean firstEnabled,
-                                                int secondId, @StringRes int secondDescription, @DrawableRes int secondIcon,
-                                                boolean secondEnabled) {
-        mRows.add(new DualEntry(mActivity.getString(label), rowIcon,
-            new Action(firstId, mActivity.getString(firstDescription), firstIcon, firstEnabled),
-            new Action(secondId, mActivity.getString(secondDescription), secondIcon, secondEnabled)));
+    /** Show which session the actions act on, with one icon action at the end of the header. */
+    public TermuxContextMenuSheet setHeader(CharSequence title, CharSequence detail,
+                                            int actionId, CharSequence actionDescription, @DrawableRes int actionIcon) {
+        mHeader = new Header(title, detail, actionId, actionDescription, actionIcon);
         return this;
     }
 
-    /** The ids of all items and buttons that the sheet offers, in order. */
+    /** Add a labelled action to the grid. Consecutive tiles are laid out two per row. */
+    public TermuxContextMenuSheet addTile(int id, CharSequence title, @Nullable CharSequence detail,
+                                          @DrawableRes int icon) {
+        mRows.add(new Tile(id, title, detail, icon, true, false, -1, null));
+        return this;
+    }
+
+    /** Add a destructive action to the grid; a long press chooses {@code longPressId} instead. */
+    public TermuxContextMenuSheet addDangerTile(int id, CharSequence title, @Nullable CharSequence detail,
+                                                @DrawableRes int icon, boolean enabled,
+                                                int longPressId, CharSequence longPressLabel) {
+        mRows.add(new Tile(id, title, detail, icon, enabled, true, longPressId, longPressLabel));
+        return this;
+    }
+
+    /** The ids of all items and buttons that the sheet offers (not long presses), in order. */
     List<Integer> getItemIds() {
         List<Integer> ids = new ArrayList<>();
         for (Object row : mRows) {
-            if (row instanceof Entry) {
-                ids.add(((Entry) row).id);
-            } else if (row instanceof DualEntry) {
-                ids.add(((DualEntry) row).first.id);
-                ids.add(((DualEntry) row).second.id);
-            }
+            if (row instanceof Entry) ids.add(((Entry) row).id);
+            else if (row instanceof Tile) ids.add(((Tile) row).id);
         }
+        // The header action is drawn first but listed last, like Settings at the end of a menu.
+        if (mHeader != null) ids.add(mHeader.actionId);
         return ids;
     }
 
@@ -215,13 +220,25 @@ public class TermuxContextMenuSheet {
         View content = LayoutInflater.from(dialog.getContext()).inflate(R.layout.ui_context_sheet, null, false);
         LinearLayout container = content.findViewById(R.id.context_sheet_items);
 
+        if (mHeader != null) bindHeader(content.findViewById(R.id.context_sheet_header), dialog, mHeader, chosen);
+
+        LinearLayout tileRow = null;
         for (Object row : mRows) {
-            if (row instanceof Entry) {
+            if (row instanceof Tile) {
+                if (tileRow == null || tileRow.getChildCount() >= 3) {
+                    tileRow = createTileRow(container);
+                    container.addView(tileRow);
+                } else {
+                    tileRow.addView(createTileGap(tileRow));
+                }
+                tileRow.addView(createTile(tileRow, dialog, (Tile) row, chosen));
+            } else if (row instanceof Entry) {
+                completeTileRow(tileRow);
+                tileRow = null;
                 container.addView(createItem(container, dialog, (Entry) row, chosen));
-            } else if (row instanceof DualEntry) {
-                container.addView(createDualItem(container, dialog, (DualEntry) row, chosen));
             }
         }
+        completeTileRow(tileRow);
 
         dialog.setContentView(content);
         // No visible heading, but screen readers still announce what this window is.
@@ -315,36 +332,96 @@ public class TermuxContextMenuSheet {
         return view;
     }
 
-    private View createDualItem(ViewGroup parent, BottomSheetDialog dialog, DualEntry entry, int[] chosen) {
-        View view = LayoutInflater.from(dialog.getContext()).inflate(R.layout.ui_context_sheet_dual_item, parent, false);
-        ((TextView) view.findViewById(R.id.context_dual_label)).setText(entry.label);
-        ImageView rowIcon = view.findViewById(R.id.context_dual_icon);
-        if (entry.icon == 0) {
-            rowIcon.setVisibility(View.GONE);
-        } else {
-            rowIcon.setImageResource(entry.icon);
-            rowIcon.setImageTintList(ColorStateList.valueOf(
-                ContextCompat.getColor(dialog.getContext(), R.color.ui_on_surface_variant)));
-        }
-        bindDualAction(dialog, view.findViewById(R.id.context_dual_first), entry.first, chosen);
-        bindDualAction(dialog, view.findViewById(R.id.context_dual_second), entry.second, chosen);
-        return view;
+    private void bindHeader(View view, BottomSheetDialog dialog, Header header, int[] chosen) {
+        view.setVisibility(View.VISIBLE);
+        ((TextView) view.findViewById(R.id.context_header_title)).setText(header.title);
+        ((TextView) view.findViewById(R.id.context_header_subtitle)).setText(header.detail);
+        ImageButton action = view.findViewById(R.id.context_header_action);
+        action.setVisibility(View.VISIBLE);
+        action.setImageResource(header.actionIcon);
+        action.setContentDescription(header.actionDescription);
+        action.setImageTintList(ColorStateList.valueOf(
+            ContextCompat.getColor(dialog.getContext(), R.color.ui_on_surface_variant)));
+        action.setOnClickListener(v -> {
+            chosen[0] = header.actionId;
+            dialog.dismiss();
+        });
     }
 
-    private static void bindDualAction(BottomSheetDialog dialog, ImageView button, Action action, int[] chosen) {
-        button.setImageResource(action.icon);
-        button.setContentDescription(action.description);
-        button.setEnabled(action.enabled);
-        button.setClickable(action.enabled);
-        button.setFocusable(action.enabled);
-        int tintRes = !action.enabled ? R.color.ui_outline
-            : (action.id == TerminalContextMenu.KILL_PROCESS ? R.color.ui_danger : R.color.ui_on_surface_variant);
-        button.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(dialog.getContext(), tintRes)));
-        if (action.enabled) {
-            button.setOnClickListener(v -> {
-                chosen[0] = action.id;
-                dialog.dismiss();
-            });
+    private LinearLayout createTileRow(ViewGroup parent) {
+        LinearLayout row = new LinearLayout(parent.getContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        int gutter = parent.getResources().getDimensionPixelSize(R.dimen.ui_gutter);
+        int gap = Math.round(TILE_GAP_DP * parent.getResources().getDisplayMetrics().density);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.setMargins(gutter, 0, gutter, gap);
+        row.setLayoutParams(params);
+        return row;
+    }
+
+    private View createTileGap(ViewGroup parent) {
+        View gap = new View(parent.getContext());
+        gap.setLayoutParams(new LinearLayout.LayoutParams(
+            Math.round(TILE_GAP_DP * parent.getResources().getDisplayMetrics().density), 1));
+        return gap;
+    }
+
+    /** Keep a lone last tile at half the width. */
+    private void completeTileRow(@Nullable LinearLayout row) {
+        if (row == null || row.getChildCount() != 1) return;
+        row.addView(createTileGap(row));
+        View filler = new View(row.getContext());
+        filler.setLayoutParams(new LinearLayout.LayoutParams(0, 1, 1f));
+        filler.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(filler);
+    }
+
+    private View createTile(ViewGroup parent, BottomSheetDialog dialog, Tile tile, int[] chosen) {
+        View view = LayoutInflater.from(dialog.getContext()).inflate(R.layout.ui_context_sheet_tile, parent, false);
+        ImageView icon = view.findViewById(R.id.context_tile_icon);
+        TextView title = view.findViewById(R.id.context_tile_title);
+        TextView detail = view.findViewById(R.id.context_tile_detail);
+
+        icon.setImageResource(tile.icon);
+        title.setText(tile.title);
+        if (!TextUtils.isEmpty(tile.detail)) {
+            detail.setText(tile.detail);
+            detail.setVisibility(View.VISIBLE);
         }
+
+        int colorRes = !tile.enabled ? R.color.ui_outline : (tile.danger ? R.color.ui_danger : R.color.ui_on_surface_variant);
+        int color = ContextCompat.getColor(dialog.getContext(), colorRes);
+        icon.setImageTintList(ColorStateList.valueOf(color));
+        if (tile.danger) {
+            view.setBackgroundResource(R.drawable.ui_sheet_tile_danger_bg);
+            title.setTextColor(color);
+            detail.setTextColor(color);
+        } else if (!tile.enabled) {
+            title.setTextColor(color);
+        }
+
+        view.setEnabled(tile.enabled);
+        title.setEnabled(tile.enabled);
+        if (!tile.enabled) {
+            view.setClickable(false);
+            view.setLongClickable(false);
+            return view;
+        }
+
+        view.setOnClickListener(v -> {
+            chosen[0] = tile.id;
+            dialog.dismiss();
+        });
+        if (tile.longPressId >= 0) {
+            view.setOnLongClickListener(v -> {
+                chosen[0] = tile.longPressId;
+                dialog.dismiss();
+                return true;
+            });
+            ViewCompat.replaceAccessibilityAction(view, AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK,
+                tile.longPressLabel, null);
+        }
+        return view;
     }
 }

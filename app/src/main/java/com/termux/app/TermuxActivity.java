@@ -25,6 +25,7 @@ import android.widget.Toast;
 
 import com.termux.R;
 import com.termux.app.api.file.FileReceiverActivity;
+import com.termux.app.terminal.ProcessInfo;
 import com.termux.app.terminal.ReportIssueRequest;
 import com.termux.app.terminal.TerminalContextMenu;
 import com.termux.app.terminal.TermuxActivityRootView;
@@ -68,6 +69,7 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
 
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * A terminal emulator activity.
@@ -664,6 +666,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             session.getPid(), session.isRunning(), mPreferences.shouldKeepScreenOn());
     }
 
+    /** The state for the sheet, which also shows which session it acts on and how many URLs it found. */
+    private TerminalContextMenu.State getContextSheetState(@NonNull TerminalSession session) {
+        int pid = session.isRunning() ? session.getPid() : -1;
+        String cwd = ProcessInfo.readCwd(pid);
+        if (cwd != null) cwd = ProcessInfo.abbreviateHome(cwd, TermuxConstants.TERMUX_HOME_DIR_PATH);
+        int number = 0;
+        int count = 0;
+        if (mTermuxService != null) {
+            number = mTermuxService.getIndexOfSession(session) + 1;
+            count = mTermuxService.getTermuxSessionsSize();
+        }
+        Map<String, String> urls = mTermuxTerminalViewClient.collectUrlItems(session);
+        return new TerminalContextMenu.State(mTerminalView.isAutoFillEnabled(),
+            !DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText()),
+            session.getPid(), session.isRunning(), mPreferences.shouldKeepScreenOn(),
+            session.mSessionName, ProcessInfo.readName(pid), cwd, number, count,
+            urls == null ? -1 : urls.size());
+    }
+
     /**
      * Present the terminal context menu as a grouped bottom sheet. Falls back to the system
      * context menu (see {@link #onCreateContextMenu}) when there is no session or the sheet fails.
@@ -674,7 +695,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (currentSession == null || isFinishing() || isDestroyed()) return false;
 
         TermuxContextMenuSheet sheet = TerminalContextMenu.populateSheet(new TermuxContextMenuSheet(this),
-            getResources(), getContextMenuState(currentSession));
+            getResources(), getContextSheetState(currentSession));
 
         try {
             mContextSheetDialog = sheet.show(chosenItemId -> {
@@ -720,6 +741,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return true;
             case TerminalContextMenu.KILL_PROCESS:
                 showKillSessionDialog(session);
+                return true;
+            case TerminalContextMenu.KILL_PROCESS_NOW:
+                if (session != null) session.finishIfRunning();
                 return true;
             case TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON:
                 toggleKeepScreenOn();
