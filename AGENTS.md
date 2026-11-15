@@ -14,4 +14,15 @@ export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/36.0.0:$PATH
   -Pandroid.aapt2FromMavenOverride="$ANDROID_HOME/build-tools/36.0.0/aapt2"
 ```
 
-Set `ANDROID_HOME` directly to that SDK directory; deriving it from an unset `ANDROID_SDK_ROOT` can leave the path empty and cause `SDK location not found` (and an invalid aapt2 override). A verified full build compiled the native NDK targets and completed successfully with this SDK setup. Do not treat Java-only tasks as proof the APK build works. An NDK `make` executable failure has been observed on NixOS: `Could not start dynamically linked executable` followed by `NixOS cannot run dynamically linked executables intended for generic linux environments out of the box` (exit 127). Setting `NIX_LD` and `NIX_LD_LIBRARY_PATH` did not resolve it in that attempt. No workaround for this failure is verified; do not assume `NIX_LD` fixes it. Capture the exact failing command and ELF/interpreter details before changing the toolchain or environment.
+Set `ANDROID_HOME` directly to that SDK directory; deriving it from an unset `ANDROID_SDK_ROOT` can leave the path empty and cause `SDK location not found` (and an invalid aapt2 override). A verified full build compiled the native NDK targets for arm64-v8a, armeabi-v7a, x86, and x86_64, and completed successfully. Do not treat Java-only tasks as proof the APK build works.
+
+### NixOS NDK prebuilt executable failure
+
+The NDK can fail to launch its prebuilt Linux `make` with `Could not start dynamically linked executable` / `NixOS cannot run dynamically linked executables intended for generic linux environments out of the box` (exit 127). Setting `NIX_LD` and `NIX_LD_LIBRARY_PATH` did not fix this in a reported attempt. A full build was later verified after patching the NDK's prebuilt ELF executables on a writable SDK copy from a Nix shell containing `glibc`, `zlib`, and `patchelf`. This is a worker-local workaround, not a repository/toolchain change:
+
+- Resolve the loader's glibc output with `nix eval --raw nixpkgs#glibc.outPath`; do not search `/nix/store` for an unprefixed `glibc-*` name.
+- Identify the NDK's `prebuilt/linux-x86_64` and LLVM's `toolchains/llvm/prebuilt/linux-x86_64` directories, plus the store paths for glibc, zlib, and the NDK-bundled Python library.
+- For each regular executable ELF under both NDK directories, use `patchelf --set-interpreter "$GLIBC/lib/ld-linux-x86-64.so.2"` and set its RPATH to include `$GLIBC/lib`, `$ZLIB/lib`, the directory containing `libpython3.11.so.1.0`, `$LLVM/lib64`, `$LLVM/lib`, and `$NDK/prebuilt/linux-x86_64/lib`.
+- Verify that all relevant executables, including `make`, `clang`, Python, and `ld.lld`, launch before rerunning Gradle. Missing `libz.so.1` and `libpython3.11.so.1.0` were encountered while iterating; resolving one executable alone was not enough.
+
+The successful run used NDK 29.0.14206865, JDK 17, composed SDK platforms 34/35/36 and build-tools 34.0.0/35.0.0/36.0.0, then ran `./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug -Pandroid.aapt2FromMavenOverride="$ANDROID_HOME/build-tools/36.0.0/aapt2"`. Unit tests, all four ABI native build tasks, and APK assembly succeeded. `:app:lintDebug` was separately reported to fail on existing lint findings; do not conflate that with the successful test/build tasks.
