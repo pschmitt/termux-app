@@ -130,7 +130,9 @@ public class AdaptHelpersScriptTest {
         installStockFile("etc/termux-login.sh", "rw-------");
         installStockFile("bin/pkg", "rwx------");
         installStockFile("etc/motd", "rw-------");
-        writeToolsList("bin", "bin/login", "bin/pkg", "etc/termux-login.sh", "etc/motd");
+        installStockFile("etc/profile.d/init-termux-properties.sh", "rw-------");
+        writeToolsList("bin", "bin/login", "bin/pkg", "etc/termux-login.sh", "etc/motd",
+            "etc/profile.d/init-termux-properties.sh");
         Result result = run();
         Assert.assertEquals(result.stderr, 0, result.exit);
         for (String name : TermuxHelperRewritesTest.HELPERS) {
@@ -193,6 +195,49 @@ public class AdaptHelpersScriptTest {
         Assert.assertEquals(ADAPTED_MOTD, read(new File(prefix, "etc/motd")));
         Assert.assertEquals("rw-r--r--", PosixFilePermissions.toString(
             Files.getPosixFilePermissions(new File(prefix, "etc/motd").toPath())));
+    }
+
+    private static final String INIT_SCRIPT = "etc/profile.d/init-termux-properties.sh";
+    private static final String ADAPTED_INIT = "if [ ! -f /data/data/dev.pschmitt.termux/files/home/.config/termux/termux.properties ]"
+        + " && [ ! -e /data/data/dev.pschmitt.termux/files/home/.termux/termux.properties ]"
+        + " && [ ! -e /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/termux.properties ]; then\n"
+        + "\tmkdir -p /data/data/dev.pschmitt.termux/files/home/.config/termuxpp\n"
+        + "\tcp /data/data/dev.pschmitt.termux/files/usr/share/examples/termux/termux.properties"
+        + " /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/\n"
+        + "fi\n";
+
+    @Test
+    public void theExampleSettingsGoToTheCanonicalDirAndSurviveAnUpstreamReinstall() throws Exception {
+        installStockFile(INIT_SCRIPT, "rw-r--r--");
+        writeToolsList(INIT_SCRIPT);
+        Result result = run();
+        Assert.assertEquals(result.stderr, 0, result.exit);
+        Assert.assertEquals(ADAPTED_INIT, read(new File(prefix, INIT_SCRIPT)));
+        Assert.assertTrue(result.stderr.contains("adapted " + INIT_SCRIPT));
+
+        // A second run changes nothing and says nothing.
+        Result again = run();
+        Assert.assertEquals(0, again.exit);
+        Assert.assertFalse(again.stderr, again.stderr.contains("adapted"));
+
+        // termux-tools is upgraded or reinstalled: dpkg writes the stock conffile again.
+        Files.delete(new File(prefix, INIT_SCRIPT).toPath());
+        installStockFile(INIT_SCRIPT, "rw-r--r--");
+        Assert.assertEquals(0, run().exit);
+        Assert.assertEquals(ADAPTED_INIT, read(new File(prefix, INIT_SCRIPT)));
+        Assert.assertEquals("rw-r--r--", PosixFilePermissions.toString(
+            Files.getPosixFilePermissions(new File(prefix, INIT_SCRIPT).toPath())));
+    }
+
+    @Test
+    public void aCustomisedInitScriptIsLeftAloneAndDoesNotFailTheHook() throws Exception {
+        String custom = "# my own init\n[ -f ~/.config/termuxpp/termux.properties ] || touch ~/.config/termuxpp/termux.properties\n";
+        write(new File(prefix, INIT_SCRIPT), custom);
+        writeToolsList(INIT_SCRIPT);
+        Result result = run();
+        Assert.assertEquals(result.stderr, 0, result.exit);
+        Assert.assertEquals(custom, read(new File(prefix, INIT_SCRIPT)));
+        Assert.assertFalse(result.stderr, result.stderr.contains("adapted"));
     }
 
     @Test

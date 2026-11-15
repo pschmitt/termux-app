@@ -29,6 +29,10 @@
 # The motd rows address single stock lines of etc/motd (\n in a rule text is a newline, so that a rule can
 # remove a line): a motd the user edited keeps its own text, only the recognisable stock lines are rewritten.
 # There are deliberately no require or forbid rows for the motd, a custom motd must never fail the hook.
+# The stock profile script init-termux-properties.sh copies an example termux.properties into ~/.termux when
+# there is none in the two stock places, which would put a stale second copy next to the one in
+# ~/.config/termuxpp. The rows add the canonical file to the condition and make the example go there. They
+# are written without tabs (tabs separate the fields) and without the data directory (only fixed text).
 identity	/data/data/com.termux	@DATA_DIR@
 rule	bin/login	export LD_PRELOAD="/	export LD_PRELOAD="${@REDIRECT_SO_VAR@:+$@REDIRECT_SO_VAR@:}/
 append	etc/termux-login.sh	@REDIRECT_SO_VAR@	\nif [ -n "${@REDIRECT_SO_VAR@:-}" ] && [ -f "$@REDIRECT_SO_VAR@" ]; then\n    case ":${LD_PRELOAD:-}:" in\n        *":$@REDIRECT_SO_VAR@:"*) ;;\n        *) export LD_PRELOAD="$@REDIRECT_SO_VAR@${LD_PRELOAD:+:$LD_PRELOAD}" ;;\n    esac\nfi\n
@@ -71,3 +75,6 @@ rule	etc/motd	Welcome to Termux!	Welcome to @PRODUCT_NAME@!
 rule	etc/motd	Docs:       https://termux.dev/docs	Docs:       @DOCS_URL@
 rule	etc/motd	Donate:     https://termux.dev/donate\nCommunity:  https://termux.dev/community	Source:     @REPO_URL@
 rule	etc/motd	Report issues at https://termux.dev/issues	Package issues (upstream Termux): @UPSTREAM_PACKAGES_ISSUES_URL@
+rule	etc/profile.d/init-termux-properties.sh	/home/.termux/termux.properties ]; then	/home/.termux/termux.properties ] && [ ! -e @DATA_DIR@/files/home/@CONFIG_DIR_NAME@/termux.properties ]; then
+rule	etc/profile.d/init-termux-properties.sh	/files/home/.termux\n	/files/home/@CONFIG_DIR_NAME@\n
+rule	etc/profile.d/init-termux-properties.sh	/home/.termux/\n	/home/@CONFIG_DIR_NAME@/\n

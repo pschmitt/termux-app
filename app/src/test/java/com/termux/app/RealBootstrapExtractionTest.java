@@ -49,6 +49,12 @@ public class RealBootstrapExtractionTest {
         return null;
     }
 
+    /** Files whose adaptation is defined by the helper rewrite table rather than by the plain path rewrite. */
+    private static boolean isTableFile(String key) {
+        return key.equals("bin/login") || key.equals("etc/termux-login.sh") || key.equals("etc/motd")
+            || key.equals("etc/profile.d/init-termux-properties.sh") || key.startsWith("bin/termux-");
+    }
+
     private static boolean isElf(byte[] bytes) {
         return TermuxBootstrapAdapter.isElf(bytes);
     }
@@ -100,20 +106,25 @@ public class RealBootstrapExtractionTest {
             } else if (contains(file.getValue(), stockNeedle)) {
                 textWithNeedle++;
                 Assert.assertFalse(arch + " " + file.getKey() + " still has the stock path", contains(extracted, stockNeedle));
-                boolean tableFile = file.getKey().equals("bin/login") || file.getKey().equals("etc/termux-login.sh")
-                    || file.getKey().equals("etc/motd") || file.getKey().startsWith("bin/termux-");
-                if (!tableFile) {
+                if (!isTableFile(file.getKey())) {
                     // exactly the needle changed and nothing else
                     Assert.assertArrayEquals(arch + " " + file.getKey(), new String(file.getValue(), StandardCharsets.ISO_8859_1)
                         .replace(STOCK_DIR, FORK_DIR).getBytes(StandardCharsets.ISO_8859_1), extracted);
                 }
-            } else if (!file.getKey().equals("bin/login") && !file.getKey().equals("etc/termux-login.sh")
-                && !file.getKey().equals("etc/motd") && !file.getKey().startsWith("bin/termux-")) {
+            } else if (!isTableFile(file.getKey())) {
                 Assert.assertArrayEquals(arch + " " + file.getKey() + " has nothing to adapt: byte identical",
                     file.getValue(), extracted);
             }
         }
         Assert.assertTrue(arch + ": the bootstrap has text files with the stock path", textWithNeedle > 0);
+
+        if (original.containsKey("etc/profile.d/init-termux-properties.sh")) {
+            String init = new String(Files.readAllBytes(new File(staging,
+                "etc/profile.d/init-termux-properties.sh").toPath()), StandardCharsets.ISO_8859_1);
+            Assert.assertTrue(arch, init.contains("/files/home/.config/termuxpp\n"));
+            Assert.assertFalse(arch, init.contains("/files/home/.termux\n"));
+            Assert.assertTrue(arch, init.contains("/home/.config/termuxpp/\n"));
+        }
 
         if (original.containsKey("etc/motd")) {
             String motd = new String(Files.readAllBytes(new File(staging, "etc/motd").toPath()), StandardCharsets.ISO_8859_1);

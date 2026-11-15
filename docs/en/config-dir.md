@@ -43,6 +43,12 @@ touched, and it is not rewritten again after apt reinstalls `termux-tools` unles
 back. To show your own message, edit `$PREFIX/etc/motd`, or put a `motd.sh` into
 `~/.config/termuxpp`.
 
+The stock login profile script `$PREFIX/etc/profile.d/init-termux-properties.sh` copies an example
+`termux.properties` into `~/.termux` when none exists. TermuxPP makes it copy the example into
+`~/.config/termuxpp` instead, and only when `termux.properties` exists in none of the three
+directories, so no stale second copy shows up in a legacy directory. A script you edited yourself is
+not touched.
+
 New files should be created in `~/.config/termuxpp`. TermuxPP never moves or deletes files in the
 legacy directories. To migrate, copy the files (keeping symlinks) into `~/.config/termuxpp` and
 leave the old directories in place as a fallback and for tools that only read `~/.termux`.

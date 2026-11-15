@@ -23,7 +23,7 @@
 
 export LC_ALL=C
 
-ADAPTED_FILE_RE='^(bin/termux-[a-z-]+|bin/login|etc/termux-login\.sh|etc/motd)$'
+ADAPTED_FILE_RE='^(bin/termux-[a-z-]+|bin/login|etc/termux-login\.sh|etc/motd|etc/profile\.d/init-termux-properties\.sh)$'
 MAX_LIST_FILE_SIZE=1048576
 
 R_KIND=()

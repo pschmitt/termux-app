@@ -52,7 +52,8 @@ public class TermuxHelperRewritesTest {
     }
 
     /** Other real stock termux-tools files used as fixtures, by path relative to the prefix. */
-    static final String[] STOCK_FILES = {"bin/login", "etc/termux-login.sh", "bin/pkg", "etc/motd"};
+    static final String[] STOCK_FILES = {"bin/login", "etc/termux-login.sh", "bin/pkg", "etc/motd",
+        "etc/profile.d/init-termux-properties.sh"};
 
     static String stockHelper(String name) throws IOException {
         return TermuxHelperRewrites.readResource("/termuxpp/stock/" + name);
@@ -170,7 +171,7 @@ public class TermuxHelperRewritesTest {
             }
         }
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.IDENTITY.ordinal()]);
-        Assert.assertEquals(23, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
+        Assert.assertEquals(26, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.APPEND.ordinal()]);
         Assert.assertEquals(5, counts[TermuxHelperRewrites.Kind.REQUIRE.ordinal()]);
         Assert.assertEquals(12, counts[TermuxHelperRewrites.Kind.FORBID.ordinal()]);
@@ -377,6 +378,35 @@ public class TermuxHelperRewritesTest {
     }
 
     @Test
+    public void theExampleSettingsGoToTheCanonicalDirAndNeverToTheLegacyOne() throws IOException {
+        List<TermuxHelperRewrites.Rule> rules = forkRules();
+        String file = "etc/profile.d/init-termux-properties.sh";
+        String stock = stockFile(file);
+        String adapted = TermuxHelperRewrites.apply(rules, file, stock);
+        String home = "/data/data/dev.pschmitt.termux/files/home";
+        // Nothing is created while the canonical file (or either stock place) exists.
+        Assert.assertTrue(adapted.contains("[ ! -e " + home + "/.config/termuxpp/termux.properties ]; then\n"));
+        Assert.assertTrue(adapted.contains("[ ! -f " + home + "/.config/termux/termux.properties ]"));
+        Assert.assertTrue(adapted.contains("[ ! -e " + home + "/.termux/termux.properties ]"));
+        // The example is copied to the canonical dir, never to ~/.termux.
+        Assert.assertTrue(adapted.contains("\tmkdir -p " + home + "/.config/termuxpp\n"));
+        Assert.assertTrue(adapted.contains(" " + home + "/.config/termuxpp/\n"));
+        Assert.assertFalse(adapted.contains("/files/home/.termux\n"));
+        Assert.assertFalse(adapted.contains("com.termux"));
+        // The example itself still comes from the packaged examples.
+        Assert.assertTrue(adapted.contains("/files/usr/share/examples/termux/termux.properties "));
+        Assert.assertEquals(adapted, TermuxHelperRewrites.apply(rules, file, adapted));
+
+        // A customised script is left alone, the rules do not touch other files and nothing is checked.
+        String custom = "# mine\n[ -f ~/.config/termuxpp/termux.properties ] || touch ~/.config/termuxpp/termux.properties\n";
+        Assert.assertEquals(custom, TermuxHelperRewrites.apply(rules, file, custom));
+        // Only the identity rows (data directory) apply to other files, not the settings rules.
+        Assert.assertTrue(TermuxHelperRewrites.apply(rules, "etc/termux-login.sh", stock)
+            .contains("mkdir -p " + home + "/.termux\n"));
+        Assert.assertTrue(TermuxHelperRewrites.verify(rules, file, custom).isEmpty());
+    }
+
+    @Test
     public void deployHookWritesTheHookTableAndAptConfig() throws IOException {
         File staging = temp.newFolder("usr.staging");
         TermuxHelperRewrites.deployHook(staging, "/data/data/dev.pschmitt.termux/files/usr", forkValues());
@@ -451,7 +481,7 @@ public class TermuxHelperRewritesTest {
     public void strictParseAcceptsTheRealForkTableWithThirtyEightRows() throws IOException {
         String rendered = TermuxHelperRewrites.render(
             TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), forkValues());
-        Assert.assertEquals(42, TermuxHelperRewrites.parseStrict(rendered).size());
+        Assert.assertEquals(45, TermuxHelperRewrites.parseStrict(rendered).size());
         Assert.assertEquals(TermuxHelperRewrites.parse(rendered).size(), TermuxHelperRewrites.parseStrict(rendered).size());
     }
 

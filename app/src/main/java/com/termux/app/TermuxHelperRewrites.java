@@ -19,7 +19,8 @@ import java.util.regex.Pattern;
 
 /**
  * Exact stock to fork identity rewrites for the {@code termux-tools} package: the helper scripts, the
- * {@code bin/login} script, the {@code etc/termux-login.sh} conffile and the {@code etc/motd} conffile.
+ * {@code bin/login} script, the {@code etc/termux-login.sh} conffile, the {@code etc/motd} conffile and the
+ * {@code etc/profile.d/init-termux-properties.sh} profile script.
  *
  * <p>The stock files address the stock package ({@code com.termux}), which silently misses a fork
  * with another package name, and lack the native pkg-redirect preload of the fork. The canonical table
@@ -41,7 +42,7 @@ final class TermuxHelperRewrites {
 
     private static final Pattern UNRESOLVED_PLACEHOLDER = Pattern.compile("@[A-Z_]+@");
     /** The files that named rules may address. */
-    private static final Pattern ADAPTED_FILE = Pattern.compile("bin/termux-[a-z-]+|bin/login|etc/termux-login\\.sh|etc/motd");
+    private static final Pattern ADAPTED_FILE = Pattern.compile("bin/termux-[a-z-]+|bin/login|etc/termux-login\\.sh|etc/motd|etc/profile\\.d/init-termux-properties\\.sh");
     private static final Pattern SAFE_PREFIX = Pattern.compile("/[A-Za-z0-9._/-]+");
 
     enum Kind { IDENTITY, RULE, APPEND, REQUIRE, FORBID }
