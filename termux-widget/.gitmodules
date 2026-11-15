@@ -1,4 +1,0 @@
-[submodule "termux-app"]
-	path = termux-app
-	url = git@github.com:pschmitt/termuxpp-app.git
-	branch = main

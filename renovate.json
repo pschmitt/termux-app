@@ -1,0 +1,61 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:weekly",
+    ":semanticCommits"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "gradle": {
+    "enabled": true,
+    "fileMatch": [
+      "(^|/)(build|settings)\\.gradle(\\.kts)?$",
+      "(^|/)gradle\\.properties$",
+      "(^|/)gradle/wrapper/gradle-wrapper\\.properties$",
+      "(^|/)gradle/libs\\.versions\\.toml$"
+    ]
+  },
+  "github-actions": {
+    "enabled": true,
+    "fileMatch": [
+      "(^|/)\\.github/workflows/[^/]+\\.ya?ml$",
+      "(^|/)\\.github/actions/.+/action\\.ya?ml$"
+    ]
+  },
+  "cmake": {
+    "enabled": true,
+    "fileMatch": [
+      "(^|/)CMakeLists\\.txt$"
+    ]
+  },
+  "nix": {
+    "enabled": true
+  },
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Group Kotlin plugin and library updates across the core and companion Gradle projects.",
+      "matchManagers": [
+        "gradle"
+      ],
+      "matchPackageNames": [
+        "/org\\.jetbrains\\.kotlin.*/"
+      ],
+      "groupName": "Kotlin"
+    },
+    {
+      "description": "Group Android Gradle plugin updates across the monorepo.",
+      "matchManagers": [
+        "gradle"
+      ],
+      "matchPackageNames": [
+        "com.android.tools.build:gradle"
+      ],
+      "groupName": "Android Gradle plugin"
+    }
+  ]
+}
