@@ -57,6 +57,7 @@ public final class UpdateController {
     private static final String LOG_TAG = "UpdateController";
     private static final String UPDATE_DIR = "app-update";
     private static final String UPDATE_FILE = "update.apk";
+    private static final String ADDON_CHECK_DIR_PREFIX = "app-update-check-";
     private static final long MAX_CHECKSUMS_BYTES = 64 * 1024;
     private static final long PROGRESS_INTERVAL_MS = 250;
 
@@ -96,6 +97,11 @@ public final class UpdateController {
     UpdateController(@NonNull Context context, @NonNull UpdateNetwork network) {
         this.context = context;
         this.network = network;
+        for (UpdateTarget target : UpdateTarget.values()) {
+            if (target.versionedApkPrefix != null) {
+                wipe(new File(context.getCacheDir(), ADDON_CHECK_DIR_PREFIX + target.id));
+            }
+        }
     }
 
     @NonNull
@@ -194,12 +200,79 @@ public final class UpdateController {
         InstalledBuild installed = !installedApp ? InstalledBuild.parse(null)
                 : target == UpdateTarget.CORE ? InstalledBuild.parse(BuildConfig.GIT_REVISION)
                 : ApkInspector.declaredBuild(context, target);
-        return new UpdateChecker(network).check(target, installed, BuildConfig.TERMUX_PACKAGE_VARIANT,
+        UpdateChecker.Result result = new UpdateChecker(network).check(target, installed, BuildConfig.TERMUX_PACKAGE_VARIANT,
                 supportedAbis(), channel, !installedApp);
+        if (target.versionedApkPrefix == null || !installedApp || result.kind != UpdateChecker.Kind.AVAILABLE
+                || result.offer == null) return result;
+        return compareVerifiedAddonCandidate(target, result.offer);
+    }
+
+    /** Download and verify a signed add-on candidate before comparing its actual embedded version. */
+    private UpdateChecker.Result compareVerifiedAddonCandidate(UpdateTarget target, UpdateChecker.Offer offer) {
+        File dir = new File(context.getCacheDir(), ADDON_CHECK_DIR_PREFIX + target.id);
+        File apk = new File(dir, UPDATE_FILE);
+        boolean keepStaged = false;
+        try {
+            String tag = offer.releaseTag;
+            String apkUrl = UpdateTrust.assetUrl(target, tag, offer.apk.name);
+            String sumsUrl = UpdateTrust.assetUrl(target, tag, offer.checksums.name);
+            if (!UpdateTrust.isTrustedAssetUrl(target, tag, apkUrl)
+                    || !UpdateTrust.isTrustedAssetUrl(target, tag, sumsUrl)) {
+                return new UpdateChecker.Result(UpdateChecker.Kind.FAILED, null, "untrusted release asset");
+            }
+            if (offer.apk.size <= 0 || offer.apk.size > UpdateChecker.MAX_APK_BYTES) {
+                return new UpdateChecker.Result(UpdateChecker.Kind.FAILED, null, "invalid APK size");
+            }
+            wipe(dir);
+            if (!dir.mkdirs() && !dir.isDirectory()) throw new IOException("cannot create check cache");
+            if (network.freeBytes(dir) < offer.apk.size * 2) {
+                return new UpdateChecker.Result(UpdateChecker.Kind.FAILED, null, "insufficient storage");
+            }
+            String sumsText = network.fetchAssetText(sumsUrl, MAX_CHECKSUMS_BYTES);
+            String expected = UpdateTrust.parseSha256Sums(sumsText).get(offer.apk.name);
+            if (expected == null) return new UpdateChecker.Result(UpdateChecker.Kind.FAILED, null, "checksum unavailable");
+            network.download(apkUrl, apk, UpdateChecker.MAX_APK_BYTES, (done, total) -> {});
+            if (apk.length() != offer.apk.size || !expected.equals(UpdateTrust.sha256Hex(apk))) {
+                return new UpdateChecker.Result(UpdateChecker.Kind.FAILED, null, "checksum mismatch");
+            }
+
+            ApkFacts installedFacts = ApkInspector.installed(context, target);
+            ApkFacts coreFacts = ApkInspector.installed(context, UpdateTarget.CORE);
+            ApkFacts candidate = ApkInspector.archive(context, apk);
+            if (installedFacts == null || coreFacts == null || candidate == null) {
+                return new UpdateChecker.Result(UpdateChecker.Kind.NOT_ELIGIBLE, null, null);
+            }
+            UpdateFailure installability = ApkFacts.checkInstallable(target, installedFacts, candidate, coreFacts);
+            if (installability != null) {
+                return new UpdateChecker.Result(UpdateChecker.Kind.NOT_ELIGIBLE, null, null);
+            }
+            String installedDigest = ApkInspector.installedApkSha256(context, target);
+            if (expected.equals(installedDigest)) {
+                return new UpdateChecker.Result(UpdateChecker.Kind.UP_TO_DATE, null, null);
+            }
+
+            if (AddonVersion.isCandidateOlder(installedFacts.versionName, candidate.versionName)) {
+                // Do not downgrade when an installed package carries a newer declared version.
+                return new UpdateChecker.Result(UpdateChecker.Kind.NOT_ELIGIBLE, null, null);
+            }
+            // Equal or unparseable version names remain an explicit reinstall offer: versionCode is
+            // fixed in these projects and cannot prove two APKs contain identical builds.
+            keepStaged = true;
+            return new UpdateChecker.Result(UpdateChecker.Kind.AVAILABLE, offer.withStagedApk(apk), null);
+        } catch (UpdateNetwork.InsufficientStorageException e) {
+            return new UpdateChecker.Result(UpdateChecker.Kind.FAILED, null, "insufficient storage");
+        } catch (IOException | RuntimeException e) {
+            return new UpdateChecker.Result(UpdateChecker.Kind.FAILED, null, String.valueOf(e.getMessage()));
+        } finally {
+            if (!keepStaged) wipe(dir);
+        }
     }
 
     private void publishCheckResult(UpdateTarget target, UpdateChecker.Result result) {
         if (cancelRequested.get()) {
+            if (target.versionedApkPrefix != null) {
+                wipe(new File(context.getCacheDir(), ADDON_CHECK_DIR_PREFIX + target.id));
+            }
             publish(target, UpdateState.IDLE);
             return;
         }
@@ -274,14 +347,18 @@ public final class UpdateController {
     @MainThread
     public void reset() {
         for (UpdateTarget target : UpdateTarget.values()) {
-            if (target.isUpdatable() && !getState(target).phase.isBusy()) publish(target, UpdateState.IDLE);
+            boolean busy = getState(target).phase.isBusy();
+            if (target.isUpdatable() && !busy) publish(target, UpdateState.IDLE);
+            if (target.versionedApkPrefix != null && !busy) {
+                wipe(new File(context.getCacheDir(), ADDON_CHECK_DIR_PREFIX + target.id));
+            }
         }
         refreshInstalled();
     }
 
     private void runUpdate(UpdateTarget target, UpdateChecker.Offer offer) {
-        File dir = new File(context.getCacheDir(), UPDATE_DIR);
-        File file = new File(dir, UPDATE_FILE);
+        File dir = offer.stagedApk == null ? new File(context.getCacheDir(), UPDATE_DIR) : offer.stagedApk.getParentFile();
+        File file = offer.stagedApk == null ? new File(dir, UPDATE_FILE) : offer.stagedApk;
         try {
             UpdateFailure failure = download(target, offer, dir, file);
             if (failure == null) failure = verify(target, offer, file);
@@ -311,6 +388,7 @@ public final class UpdateController {
             return UpdateFailure.NOT_TRUSTED;
         }
         if (ShizukuInstaller.state(context) != ShizukuState.READY) return UpdateFailure.SHIZUKU_NOT_READY;
+        if (offer.stagedApk != null && file.isFile() && file.length() == offer.apk.size) return null;
 
         wipe(dir);
         if (!dir.mkdirs() && !dir.isDirectory()) throw new IOException("cannot create " + dir);

@@ -13,14 +13,21 @@ public final class ApkFacts {
     /** The {@code android:sharedUserId} of the manifest, if any. */
     @Nullable public final String sharedUserId;
     public final long versionCode;
+    @Nullable public final String versionName;
     /** SHA-256 (lowercase hex) of every current signing certificate. */
     public final Set<String> signerDigests;
 
     public ApkFacts(@Nullable String packageName, @Nullable String sharedUserId, long versionCode,
                     @NonNull Set<String> signerDigests) {
+        this(packageName, sharedUserId, versionCode, null, signerDigests);
+    }
+
+    public ApkFacts(@Nullable String packageName, @Nullable String sharedUserId, long versionCode,
+                    @Nullable String versionName, @NonNull Set<String> signerDigests) {
         this.packageName = packageName;
         this.sharedUserId = sharedUserId;
         this.versionCode = versionCode;
+        this.versionName = versionName;
         this.signerDigests = Collections.unmodifiableSet(signerDigests);
     }
 

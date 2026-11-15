@@ -7,6 +7,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -51,16 +52,29 @@ public final class UpdateChecker {
         @Nullable public final String releaseTag;
         public final Asset apk;
         public final Asset checksums;
+        /** A checksum-verified candidate staged during an add-on check, when present. */
+        @Nullable public final File stagedApk;
 
         public Offer(@NonNull String commit, @NonNull Asset apk, @NonNull Asset checksums) {
-            this(commit, null, apk, checksums);
+            this(commit, null, apk, checksums, null);
         }
 
         Offer(@NonNull String commit, @Nullable String releaseTag, @NonNull Asset apk, @NonNull Asset checksums) {
+            this(commit, releaseTag, apk, checksums, null);
+        }
+
+        private Offer(@NonNull String commit, @Nullable String releaseTag, @NonNull Asset apk,
+                      @NonNull Asset checksums, @Nullable File stagedApk) {
             this.commit = commit;
             this.releaseTag = releaseTag;
             this.apk = apk;
             this.checksums = checksums;
+            this.stagedApk = stagedApk;
+        }
+
+        @NonNull
+        Offer withStagedApk(@NonNull File file) {
+            return new Offer(commit, releaseTag, apk, checksums, file);
         }
 
         @NonNull
@@ -126,9 +140,9 @@ public final class UpdateChecker {
         if (!target.isUpdatable()) return new Result(Kind.NOT_ELIGIBLE, null, "no signed release source");
         try {
             if (target.versionedApkPrefix != null) {
-                // The tagged addon release has no comparable commit metadata. Until the installed
-                // package can be compared reliably to its release, never claim an update is available.
-                if (!firstInstall) return new Result(Kind.NOT_ELIGIBLE, null, null);
+                // The checker identifies a candidate from trusted release metadata. For installed
+                // add-ons, UpdateController downloads and verifies its APK before comparing the
+                // actual embedded versionName and signer with the installed package.
                 return checkVersionedRelease(target);
             }
             // Companions built outside the rolling release workflow may not embed a clean commit.

@@ -21,7 +21,7 @@ public enum UpdateTarget {
     CORE("core", "pschmitt/termuxpp-app", "dev.pschmitt.termux", null, null),
     API("api", "pschmitt/termuxpp-api", "dev.pschmitt.termux.api", "termux-api-app_debug.apk", null),
     TASKER("tasker", "pschmitt/termuxpp-tasker", "dev.pschmitt.termux.tasker", "termux-tasker-app_debug.apk", null),
-    FLOAT("float", null, "dev.pschmitt.termux.window", null, null),
+    FLOAT("float", "pschmitt/termuxpp-float", "dev.pschmitt.termux.window", null, "termux-float-app_"),
     BOOT("boot", "pschmitt/termuxpp-boot", "dev.pschmitt.termux.boot", null, "termux-boot-app_"),
     STYLING("styling", "pschmitt/termuxpp-styling", "dev.pschmitt.termux.styling", null, "termux-styling-app_"),
     WIDGET("widget", "pschmitt/termuxpp-widget", "dev.pschmitt.termux.widget", null, "termux-widget-app_");

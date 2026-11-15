@@ -35,6 +35,29 @@ public final class ApkInspector {
         }
     }
 
+    /** SHA-256 of the installed base APK when its shared-UID path is readable. */
+    @Nullable
+    public static String installedApkSha256(@NonNull Context context, @NonNull UpdateTarget target) {
+        try {
+            PackageInfo info = context.getPackageManager().getPackageInfo(target.packageName, 0);
+            if (info.applicationInfo == null || info.applicationInfo.sourceDir == null
+                    || (info.applicationInfo.splitSourceDirs != null && info.applicationInfo.splitSourceDirs.length > 0)) return null;
+            return UpdateTrust.sha256Hex(new File(info.applicationInfo.sourceDir));
+        } catch (PackageManager.NameNotFoundException | RuntimeException | java.io.IOException e) {
+            return null;
+        }
+    }
+
+    /** The installed package's version name, or null if absent or unreadable. */
+    @Nullable
+    public static String installedVersionName(@NonNull Context context, @NonNull UpdateTarget target) {
+        try {
+            return context.getPackageManager().getPackageInfo(target.packageName, 0).versionName;
+        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
+            return null;
+        }
+    }
+
     /** Whether the package manager knows {@code target}. */
     public static boolean isInstalled(@NonNull Context context, @NonNull UpdateTarget target) {
         try {
@@ -81,7 +104,8 @@ public final class ApkInspector {
 
     @NonNull
     private static ApkFacts facts(@NonNull PackageInfo info) {
-        return new ApkFacts(info.packageName, info.sharedUserId, PackageInfoCompat.getLongVersionCode(info), digests(info));
+        return new ApkFacts(info.packageName, info.sharedUserId, PackageInfoCompat.getLongVersionCode(info),
+                info.versionName, digests(info));
     }
 
     @SuppressWarnings("deprecation")

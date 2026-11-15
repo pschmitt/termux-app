@@ -275,15 +275,16 @@ public class UpdateCheckerTest {
     }
 
     @Test
-    public void installedAddonIsNotReportedAsAlwaysAvailable() throws Exception {
+    public void installedAddonReleaseProvidesCandidateForVerifiedComparison() throws Exception {
         FakeNetwork network = new FakeNetwork();
         network.releaseJson = taggedRelease("v0.8.1",
                 "termux-boot-app_v0.8.1+github.debug.apk", "700", "checksums-sha256.txt", "100");
         UpdateChecker.Result result = new UpdateChecker(network, API).check(UpdateTarget.BOOT,
                 InstalledBuild.parse(null), null, Collections.<String>emptyList(), UpdateChannel.LATEST, false);
-        assertEquals(UpdateChecker.Kind.NOT_ELIGIBLE, result.kind);
-        assertNull(result.offer);
-        assertTrue(network.requests.isEmpty());
+        assertEquals(UpdateChecker.Kind.AVAILABLE, result.kind);
+        assertNotNull(result.offer);
+        assertEquals("v0.8.1", result.offer.releaseTag);
+        assertEquals(Collections.singletonList(API + "/releases/latest"), network.requests);
     }
 
     @Test
@@ -349,8 +350,8 @@ public class UpdateCheckerTest {
                     Collections.singletonList("arm64-v8a"), UpdateChannel.LATEST);
             if (target.isUpdatable()) {
                 if (target.versionedApkPrefix != null) {
-                    assertEquals(UpdateChecker.Kind.NOT_ELIGIBLE, result.kind);
-                    assertTrue(network.requests.isEmpty());
+                    assertEquals(UpdateChecker.Kind.UNAVAILABLE, result.kind);
+                    assertEquals(Collections.singletonList(target.releaseApiUrl()), network.requests);
                 } else {
                     assertEquals(Collections.singletonList(target.releaseApiUrl()), network.requests);
                 }
@@ -399,11 +400,12 @@ public class UpdateCheckerTest {
     @Test
     public void targetAllowlistIsFixed() {
         assertEquals(7, UpdateTarget.values().length);
-        assertFalse(UpdateTarget.FLOAT.isUpdatable());
+        assertTrue(UpdateTarget.FLOAT.isUpdatable());
         assertTrue(UpdateTarget.BOOT.isUpdatable());
         assertTrue(UpdateTarget.STYLING.isUpdatable());
         assertTrue(UpdateTarget.WIDGET.isUpdatable());
-        assertNull(UpdateTarget.FLOAT.repository);
+        assertEquals("pschmitt/termuxpp-float", UpdateTarget.FLOAT.repository);
+        assertEquals("termux-float-app_", UpdateTarget.FLOAT.versionedApkPrefix);
         assertEquals("pschmitt/termuxpp-boot", UpdateTarget.BOOT.repository);
         assertEquals("pschmitt/termuxpp-styling", UpdateTarget.STYLING.repository);
         assertEquals("pschmitt/termuxpp-widget", UpdateTarget.WIDGET.repository);
