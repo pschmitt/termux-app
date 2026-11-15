@@ -1,6 +1,7 @@
 # Config directory
 
-TermuxPP keeps all user configuration in `~/.config/termuxpp`:
+TermuxPP's canonical user configuration directory is `~/.config/termuxpp`. New and migrated files
+should use this directory; legacy locations are read only as compatibility fallbacks:
 
 | File or directory | Purpose |
 | --- | --- |
@@ -55,9 +56,11 @@ leave the old directories in place as a fallback and for tools that only read `~
 
 ## Limits
 
-- Termux:Boot reads only `~/.termux/boot`, and Termux:Styling and Termux:Widget are not part of
-  TermuxPP and read only `~/.termux`. Keep `~/.config/termux/boot` (or `~/.termux/boot`) pointing
-  at `~/.config/termuxpp/boot`, for example with a symlink, so boot scripts stay in one place.
+- TermuxPP's core looks for boot scripts in `~/.config/termuxpp/boot` only. Separate upstream
+  companion apps such as Termux:Boot, Termux:Styling and Termux:Widget are not covered by this
+  config resolver; unless their fork documentation confirms TermuxPP support, assume they still
+  use their documented upstream paths (commonly under `~/.termux`). A symlink may be needed to
+  share files between those apps and TermuxPP.
 - `XDG_CONFIG_HOME` is not consulted, the directories are fixed.
 - Stock Termux tooling that writes `~/.termux/font.ttf` (for example a Nix setup for the stock
   `com.termux` app) keeps working in the legacy directory, which is still read as a fallback. A
