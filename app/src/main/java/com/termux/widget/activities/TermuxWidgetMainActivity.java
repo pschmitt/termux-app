@@ -71,7 +71,7 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
         applySystemBarInsets();
 
         AppCompatActivityUtils.setToolbar(this, com.termux.shared.R.id.toolbar);
-        AppCompatActivityUtils.setToolbarTitle(this, com.termux.shared.R.id.toolbar, TermuxConstants.TERMUX_WIDGET_APP_NAME, 0);
+        AppCompatActivityUtils.setToolbarTitle(this, com.termux.shared.R.id.toolbar, getString(R.string.app_name), 0);
 
         TextView pluginInfo = findViewById(R.id.textview_plugin_info);
         pluginInfo.setText(getString(R.string.plugin_info, TERMUXPP_APP_GITHUB_REPO_URL,
