@@ -279,7 +279,13 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
         }
         SwipeRefreshLayout refresh = swipeRefreshLayout;
         if (refresh != null) {
-            boolean refreshing = busy && controller.isCancellable();
+            boolean refreshing = false;
+            for (UpdateTarget target : UpdateTarget.values()) {
+                if (controller.getState(target).phase == UpdateState.Phase.CHECKING) {
+                    refreshing = true;
+                    break;
+                }
+            }
             refresh.setEnabled(!busy || controller.isCancellable());
             refresh.setRefreshing(refreshing);
             refresh.setContentDescription(getString(busy
