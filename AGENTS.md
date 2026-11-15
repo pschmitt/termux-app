@@ -16,7 +16,11 @@ export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/36.0.0:$PATH
 
 Set `ANDROID_HOME` directly to that SDK directory; deriving it from an unset `ANDROID_SDK_ROOT` can leave the path empty and cause `SDK location not found` (and an invalid aapt2 override). A verified full build compiled the native NDK targets for arm64-v8a, armeabi-v7a, x86, and x86_64, and completed successfully. Do not treat Java-only tasks as proof the APK build works.
 
-### NixOS NDK prebuilt executable failure
+### Keeping the TermuxPP comparison current
+
+[`docs/en/termuxpp-differences.md`](docs/en/termuxpp-differences.md) is the maintained comparison between TermuxPP and upstream Termux. When a change affects runtime behavior, Android package identity, permissions, prefix/bootstrap handling, companion or helper integration, package names, or update feeds, verify the resulting behavior against the current source and upstream, then update the comparison in the same change. Keep compatibility behavior distinct from intentional fork differences and refresh source links when implementation moves.
+
+## NixOS NDK prebuilt executable failure
 
 The NDK can fail to launch its prebuilt Linux `make` with `Could not start dynamically linked executable` / `NixOS cannot run dynamically linked executables intended for generic linux environments out of the box` (exit 127). Setting `NIX_LD` and `NIX_LD_LIBRARY_PATH` did not fix this in a reported attempt. A full build was later verified after patching the NDK's prebuilt ELF executables on a writable SDK copy from a Nix shell containing `glibc`, `zlib`, and `patchelf`. This is a worker-local workaround, not a repository/toolchain change:
 

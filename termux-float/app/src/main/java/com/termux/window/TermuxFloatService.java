@@ -15,14 +15,14 @@ import androidx.annotation.Nullable;
 import android.view.LayoutInflater;
 import android.view.View;
 
-import com.termux.shared.data.IntentUtils;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.notification.NotificationUtils;
-import com.termux.shared.shell.command.ExecutionCommand;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.TermuxConstants.TERMUX_FLOAT_APP.TERMUX_FLOAT_SERVICE;
-import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
-import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
+import dev.pschmitt.termux.shared.data.IntentUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.notification.NotificationUtils;
+import dev.pschmitt.termux.shared.shell.command.ExecutionCommand;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_FLOAT_APP.TERMUX_FLOAT_SERVICE;
+import dev.pschmitt.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
+import dev.pschmitt.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.terminal.TerminalSession;
 
 public class TermuxFloatService extends Service {

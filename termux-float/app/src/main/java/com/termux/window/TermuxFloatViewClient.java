@@ -6,8 +6,8 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
-import com.termux.shared.termux.terminal.TermuxTerminalViewClientBase;
-import com.termux.shared.view.KeyboardUtils;
+import dev.pschmitt.termux.shared.termux.terminal.TermuxTerminalViewClientBase;
+import dev.pschmitt.termux.shared.view.KeyboardUtils;
 import com.termux.terminal.KeyHandler;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;

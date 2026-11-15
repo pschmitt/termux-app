@@ -115,28 +115,27 @@ covers both cases; run it on a disposable worker.
 
 Stock `termux-am` embeds `com.termux` as its Android caller identity. Stock
 `termux-api` targets the upstream receiver and socket. Filesystem redirection
-cannot fix either identity. Build the matching sources from
-[TermuxAm](https://github.com/pschmitt/TermuxAm) and
-[termux-api-package](https://github.com/pschmitt/termuxpp-api-package).
+cannot fix either identity. The matching helper sources are part of this
+repository: TermuxAm is the `:termux-am` Gradle project, and the native API tools
+are under `termux-api-package/`.
 
-On a build worker with JDK 17, SDK 35, and NDK 29.0.14206865:
+Run from the monorepo root on a build worker with JDK 17, Android SDK 35, NDK
+29.0.14206865, and CMake available:
 
 ```sh
-cd ../termux-am.git
-./gradlew :app:assembleRelease
-cd ../termux-api-package.git
-cmake -S . -B build \
+./gradlew :termux-am:assembleRelease
+cmake -S termux-api-package -B build/termux-api-package \
     -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/29.0.14206865/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 \
     -DCMAKE_INSTALL_PREFIX=/data/data/dev.pschmitt.termux/files/usr \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-cmake --build build
-DESTDIR="$PWD/staging" cmake --install build
-cd ../termux-app.git
+cmake --build build/termux-api-package
+DESTDIR="$PWD/termux-api-package/staging" \
+    cmake --install build/termux-api-package
 python3 -I scripts/package-helpers.py \
-    --am-source ../termux-am.git \
-    --am-apk ../termux-am.git/app/build/outputs/apk/release/app-release-unsigned.apk \
-    --api-prefix ../termux-api-package.git/staging/data/data/dev.pschmitt.termux/files/usr \
+    --am-source termux-am \
+    --am-apk termux-am/app/build/outputs/apk/release/termux-am-release-unsigned.apk \
+    --api-prefix termux-api-package/staging/data/data/dev.pschmitt.termux/files/usr \
     --out-dir helper-debs --bootstrap
 ```
 

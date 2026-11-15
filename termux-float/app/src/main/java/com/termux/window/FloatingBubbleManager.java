@@ -7,7 +7,7 @@ import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.WindowManager;
 
-import com.termux.shared.view.ViewUtils;
+import dev.pschmitt.termux.shared.view.ViewUtils;
 import com.termux.view.TerminalView;
 
 /**

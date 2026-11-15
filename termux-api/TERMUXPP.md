@@ -6,16 +6,18 @@ This fork targets `dev.pschmitt.termux` and installs as
 
 ## Build
 
-Clone with `git clone --recurse-submodules`, or run
-`git submodule update --init --recursive` after cloning. The `termux-app`
-submodule pins the TermuxPP shared libraries; do not replace them with the
-upstream Maven artifact, whose paths and package identities target stock Termux.
-
-With JDK 17, Android SDK 35, and the NDK version in `gradle.properties`:
+In this monorepo, build the API companion from the repository root. It uses the
+root's TermuxPP shared Gradle projects rather than a nested `termux-app`
+submodule:
 
 ```sh
-./gradlew :app:assembleDebug :app:lintDebug
+./gradlew :termux-api:assembleDebug :termux-api:lintDebug
 ```
+
+The original standalone companion checkout retains its own wrapper and pinned
+`termux-app` submodule; build that checkout from its root after initializing
+submodules. Do not substitute upstream Maven artifacts, whose paths and package
+identities target stock Termux.
 
 Run substantial builds on a remote build worker, not a workstation.
 
