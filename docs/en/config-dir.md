@@ -31,7 +31,17 @@ The `login` shell and the message of the day follow the same order: `login` take
 `motd.sh` from the first of the three directories that has them (the TermuxPP version of the
 `termux-tools` scripts, re-adapted by the package hook after every apt run). `termux-reload-settings`
 names `~/.config/termuxpp` in its help text. Stock Termux is not affected, its scripts are never
-touched.
+touched. The hook is also refreshed and run by the app on every start, so a new TermuxPP version
+brings its rules to an existing install without reinstalling the bootstrap.
+
+The stock `$PREFIX/etc/motd` (welcome text, `termux.dev` links) is replaced by a TermuxPP one: it
+welcomes to TermuxPP, links to this project's documentation and source, drops the donation and
+community links and keeps the `pkg` commands. The line for reporting problems names the upstream
+Termux package issue tracker explicitly, since package problems belong there. Only a motd that still
+contains the stock lines is changed, and only those lines: a motd you wrote yourself is never
+touched, and it is not rewritten again after apt reinstalls `termux-tools` unless the stock text is
+back. To show your own message, edit `$PREFIX/etc/motd`, or put a `motd.sh` into
+`~/.config/termuxpp`.
 
 New files should be created in `~/.config/termuxpp`. TermuxPP never moves or deletes files in the
 legacy directories. To migrate, copy the files (keeping symlinks) into `~/.config/termuxpp` and

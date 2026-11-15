@@ -51,11 +51,11 @@ public class TermuxBootstrapAdapterTest {
         int[] counts = new int[TermuxHelperRewrites.Kind.values().length];
         for (TermuxHelperRewrites.Rule rule : adapter.rules()) counts[rule.kind.ordinal()]++;
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.IDENTITY.ordinal()]);
-        Assert.assertEquals(19, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
+        Assert.assertEquals(23, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.APPEND.ordinal()]);
         Assert.assertEquals(5, counts[TermuxHelperRewrites.Kind.REQUIRE.ordinal()]);
         Assert.assertEquals(12, counts[TermuxHelperRewrites.Kind.FORBID.ordinal()]);
-        Assert.assertEquals(38, adapter.rules().size());
+        Assert.assertEquals(42, adapter.rules().size());
     }
 
     @Test

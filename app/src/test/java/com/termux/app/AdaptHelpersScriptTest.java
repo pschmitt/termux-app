@@ -60,6 +60,7 @@ public class AdaptHelpersScriptTest {
     }
 
     private static void write(File file, String content) throws IOException {
+        Files.createDirectories(file.getParentFile().toPath());
         Files.write(file.toPath(), content.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -128,7 +129,8 @@ public class AdaptHelpersScriptTest {
         installStockFile("bin/login", "rwx------");
         installStockFile("etc/termux-login.sh", "rw-------");
         installStockFile("bin/pkg", "rwx------");
-        writeToolsList("bin", "bin/login", "bin/pkg", "etc/termux-login.sh");
+        installStockFile("etc/motd", "rw-------");
+        writeToolsList("bin", "bin/login", "bin/pkg", "etc/termux-login.sh", "etc/motd");
         Result result = run();
         Assert.assertEquals(result.stderr, 0, result.exit);
         for (String name : TermuxHelperRewritesTest.HELPERS) {
@@ -145,6 +147,74 @@ public class AdaptHelpersScriptTest {
         }
         Assert.assertEquals("rw-------", PosixFilePermissions.toString(
             Files.getPosixFilePermissions(new File(prefix, "etc/termux-login.sh").toPath())));
+    }
+
+    private static final String ADAPTED_MOTD = "Welcome to TermuxPP!\n"
+        + "\n"
+        + "Docs:       https://github.com/pschmitt/termux-app/tree/main/docs/en\n"
+        + "Source:     https://github.com/pschmitt/termux-app\n"
+        + "\n"
+        + "Working with packages:\n"
+        + "\n"
+        + " - Search:  pkg search <query>\n"
+        + " - Install: pkg install <package>\n"
+        + " - Upgrade: pkg upgrade\n"
+        + "\n"
+        + "Subscribing to additional repositories:\n"
+        + "\n"
+        + " - Root:    pkg install root-repo\n"
+        + " - X11:     pkg install x11-repo\n"
+        + "\n"
+        + "For fixing any repository issues,\n"
+        + "try 'termux-change-repo' command.\n"
+        + "\n"
+        + "Package issues (upstream Termux): https://github.com/termux/termux-packages/issues\n";
+
+    @Test
+    public void theMotdPointsToTheForkAndSurvivesAnUpstreamReinstall() throws Exception {
+        installStockFile("etc/motd", "rw-r--r--");
+        writeToolsList("etc/motd");
+        Result result = run();
+        Assert.assertEquals(result.stderr, 0, result.exit);
+        Assert.assertEquals(ADAPTED_MOTD, read(new File(prefix, "etc/motd")));
+        Assert.assertTrue(result.stderr.contains("adapted etc/motd"));
+        Assert.assertFalse(read(new File(prefix, "etc/motd")).contains("termux.dev"));
+        Assert.assertFalse(read(new File(prefix, "etc/motd")).contains("Donate"));
+
+        // A second run changes nothing and says nothing.
+        Result again = run();
+        Assert.assertEquals(0, again.exit);
+        Assert.assertFalse(again.stderr, again.stderr.contains("adapted"));
+
+        // termux-tools is upgraded or reinstalled: dpkg writes the stock conffile again.
+        Files.delete(new File(prefix, "etc/motd").toPath());
+        installStockFile("etc/motd", "rw-r--r--");
+        Assert.assertEquals(0, run().exit);
+        Assert.assertEquals(ADAPTED_MOTD, read(new File(prefix, "etc/motd")));
+        Assert.assertEquals("rw-r--r--", PosixFilePermissions.toString(
+            Files.getPosixFilePermissions(new File(prefix, "etc/motd").toPath())));
+    }
+
+    @Test
+    public void aCustomMotdKeepsItsOwnText() throws Exception {
+        String custom = "Hello Philipp, today is a good day.\nDocs live at https://example.org/docs\n";
+        write(new File(prefix, "etc/motd"), custom);
+        writeToolsList("etc/motd");
+        Result result = run();
+        Assert.assertEquals(result.stderr, 0, result.exit);
+        Assert.assertEquals(custom, read(new File(prefix, "etc/motd")));
+        Assert.assertFalse(result.stderr, result.stderr.contains("adapted"));
+
+        // An edited stock motd only loses the stock lines it still has, everything else stays.
+        String edited = TermuxHelperRewritesTest.stockFile("etc/motd")
+            .replace("Welcome to Termux!", "Hi there!") + "\nMy own line\n";
+        write(new File(prefix, "etc/motd"), edited);
+        Assert.assertEquals(0, run().exit);
+        String result2 = read(new File(prefix, "etc/motd"));
+        Assert.assertTrue(result2.startsWith("Hi there!\n"));
+        Assert.assertTrue(result2.endsWith("\nMy own line\n"));
+        Assert.assertTrue(result2.contains("Source:     https://github.com/pschmitt/termux-app\n"));
+        Assert.assertFalse(result2.contains("termux.dev"));
     }
 
     @Test

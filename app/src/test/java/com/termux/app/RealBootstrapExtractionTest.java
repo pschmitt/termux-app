@@ -101,19 +101,26 @@ public class RealBootstrapExtractionTest {
                 textWithNeedle++;
                 Assert.assertFalse(arch + " " + file.getKey() + " still has the stock path", contains(extracted, stockNeedle));
                 boolean tableFile = file.getKey().equals("bin/login") || file.getKey().equals("etc/termux-login.sh")
-                    || file.getKey().startsWith("bin/termux-");
+                    || file.getKey().equals("etc/motd") || file.getKey().startsWith("bin/termux-");
                 if (!tableFile) {
                     // exactly the needle changed and nothing else
                     Assert.assertArrayEquals(arch + " " + file.getKey(), new String(file.getValue(), StandardCharsets.ISO_8859_1)
                         .replace(STOCK_DIR, FORK_DIR).getBytes(StandardCharsets.ISO_8859_1), extracted);
                 }
             } else if (!file.getKey().equals("bin/login") && !file.getKey().equals("etc/termux-login.sh")
-                && !file.getKey().startsWith("bin/termux-")) {
+                && !file.getKey().equals("etc/motd") && !file.getKey().startsWith("bin/termux-")) {
                 Assert.assertArrayEquals(arch + " " + file.getKey() + " has nothing to adapt: byte identical",
                     file.getValue(), extracted);
             }
         }
         Assert.assertTrue(arch + ": the bootstrap has text files with the stock path", textWithNeedle > 0);
+
+        if (original.containsKey("etc/motd")) {
+            String motd = new String(Files.readAllBytes(new File(staging, "etc/motd").toPath()), StandardCharsets.ISO_8859_1);
+            Assert.assertTrue(arch, motd.startsWith("Welcome to TermuxPP!\n"));
+            Assert.assertFalse(arch, motd.contains("termux.dev"));
+            Assert.assertTrue(arch, motd.contains(" - Install: pkg install <package>\n"));
+        }
 
         if (original.containsKey("bin/login")) {
             String login = new String(Files.readAllBytes(new File(staging, "bin/login").toPath()), StandardCharsets.ISO_8859_1);

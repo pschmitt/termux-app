@@ -23,7 +23,7 @@
 
 export LC_ALL=C
 
-ADAPTED_FILE_RE='^(bin/termux-[a-z-]+|bin/login|etc/termux-login\.sh)$'
+ADAPTED_FILE_RE='^(bin/termux-[a-z-]+|bin/login|etc/termux-login\.sh|etc/motd)$'
 MAX_LIST_FILE_SIZE=1048576
 
 R_KIND=()
@@ -112,7 +112,8 @@ load_table() {
           rule)
             if usable "${f2}" "${f3}" 1
             then
-              add_row rule "${f1}" "${f2}" "${f3}"
+              # \n is a newline in both texts, so that a rule can address (or remove) whole lines.
+              add_row rule "${f1}" "${f2//\\n/$'\n'}" "${f3//\\n/$'\n'}"
             else
               warn "ignoring unusable rule for ${f1}"
             fi

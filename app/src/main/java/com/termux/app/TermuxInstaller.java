@@ -280,6 +280,11 @@ final class TermuxInstaller {
         values.put("REDIRECT_SO_VAR", "TERMUX_PKG_REDIRECT_SO");
         // The canonical config directory relative to the home directory, like ".config/termuxpp".
         values.put("CONFIG_DIR_NAME", TermuxConstants.TERMUX_CONFIG_TERMUXPP_DIR_PATH.substring(TermuxConstants.TERMUX_HOME_DIR_PATH.length() + 1));
+        // The motd of the termux-tools package: this app and its documentation, not the upstream site.
+        values.put("PRODUCT_NAME", "TermuxPP");
+        values.put("REPO_URL", "https://github.com/pschmitt/termux-app");
+        values.put("DOCS_URL", "https://github.com/pschmitt/termux-app/tree/main/docs/en");
+        values.put("UPSTREAM_PACKAGES_ISSUES_URL", "https://github.com/termux/termux-packages/issues");
         values.put("FORK_ONLY", "fork");
         return values;
     }

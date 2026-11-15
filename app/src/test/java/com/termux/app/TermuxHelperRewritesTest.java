@@ -43,12 +43,16 @@ public class TermuxHelperRewritesTest {
         values.put("DATA_DIR", "/data/data/dev.pschmitt.termux");
         values.put("REDIRECT_SO_VAR", "TERMUX_PKG_REDIRECT_SO");
         values.put("CONFIG_DIR_NAME", ".config/termuxpp");
+        values.put("PRODUCT_NAME", "TermuxPP");
+        values.put("REPO_URL", "https://github.com/pschmitt/termux-app");
+        values.put("DOCS_URL", "https://github.com/pschmitt/termux-app/tree/main/docs/en");
+        values.put("UPSTREAM_PACKAGES_ISSUES_URL", "https://github.com/termux/termux-packages/issues");
         values.put("FORK_ONLY", "fork");
         return values;
     }
 
     /** Other real stock termux-tools files used as fixtures, by path relative to the prefix. */
-    static final String[] STOCK_FILES = {"bin/login", "etc/termux-login.sh", "bin/pkg"};
+    static final String[] STOCK_FILES = {"bin/login", "etc/termux-login.sh", "bin/pkg", "etc/motd"};
 
     static String stockHelper(String name) throws IOException {
         return TermuxHelperRewrites.readResource("/termuxpp/stock/" + name);
@@ -166,7 +170,7 @@ public class TermuxHelperRewritesTest {
             }
         }
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.IDENTITY.ordinal()]);
-        Assert.assertEquals(19, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
+        Assert.assertEquals(23, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.APPEND.ordinal()]);
         Assert.assertEquals(5, counts[TermuxHelperRewrites.Kind.REQUIRE.ordinal()]);
         Assert.assertEquals(12, counts[TermuxHelperRewrites.Kind.FORBID.ordinal()]);
@@ -347,6 +351,32 @@ public class TermuxHelperRewritesTest {
     }
 
     @Test
+    public void theMotdAddressesOnlyRecognisableStockLines() throws IOException {
+        List<TermuxHelperRewrites.Rule> rules = forkRules();
+        String stock = stockFile("etc/motd");
+        String adapted = TermuxHelperRewrites.apply(rules, "etc/motd", stock);
+        Assert.assertTrue(adapted.startsWith("Welcome to TermuxPP!\n\nDocs:       https://github.com/pschmitt/termux-app/tree/main/docs/en\n"
+            + "Source:     https://github.com/pschmitt/termux-app\n\nWorking with packages:\n"));
+        Assert.assertTrue(adapted.endsWith("try 'termux-change-repo' command.\n\n"
+            + "Package issues (upstream Termux): https://github.com/termux/termux-packages/issues\n"));
+        Assert.assertFalse(adapted.contains("termux.dev"));
+        Assert.assertFalse(adapted.contains("Donate"));
+        Assert.assertFalse(adapted.contains("Community"));
+        // The package commands are upstream's and stay as they are.
+        Assert.assertTrue(adapted.contains(" - Install: pkg install <package>\n"));
+        Assert.assertTrue(adapted.contains(" - Root:    pkg install root-repo\n"));
+        Assert.assertEquals(adapted, TermuxHelperRewrites.apply(rules, "etc/motd", adapted));
+
+        // Text that is not a stock motd is never rewritten, and the motd rules do not touch other files.
+        String custom = "Welcome to my phone\nDocs: https://example.org\n";
+        Assert.assertEquals(custom, TermuxHelperRewrites.apply(rules, "etc/motd", custom));
+        Assert.assertEquals(stock, TermuxHelperRewrites.apply(rules, "bin/termux-info", stock));
+        // The motd has no checks: a custom motd must never make the hook fail.
+        Assert.assertTrue(TermuxHelperRewrites.verify(rules, "etc/motd", custom).isEmpty());
+        Assert.assertTrue(TermuxHelperRewrites.verify(rules, "etc/motd", adapted).isEmpty());
+    }
+
+    @Test
     public void deployHookWritesTheHookTableAndAptConfig() throws IOException {
         File staging = temp.newFolder("usr.staging");
         TermuxHelperRewrites.deployHook(staging, "/data/data/dev.pschmitt.termux/files/usr", forkValues());
@@ -421,7 +451,7 @@ public class TermuxHelperRewritesTest {
     public void strictParseAcceptsTheRealForkTableWithThirtyEightRows() throws IOException {
         String rendered = TermuxHelperRewrites.render(
             TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), forkValues());
-        Assert.assertEquals(38, TermuxHelperRewrites.parseStrict(rendered).size());
+        Assert.assertEquals(42, TermuxHelperRewrites.parseStrict(rendered).size());
         Assert.assertEquals(TermuxHelperRewrites.parse(rendered).size(), TermuxHelperRewrites.parseStrict(rendered).size());
     }
 

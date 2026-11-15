@@ -14,7 +14,8 @@
 #                                                (the guard is @FORK_ONLY@, so that the checks vanish for
 #                                                the stock identity, and a failed check makes the hook fail)
 # Placeholders (@PACKAGE@, @DATA_DIR@, @RELOAD_STYLE_ACTION@, @WAKE_LOCK_ACTION@, @WAKE_UNLOCK_ACTION@,
-# @REDIRECT_SO_VAR@, @CONFIG_DIR_NAME@, @FORK_ONLY@) are filled from TermuxConstants. @REDIRECT_SO_VAR@ is
+# @REDIRECT_SO_VAR@, @CONFIG_DIR_NAME@, @PRODUCT_NAME@, @DOCS_URL@, @REPO_URL@, @UPSTREAM_PACKAGES_ISSUES_URL@,
+# @FORK_ONLY@) are filled from TermuxConstants. @REDIRECT_SO_VAR@ is
 # the name of the environment variable that holds the path of the native pkg-redirect library and
 # @CONFIG_DIR_NAME@ the canonical config directory relative to the home directory (.config/termuxpp). They
 # and @FORK_ONLY@ are empty for the stock identity, so those rows are dropped and stock stays byte-identical. A row with an
@@ -25,6 +26,9 @@
 # The login rows look up motd.sh and shell in ~/.config/termuxpp, ~/.config/termux and ~/.termux, in that
 # order (the first existing one wins), spelled with $HOME so that the stock text ~/.termux/... never
 # matches the fork text again.
+# The motd rows address single stock lines of etc/motd (\n in a rule text is a newline, so that a rule can
+# remove a line): a motd the user edited keeps its own text, only the recognisable stock lines are rewritten.
+# There are deliberately no require or forbid rows for the motd, a custom motd must never fail the hook.
 identity	/data/data/com.termux	@DATA_DIR@
 rule	bin/login	export LD_PRELOAD="/	export LD_PRELOAD="${@REDIRECT_SO_VAR@:+$@REDIRECT_SO_VAR@:}/
 append	etc/termux-login.sh	@REDIRECT_SO_VAR@	\nif [ -n "${@REDIRECT_SO_VAR@:-}" ] && [ -f "$@REDIRECT_SO_VAR@" ]; then\n    case ":${LD_PRELOAD:-}:" in\n        *":$@REDIRECT_SO_VAR@:"*) ;;\n        *) export LD_PRELOAD="$@REDIRECT_SO_VAR@${LD_PRELOAD:+:$LD_PRELOAD}" ;;\n    esac\nfi\n
@@ -63,3 +67,7 @@ forbid	bin/login	~/.termux/motd.sh	@FORK_ONLY@
 forbid	bin/login	~/.termux/shell	@FORK_ONLY@
 require	bin/termux-reload-settings	~/@CONFIG_DIR_NAME@/termux.properties	@FORK_ONLY@
 forbid	bin/termux-reload-settings	~/.termux/	@FORK_ONLY@
+rule	etc/motd	Welcome to Termux!	Welcome to @PRODUCT_NAME@!
+rule	etc/motd	Docs:       https://termux.dev/docs	Docs:       @DOCS_URL@
+rule	etc/motd	Donate:     https://termux.dev/donate\nCommunity:  https://termux.dev/community	Source:     @REPO_URL@
+rule	etc/motd	Report issues at https://termux.dev/issues	Package issues (upstream Termux): @UPSTREAM_PACKAGES_ISSUES_URL@
