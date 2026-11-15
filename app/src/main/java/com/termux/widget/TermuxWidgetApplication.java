@@ -4,11 +4,11 @@ import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 
-import com.termux.shared.logger.Logger;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.crash.TermuxCrashUtils;
-import com.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
-import com.termux.shared.termux.theme.TermuxThemeUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.crash.TermuxCrashUtils;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
+import dev.pschmitt.termux.shared.termux.theme.TermuxThemeUtils;
 
 public class TermuxWidgetApplication extends Application {
 

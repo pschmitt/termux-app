@@ -7,10 +7,10 @@ import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
-import com.termux.shared.file.FileUtils;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.TermuxUtils;
+import dev.pschmitt.termux.shared.file.FileUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxUtils;
 import com.termux.widget.NaturalOrderComparator;
 import com.termux.widget.R;
 import com.termux.widget.ShortcutFile;

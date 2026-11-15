@@ -15,10 +15,10 @@ import android.service.controls.templates.StatelessTemplate;
 
 import androidx.annotation.RequiresApi;
 
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
-import com.termux.shared.termux.TermuxConstants.TERMUX_WIDGET_APP;
-import com.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_WIDGET_APP;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
 import com.termux.widget.utils.ShortcutUtils;
 
 import org.reactivestreams.FlowAdapters;

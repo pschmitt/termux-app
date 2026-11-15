@@ -6,8 +6,8 @@ import android.content.Intent;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
 
-import com.termux.shared.data.IntentUtils;
-import com.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.data.IntentUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
 import com.termux.widget.utils.ShortcutUtils;
 
 import java.util.ArrayList;

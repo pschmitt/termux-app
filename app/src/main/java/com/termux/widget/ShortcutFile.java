@@ -15,17 +15,17 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
 import com.google.common.base.Joiner;
-import com.termux.shared.data.DataUtils;
-import com.termux.shared.file.FileUtils;
-import com.termux.shared.file.filesystem.FileType;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.shell.ShellUtils;
-import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
-import com.termux.shared.termux.TermuxConstants.TERMUX_WIDGET_APP.TERMUX_WIDGET_PROVIDER;
-import com.termux.shared.termux.TermuxConstants.TERMUX_WIDGET_APP;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.file.TermuxFileUtils;
-import com.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
+import dev.pschmitt.termux.shared.data.DataUtils;
+import dev.pschmitt.termux.shared.file.FileUtils;
+import dev.pschmitt.termux.shared.file.filesystem.FileType;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.shell.ShellUtils;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_WIDGET_APP.TERMUX_WIDGET_PROVIDER;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_WIDGET_APP;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.file.TermuxFileUtils;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
 import com.termux.widget.utils.ShortcutUtils;
 
 import java.io.File;

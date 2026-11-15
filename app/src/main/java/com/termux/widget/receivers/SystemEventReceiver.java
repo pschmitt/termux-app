@@ -8,8 +8,8 @@ import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.termux.shared.data.IntentUtils;
-import com.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.data.IntentUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
 import com.termux.widget.TermuxWidgetProvider;
 
 public class SystemEventReceiver extends BroadcastReceiver {

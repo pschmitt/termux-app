@@ -17,15 +17,15 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.termux.shared.activity.media.AppCompatActivityUtils;
-import com.termux.shared.android.PackageUtils;
-import com.termux.shared.errors.Error;
-import com.termux.shared.file.FileUtils;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.markdown.MarkdownUtils;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.file.TermuxFileUtils;
-import com.termux.shared.theme.NightMode;
+import dev.pschmitt.termux.shared.activity.media.AppCompatActivityUtils;
+import dev.pschmitt.termux.shared.android.PackageUtils;
+import dev.pschmitt.termux.shared.errors.Error;
+import dev.pschmitt.termux.shared.file.FileUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.markdown.MarkdownUtils;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.file.TermuxFileUtils;
+import dev.pschmitt.termux.shared.theme.NightMode;
 import com.termux.widget.R;
 import com.termux.widget.ShortcutFile;
 import com.termux.widget.TermuxWidgetApplication;
@@ -70,8 +70,8 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_termux_widget_main);
         applySystemBarInsets();
 
-        AppCompatActivityUtils.setToolbar(this, com.termux.shared.R.id.toolbar);
-        AppCompatActivityUtils.setToolbarTitle(this, com.termux.shared.R.id.toolbar, getString(R.string.app_name), 0);
+        AppCompatActivityUtils.setToolbar(this, dev.pschmitt.termux.shared.R.id.toolbar);
+        AppCompatActivityUtils.setToolbarTitle(this, dev.pschmitt.termux.shared.R.id.toolbar, getString(R.string.app_name), 0);
 
         TextView pluginInfo = findViewById(R.id.textview_plugin_info);
         pluginInfo.setText(getString(R.string.plugin_info, TERMUXPP_APP_GITHUB_REPO_URL,
@@ -144,7 +144,7 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
             Logger.logError(LOG_TAG, "Failed to check if \"" + packageName + "/" + className + "\" launcher activity is disabled");
             changeLauncherActivityStateButton.setEnabled(false);
             changeLauncherActivityStateButton.setAlpha(.5f);
-            changeLauncherActivityStateButton.setText(com.termux.shared.R.string.action_disable_launcher_icon);
+            changeLauncherActivityStateButton.setText(dev.pschmitt.termux.shared.R.string.action_disable_launcher_icon);
             changeLauncherActivityStateButton.setOnClickListener(null);
             return;
         }
@@ -152,12 +152,12 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
         changeLauncherActivityStateButton.setEnabled(true);
         changeLauncherActivityStateButton.setAlpha(1f);
         if (currentlyDisabled) {
-            changeLauncherActivityStateButton.setText(com.termux.shared.R.string.action_enable_launcher_icon);
-            stateChangeMessage = getString(com.termux.shared.R.string.msg_enabling_launcher_icon, TermuxConstants.TERMUX_WIDGET_APP_NAME);
+            changeLauncherActivityStateButton.setText(dev.pschmitt.termux.shared.R.string.action_enable_launcher_icon);
+            stateChangeMessage = getString(dev.pschmitt.termux.shared.R.string.msg_enabling_launcher_icon, TermuxConstants.TERMUX_WIDGET_APP_NAME);
             newState = true;
         } else {
-            changeLauncherActivityStateButton.setText(com.termux.shared.R.string.action_disable_launcher_icon);
-            stateChangeMessage = getString(com.termux.shared.R.string.msg_disabling_launcher_icon, TermuxConstants.TERMUX_WIDGET_APP_NAME);
+            changeLauncherActivityStateButton.setText(dev.pschmitt.termux.shared.R.string.action_disable_launcher_icon);
+            stateChangeMessage = getString(dev.pschmitt.termux.shared.R.string.msg_disabling_launcher_icon, TermuxConstants.TERMUX_WIDGET_APP_NAME);
             newState = false;
         }
 

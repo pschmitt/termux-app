@@ -12,11 +12,11 @@ import android.widget.ListView;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.termux.shared.activity.media.AppCompatActivityUtils;
-import com.termux.shared.data.DataUtils;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.termux.TermuxUtils;
-import com.termux.shared.termux.file.TermuxFileUtils;
+import dev.pschmitt.termux.shared.activity.media.AppCompatActivityUtils;
+import dev.pschmitt.termux.shared.data.DataUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.termux.TermuxUtils;
+import dev.pschmitt.termux.shared.termux.file.TermuxFileUtils;
 import com.termux.widget.utils.ShortcutUtils;
 
 import java.io.File;
@@ -36,7 +36,7 @@ public class TermuxCreateShortcutActivity extends AppCompatActivity {
         setContentView(R.layout.activity_termux_create_shortcut);
         mListView = findViewById(R.id.list);
 
-        AppCompatActivityUtils.setToolbar(this, com.termux.shared.R.id.toolbar);
+        AppCompatActivityUtils.setToolbar(this, dev.pschmitt.termux.shared.R.id.toolbar);
     }
 
     @Override
