@@ -66,8 +66,8 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
 
         Logger.logDebug(LOG_TAG, "onCreate");
 
-        setContentView(R.layout.activity_termux_widget_main);
         AppCompatActivityUtils.setNightMode(this, NightMode.getAppNightMode().getName(), true);
+        setContentView(R.layout.activity_termux_widget_main);
         applySystemBarInsets();
 
         AppCompatActivityUtils.setToolbar(this, com.termux.shared.R.id.toolbar);

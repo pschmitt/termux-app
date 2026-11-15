@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ui_primary">#D8B4FE</color>
+    <color name="ui_on_primary">#3B1D6A</color>
+    <color name="ui_container">#4A2C80</color>
+    <color name="ui_on_container">#EBDDFF</color>
+    <color name="ui_surface">#141118</color>
+    <color name="ui_row">#211C29</color>
+    <color name="ui_on_surface">#E8E0EE</color>
+    <color name="ui_on_surface_variant">#CBC3D3</color>
+    <color name="ui_outline">#958E9F</color>
+    <color name="ui_divider">#2E2937</color>
+    <color name="ui_danger">#F2B8B5</color>
+    <color name="ui_ripple">#33D8B4FE</color>
+    <color name="ui_scrim">#99000000</color>
+</resources>
