@@ -153,8 +153,8 @@ public class AdaptHelpersScriptTest {
 
     private static final String ADAPTED_MOTD = "Welcome to TermuxPP!\n"
         + "\n"
-        + "Docs:       https://github.com/pschmitt/termux-app/tree/main/docs/en\n"
-        + "Source:     https://github.com/pschmitt/termux-app\n"
+        + "Docs:       https://github.com/pschmitt/termuxpp-app/tree/main/docs/en\n"
+        + "Source:     https://github.com/pschmitt/termuxpp-app\n"
         + "\n"
         + "Working with packages:\n"
         + "\n"
@@ -258,7 +258,7 @@ public class AdaptHelpersScriptTest {
         String result2 = read(new File(prefix, "etc/motd"));
         Assert.assertTrue(result2.startsWith("Hi there!\n"));
         Assert.assertTrue(result2.endsWith("\nMy own line\n"));
-        Assert.assertTrue(result2.contains("Source:     https://github.com/pschmitt/termux-app\n"));
+        Assert.assertTrue(result2.contains("Source:     https://github.com/pschmitt/termuxpp-app\n"));
         Assert.assertFalse(result2.contains("termux.dev"));
     }
 

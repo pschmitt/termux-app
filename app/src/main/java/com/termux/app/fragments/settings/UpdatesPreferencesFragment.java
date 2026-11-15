@@ -94,8 +94,9 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
         for (UpdateTarget target : UpdateTarget.values()) {
             Preference app = findPreference(KEY_APP_PREFIX + target.id);
             if (app == null) continue;
+            app.setEnabled(target.isUpdatable());
             app.setOnPreferenceClickListener(p -> {
-                onAppClicked(target);
+                if (target.isUpdatable()) onAppClicked(target);
                 return true;
             });
         }
@@ -156,17 +157,25 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
     private void onAppClicked(@NonNull UpdateTarget target) {
         Context context = getContext();
         UpdateState state = controller.getState(target);
-        if (context == null || controller.isBusy() || state.phase != UpdateState.Phase.AVAILABLE
-                || state.offer == null) return;
+        if (context == null || controller.isBusy()) return;
+        if (state.phase == UpdateState.Phase.NOT_INSTALLED) {
+            controller.checkOne(target, selectedChannel());
+            return;
+        }
+        if (state.phase != UpdateState.Phase.AVAILABLE || state.offer == null) return;
         if (ShizukuInstaller.state(context) != ShizukuState.READY) {
             Toast.makeText(context, R.string.termux_update_app_shizuku_needed, Toast.LENGTH_LONG).show();
             return;
         }
         String name = getString(appTitle(target));
+        boolean firstInstall = !ApkInspector.isInstalled(context, target);
         DialogUtils.builder(context, R.drawable.ui_ic_system_update, false)
-                .setTitle(getString(R.string.termux_update_confirm_title, name))
+                .setTitle(getString(firstInstall ? R.string.termux_update_install_confirm_title
+                        : R.string.termux_update_confirm_title, name))
                 .setMessage(getString(R.string.termux_update_confirm_message, name, state.offer.shortCommit()))
-                .setPositiveButton(R.string.termux_update_confirm_positive, (dialog, which) -> controller.startUpdate(target))
+                .setPositiveButton(firstInstall ? R.string.termux_update_install_confirm_positive
+                        : R.string.termux_update_confirm_positive,
+                        (dialog, which) -> controller.startUpdate(target))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
@@ -230,9 +239,15 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
         for (UpdateTarget target : UpdateTarget.values()) {
             Preference app = findPreference(KEY_APP_PREFIX + target.id);
             if (app == null) continue;
+            if (!target.hasReleaseSource()) {
+                app.setSummary(R.string.termux_update_addon_unavailable);
+                app.setEnabled(false);
+                updateAppIcon(context, app, target, isInstalled(context, target.packageName));
+                continue;
+            }
             UpdateState state = controller.getState(target);
             app.setSummary(appSummary(context, target, state));
-            app.setEnabled(state.phase != UpdateState.Phase.NOT_INSTALLED);
+            app.setEnabled(target.isUpdatable());
             updateAppIcon(context, app, target, state.phase != UpdateState.Phase.NOT_INSTALLED);
         }
     }
@@ -305,6 +320,10 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
         switch (target) {
             case API: return R.drawable.ui_ic_extension;
             case TASKER: return R.drawable.ui_ic_bolt;
+            case FLOAT: return R.drawable.ui_ic_float;
+            case BOOT: return R.drawable.ui_ic_power;
+            case STYLING: return R.drawable.ui_ic_palette;
+            case WIDGET: return R.drawable.ui_ic_extension;
             case CORE:
             default: return R.drawable.ui_ic_terminal;
         }
@@ -315,6 +334,10 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
         switch (target) {
             case API: return R.string.termux_update_app_api;
             case TASKER: return R.string.termux_update_app_tasker;
+            case FLOAT: return R.string.termux_update_app_float;
+            case BOOT: return R.string.termux_update_app_boot;
+            case STYLING: return R.string.termux_update_app_styling;
+            case WIDGET: return R.string.termux_update_app_widget;
             case CORE:
             default: return R.string.termux_update_app_core;
         }
@@ -322,7 +345,10 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
 
     @NonNull
     private String appSummary(@NonNull Context context, @NonNull UpdateTarget target, @NonNull UpdateState state) {
-        if (state.phase == UpdateState.Phase.NOT_INSTALLED) return getString(R.string.termux_update_app_not_installed);
+        if (state.phase == UpdateState.Phase.NOT_INSTALLED) {
+            return getString(target.versionedApkPrefix == null ? R.string.termux_update_app_not_installed
+                    : R.string.termux_update_addon_not_installed);
+        }
 
         String installed = installedSummary(context, target);
         switch (state.phase) {
@@ -330,16 +356,19 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
                 return installed;
             case AVAILABLE:
                 boolean ready = ShizukuInstaller.state(context) == ShizukuState.READY;
-                return installed + "\n" + statusText(context, state) + " "
-                        + getString(ready ? R.string.termux_update_app_tap_to_update
+                boolean isInstalled = isInstalled(context, target.packageName);
+                return installed + "\n" + statusText(context, target, state) + " "
+                        + getString(ready ? (isInstalled ? R.string.termux_update_app_tap_to_update
+                                : R.string.termux_update_app_tap_to_install)
                                 : R.string.termux_update_app_shizuku_needed);
             default:
-                return installed + "\n" + statusText(context, state);
+                return installed + "\n" + statusText(context, target, state);
         }
     }
 
     @NonNull
     private String installedSummary(@NonNull Context context, @NonNull UpdateTarget target) {
+        if (target.versionedApkPrefix != null) return getString(R.string.termux_update_addon_installed);
         InstalledBuild build = target == UpdateTarget.CORE
                 ? InstalledBuild.parse(BuildConfig.GIT_REVISION)
                 : ApkInspector.declaredBuild(context, target);
@@ -351,17 +380,23 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
     }
 
     @NonNull
-    private String statusText(@NonNull Context context, @NonNull UpdateState state) {
+    private String statusText(@NonNull Context context, @NonNull UpdateTarget target, @NonNull UpdateState state) {
         switch (state.phase) {
             case CHECKING:
                 return getString(R.string.termux_update_status_checking);
             case UP_TO_DATE:
                 return getString(R.string.termux_update_status_up_to_date);
+            case UNAVAILABLE:
+                return getString(target.versionedApkPrefix != null
+                        ? R.string.termux_update_addon_unavailable_status
+                        : R.string.termux_update_status_unavailable);
             case AVAILABLE:
                 return state.offer == null ? "" : getString(R.string.termux_update_status_available,
                         state.offer.shortCommit(), Formatter.formatShortFileSize(context, state.offer.apk.size));
             case NOT_ELIGIBLE:
-                return getString(R.string.termux_update_status_not_eligible);
+                return getString(target.versionedApkPrefix != null
+                        ? R.string.termux_update_addon_update_unavailable
+                        : R.string.termux_update_status_not_eligible);
             case CHECK_FAILED:
                 return getString(R.string.termux_update_status_check_failed, state.detail == null ? "?" : state.detail);
             case DOWNLOADING:

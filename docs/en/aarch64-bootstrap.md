@@ -117,7 +117,7 @@ Stock `termux-am` embeds `com.termux` as its Android caller identity. Stock
 `termux-api` targets the upstream receiver and socket. Filesystem redirection
 cannot fix either identity. Build the matching sources from
 [TermuxAm](https://github.com/pschmitt/TermuxAm) and
-[termux-api-package](https://github.com/pschmitt/termux-api-package).
+[termux-api-package](https://github.com/pschmitt/termuxpp-api-package).
 
 On a build worker with JDK 17, SDK 35, and NDK 29.0.14206865:
 

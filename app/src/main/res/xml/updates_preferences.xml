@@ -54,6 +54,26 @@
             app:key="update_app_tasker"
             app:title="@string/termux_update_app_tasker" />
 
+        <Preference
+            android:layout="@layout/ui_preference_row_app"
+            app:key="update_app_float"
+            app:title="@string/termux_update_app_float" />
+
+        <Preference
+            android:layout="@layout/ui_preference_row_app"
+            app:key="update_app_boot"
+            app:title="@string/termux_update_app_boot" />
+
+        <Preference
+            android:layout="@layout/ui_preference_row_app"
+            app:key="update_app_styling"
+            app:title="@string/termux_update_app_styling" />
+
+        <Preference
+            android:layout="@layout/ui_preference_row_app"
+            app:key="update_app_widget"
+            app:title="@string/termux_update_app_widget" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>

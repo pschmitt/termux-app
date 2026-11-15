@@ -8,10 +8,11 @@ public final class UpdateState {
 
     public enum Phase {
         IDLE,
-        /** The companion is not installed; it is never installed by the updater. */
+        /** The target is not installed; tapping its Updates row may check for a first-install offer. */
         NOT_INSTALLED,
         CHECKING,
         UP_TO_DATE,
+        UNAVAILABLE,
         AVAILABLE,
         NOT_ELIGIBLE,
         CHECK_FAILED,

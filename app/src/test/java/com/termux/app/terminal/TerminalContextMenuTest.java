@@ -30,11 +30,11 @@ public class TerminalContextMenuTest {
     }
 
     private static TerminalContextMenu.State everything() {
-        return new TerminalContextMenu.State(true, true, true, 1234, true, false);
+        return new TerminalContextMenu.State(true, true, 1234, true, false);
     }
 
     private static TerminalContextMenu.State minimal() {
-        return new TerminalContextMenu.State(false, false, false, 1234, false, false);
+        return new TerminalContextMenu.State(false, false, 1234, false, false);
     }
 
     private static List<Integer> sheetIds(Activity activity, TerminalContextMenu.State state) {
@@ -76,7 +76,7 @@ public class TerminalContextMenuTest {
                 TerminalContextMenu.SHARE_TRANSCRIPT, TerminalContextMenu.AUTOFILL_USERNAME,
                 TerminalContextMenu.AUTOFILL_PASSWORD, TerminalContextMenu.RESET_TERMINAL,
                 TerminalContextMenu.KILL_PROCESS, TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON,
-                TerminalContextMenu.STYLING, TerminalContextMenu.SETTINGS),
+                TerminalContextMenu.SETTINGS),
             sheetIds(activity(), everything()));
         Assert.assertEquals(Arrays.asList(
                 TerminalContextMenu.SELECT_URL, TerminalContextMenu.SHARE_TRANSCRIPT,

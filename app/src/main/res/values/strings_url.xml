@@ -3,6 +3,9 @@
 
     <string name="title_open_hyperlink">Open this link?</string>
     <string name="msg_open_hyperlink_concealing">The text of this link does not show where it leads to. Only open it if you trust the address.\n\nShown text:\n%1$s\n\nAddress:\n%2$s</string>
+    <string name="msg_hyperlink_warning">The link text hides its destination. Check the address before opening it.</string>
+    <string name="label_hyperlink_text">SHOWN TEXT</string>
+    <string name="label_hyperlink_address">DESTINATION</string>
     <string name="action_open_hyperlink">Open</string>
     <string name="action_copy_hyperlink">Copy address</string>
     <string name="msg_hyperlink_copied_to_clipboard">Address copied to clipboard</string>

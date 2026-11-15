@@ -2,7 +2,7 @@
 <resources>
 
     <string name="termux_updates_title">Updates</string>
-    <string name="termux_updates_summary">Check for and install new builds of TermuxPP, Termux:API and Termux:Tasker over Shizuku</string>
+    <string name="termux_updates_summary">Check for and install new builds of TermuxPP, Termux:API, Termux:Tasker and compatible TermuxPP add-ons over Shizuku</string>
 
     <string name="termux_update_channel_title">Channel</string>
     <string name="termux_update_channel_latest">Latest</string>
@@ -11,10 +11,21 @@
     <string name="termux_update_app_core">TermuxPP</string>
     <string name="termux_update_app_api">Termux:API</string>
     <string name="termux_update_app_tasker">Termux:Tasker</string>
+    <string name="termux_update_app_float">Termux:Float</string>
+    <string name="termux_update_app_boot">Termux:Boot</string>
+    <string name="termux_update_app_styling">Termux:Styling</string>
+    <string name="termux_update_app_widget">Termux:Widget</string>
+    <string name="termux_update_addon_installed">Installed.</string>
+    <string name="termux_update_addon_not_installed">Not installed. Tap to check for a compatible fork release.</string>
+    <string name="termux_update_addon_unavailable">No TermuxPP-compatible build is available for this add-on.</string>
+    <string name="termux_update_addon_unavailable_status">No compatible release is available yet.</string>
+    <string name="termux_styling_unavailable_message">The TermuxPP-compatible Styling app is not installed. Check the TermuxPP Updates screen for a compatible build; upstream F-Droid builds cannot be used with TermuxPP.</string>
+    <string name="termux_update_addon_update_unavailable">Installed add-on versions cannot yet be compared with releases.</string>
     <string name="termux_update_app_installed">Installed: commit %1$s</string>
     <string name="termux_update_app_installed_unknown">Installed: unknown commit (not a published build)</string>
-    <string name="termux_update_app_not_installed">Not installed. The updater never installs apps.</string>
+    <string name="termux_update_app_not_installed">Not installed. Tap to check for an installable build.</string>
     <string name="termux_update_app_tap_to_update">Tap to update.</string>
+    <string name="termux_update_app_tap_to_install">Tap to install.</string>
     <string name="termux_update_app_shizuku_needed">Shizuku is not ready, see above.</string>
 
     <string name="termux_update_warning_title">Before you update</string>
@@ -31,6 +42,7 @@
     <string name="termux_update_status_idle">Not checked yet.</string>
     <string name="termux_update_status_checking">Checking for updates…</string>
     <string name="termux_update_status_up_to_date">Up to date.</string>
+    <string name="termux_update_status_unavailable">No published TermuxPP build is available yet.</string>
     <string name="termux_update_status_available">Update available: build %1$s (%2$s).</string>
     <string name="termux_update_status_not_eligible">This build cannot be compared with the published one (a local build, not on the main branch, or a different history). No update is offered.</string>
     <string name="termux_update_status_check_failed">The check failed: %1$s</string>
@@ -42,11 +54,13 @@
     <string name="termux_update_status_failed_detail">%1$s (%2$s)</string>
 
     <string name="termux_update_check">Check for updates</string>
-    <string name="termux_update_check_summary">Checks all installed apps. Contacts GitHub only when you tap.</string>
+    <string name="termux_update_check_summary">Checks installed apps and compatible add-on releases. Contacts GitHub only when you tap.</string>
     <string name="termux_update_cancel">Cancel</string>
+    <string name="termux_update_install_confirm_title">Install %1$s?</string>
     <string name="termux_update_confirm_title">Update %1$s?</string>
     <string name="termux_update_confirm_message">Build %2$s of %1$s will be downloaded, verified against its published checksum and the signing certificate of the installed apps, and installed through Shizuku.\n\nTermuxPP, Termux:API and Termux:Tasker share one user id, so Android ends the processes of all of them when %1$s is replaced. Open terminal sessions and running tasks stop.</string>
     <string name="termux_update_confirm_positive">Update</string>
+    <string name="termux_update_install_confirm_positive">Install</string>
 
     <string name="termux_update_failure_no_apk">The release has no APK for this device.</string>
     <string name="termux_update_failure_not_trusted">The download address is not trusted.</string>

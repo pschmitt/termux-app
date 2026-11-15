@@ -21,7 +21,6 @@ public final class TerminalContextMenu {
     public static final int AUTOFILL_PASSWORD = 2;
     public static final int RESET_TERMINAL = 3;
     public static final int KILL_PROCESS = 4;
-    public static final int STYLING = 5;
     public static final int TOGGLE_KEEP_SCREEN_ON = 6;
     public static final int SETTINGS = 8;
     public static final int SHARE_SELECTED_TEXT = 10;
@@ -31,16 +30,14 @@ public final class TerminalContextMenu {
     public static final class State {
         public final boolean autoFillEnabled;
         public final boolean hasSelectedText;
-        public final boolean stylingAvailable;
         public final int sessionPid;
         public final boolean sessionRunning;
         public final boolean keepScreenOn;
 
-        public State(boolean autoFillEnabled, boolean hasSelectedText, boolean stylingAvailable,
+        public State(boolean autoFillEnabled, boolean hasSelectedText,
                      int sessionPid, boolean sessionRunning, boolean keepScreenOn) {
             this.autoFillEnabled = autoFillEnabled;
             this.hasSelectedText = hasSelectedText;
-            this.stylingAvailable = stylingAvailable;
             this.sessionPid = sessionPid;
             this.sessionRunning = sessionRunning;
             this.keepScreenOn = keepScreenOn;
@@ -68,10 +65,8 @@ public final class TerminalContextMenu {
                 R.drawable.ui_ic_power, state.sessionRunning, true)
             .addToggle(TOGGLE_KEEP_SCREEN_ON, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_lightbulb,
                 state.keepScreenOn)
-            .addGroup(R.string.ui_menu_group_app);
-        if (state.stylingAvailable)
-            sheet.addItem(STYLING, R.string.action_style_terminal, R.drawable.ui_ic_palette);
-        sheet.addItem(SETTINGS, R.string.action_open_settings, R.drawable.ui_ic_settings);
+            .addGroup(R.string.ui_menu_group_app)
+            .addItem(SETTINGS, R.string.action_open_settings, R.drawable.ui_ic_settings);
         return sheet;
     }
 
@@ -88,8 +83,6 @@ public final class TerminalContextMenu {
         menu.add(Menu.NONE, RESET_TERMINAL, Menu.NONE, R.string.action_reset_terminal);
         menu.add(Menu.NONE, KILL_PROCESS, Menu.NONE, resources.getString(R.string.action_kill_process, state.sessionPid))
             .setEnabled(state.sessionRunning);
-        if (state.stylingAvailable)
-            menu.add(Menu.NONE, STYLING, Menu.NONE, R.string.action_style_terminal);
         menu.add(Menu.NONE, TOGGLE_KEEP_SCREEN_ON, Menu.NONE, R.string.action_toggle_keep_screen_on)
             .setCheckable(true).setChecked(state.keepScreenOn);
         menu.add(Menu.NONE, SETTINGS, Menu.NONE, R.string.action_open_settings);

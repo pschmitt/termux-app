@@ -89,6 +89,18 @@ public class ApkFactsTest {
     }
 
     @Test
+    public void firstInstallRequiresForkPackageSharedUidAndCoreSigner() {
+        ApkFacts archive = facts(UpdateTarget.BOOT.packageName, UID, 1000, "aa");
+        assertNull(ApkFacts.checkInstallable(UpdateTarget.BOOT, null, archive, CORE));
+        assertEquals(UpdateFailure.WRONG_PACKAGE, ApkFacts.checkInstallable(UpdateTarget.BOOT, null,
+                facts(UpdateTarget.WIDGET.packageName, UID, 1000, "aa"), CORE));
+        assertEquals(UpdateFailure.SHARED_USER_MISMATCH, ApkFacts.checkInstallable(UpdateTarget.BOOT, null,
+                facts(UpdateTarget.BOOT.packageName, "com.termux", 1000, "aa"), CORE));
+        assertEquals(UpdateFailure.SIGNATURE_MISMATCH, ApkFacts.checkInstallable(UpdateTarget.BOOT, null,
+                facts(UpdateTarget.BOOT.packageName, UID, 1000, "bb"), CORE));
+    }
+
+    @Test
     public void lowerVersionIsADowngrade() {
         assertEquals(UpdateFailure.DOWNGRADE, core(facts(CORE_PKG, UID, 117, "aa")));
         assertEquals(UpdateFailure.DOWNGRADE, api(facts(API_PKG, UID, 4, "aa")));

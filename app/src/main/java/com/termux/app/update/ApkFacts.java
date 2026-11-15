@@ -33,19 +33,20 @@ public final class ApkFacts {
      * package signed by the same certificates; an older one is a downgrade.
      */
     @Nullable
-    public static UpdateFailure checkInstallable(@NonNull UpdateTarget target, @NonNull ApkFacts installed,
+    public static UpdateFailure checkInstallable(@NonNull UpdateTarget target, @Nullable ApkFacts installed,
                                                  @NonNull ApkFacts archive, @NonNull ApkFacts core) {
         if (archive.packageName == null || !archive.packageName.equals(target.packageName)
-                || !archive.packageName.equals(installed.packageName)) {
+                || (installed != null && !archive.packageName.equals(installed.packageName))) {
             return UpdateFailure.WRONG_PACKAGE;
         }
         if (!UpdateTarget.SHARED_USER_ID.equals(archive.sharedUserId)) return UpdateFailure.SHARED_USER_MISMATCH;
-        if (archive.signerDigests.isEmpty() || installed.signerDigests.isEmpty() || core.signerDigests.isEmpty()
-                || !archive.signerDigests.equals(installed.signerDigests)
+        if (archive.signerDigests.isEmpty() || core.signerDigests.isEmpty()
+                || (installed != null && installed.signerDigests.isEmpty())
+                || (installed != null && !archive.signerDigests.equals(installed.signerDigests))
                 || !archive.signerDigests.equals(core.signerDigests)) {
             return UpdateFailure.SIGNATURE_MISMATCH;
         }
-        if (archive.versionCode < installed.versionCode) return UpdateFailure.DOWNGRADE;
+        if (installed != null && archive.versionCode < installed.versionCode) return UpdateFailure.DOWNGRADE;
         return null;
     }
 

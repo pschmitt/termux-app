@@ -1,6 +1,7 @@
 package com.termux.app.update;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -34,9 +35,10 @@ public class UpdateCheckerTest {
         @Override
         public String fetchApiJson(String url) throws IOException {
             requests.add(url);
-            if (url.equals(API + "/releases/tags/latest")) {
+            if (url.endsWith("/releases/tags/latest") || url.endsWith("/releases/latest")) {
                 if (releaseError != null) throw releaseError;
-                return releaseJson;
+                if (releaseJson != null) return releaseJson;
+                throw new HttpStatusException(404);
             }
             if (url.startsWith(API + "/compare/")) {
                 if (compareStatus != 200) throw new HttpStatusException(compareStatus);
@@ -67,6 +69,15 @@ public class UpdateCheckerTest {
             assets.put(new JSONObject().put("name", assetNamesAndSizes[i]).put("size", Long.parseLong(assetNamesAndSizes[i + 1])));
         }
         return new JSONObject().put("body", body).put("assets", assets).toString();
+    }
+
+    private static String taggedRelease(String tag, String... assetNamesAndSizes) throws Exception {
+        JSONArray assets = new JSONArray();
+        for (int i = 0; i < assetNamesAndSizes.length; i += 2) {
+            assets.put(new JSONObject().put("name", assetNamesAndSizes[i])
+                    .put("size", Long.parseLong(assetNamesAndSizes[i + 1])));
+        }
+        return new JSONObject().put("tag_name", tag).put("assets", assets).toString();
     }
 
     private static String body(String commit) {
@@ -250,6 +261,42 @@ public class UpdateCheckerTest {
     }
 
     @Test
+    public void absentAddonCanBeInstalledFromItsForkRelease() throws Exception {
+        FakeNetwork network = new FakeNetwork();
+        network.releaseJson = taggedRelease("v0.8.1",
+                "termux-boot-app_v0.8.1+github.debug.apk", "700", "checksums-sha256.txt", "100");
+        UpdateChecker.Result result = new UpdateChecker(network, API).check(UpdateTarget.BOOT,
+                InstalledBuild.parse(null), null, Collections.<String>emptyList(), UpdateChannel.LATEST, true);
+        assertEquals(UpdateChecker.Kind.AVAILABLE, result.kind);
+        assertEquals("v0.8.1", result.offer.shortCommit());
+        assertEquals("termux-boot-app_v0.8.1+github.debug.apk", result.offer.apk.name);
+        assertEquals("checksums-sha256.txt", result.offer.checksums.name);
+        assertEquals(Collections.singletonList(API + "/releases/latest"), network.requests);
+    }
+
+    @Test
+    public void installedAddonIsNotReportedAsAlwaysAvailable() throws Exception {
+        FakeNetwork network = new FakeNetwork();
+        network.releaseJson = taggedRelease("v0.8.1",
+                "termux-boot-app_v0.8.1+github.debug.apk", "700", "checksums-sha256.txt", "100");
+        UpdateChecker.Result result = new UpdateChecker(network, API).check(UpdateTarget.BOOT,
+                InstalledBuild.parse(null), null, Collections.<String>emptyList(), UpdateChannel.LATEST, false);
+        assertEquals(UpdateChecker.Kind.NOT_ELIGIBLE, result.kind);
+        assertNull(result.offer);
+        assertTrue(network.requests.isEmpty());
+    }
+
+    @Test
+    public void missingAddonReleaseIsGracefullyUnavailable() {
+        FakeNetwork network = new FakeNetwork();
+        UpdateChecker.Result result = new UpdateChecker(network, API).check(UpdateTarget.WIDGET,
+                InstalledBuild.parse(null), null, Collections.<String>emptyList(), UpdateChannel.LATEST, true);
+        assertEquals(UpdateChecker.Kind.UNAVAILABLE, result.kind);
+        assertNull(result.offer);
+        assertEquals(Collections.singletonList(API + "/releases/latest"), network.requests);
+    }
+
+    @Test
     public void companionsOfferTheirOwnFixedApk() throws Exception {
         FakeNetwork api = companionNetwork("ahead", "termux-api-app_debug.apk", "700", "SHA256SUMS", "100");
         UpdateChecker.Result result = checkCompanion(api, UpdateTarget.API, InstalledBuild.parseMetaData("git-" + INSTALLED));
@@ -261,6 +308,15 @@ public class UpdateCheckerTest {
         result = checkCompanion(tasker, UpdateTarget.TASKER, InstalledBuild.parseMetaData("git-" + INSTALLED));
         assertEquals(UpdateChecker.Kind.AVAILABLE, result.kind);
         assertEquals("termux-tasker-app_debug.apk", result.offer.apk.name);
+    }
+
+    @Test
+    public void absentCompanionCanBeInstalledWithoutComparingCommits() throws Exception {
+        FakeNetwork network = companionNetwork("ahead", "termux-api-app_debug.apk", "700", "SHA256SUMS", "100");
+        UpdateChecker.Result result = new UpdateChecker(network, API).check(UpdateTarget.API,
+                InstalledBuild.parse(null), null, Collections.<String>emptyList(), UpdateChannel.LATEST, true);
+        assertEquals(UpdateChecker.Kind.AVAILABLE, result.kind);
+        assertEquals(Collections.singletonList(API + "/releases/tags/latest"), network.requests);
     }
 
     @Test
@@ -289,14 +345,23 @@ public class UpdateCheckerTest {
         FakeNetwork network = new FakeNetwork();
         for (UpdateTarget target : UpdateTarget.values()) {
             network.requests.clear();
-            new UpdateChecker(network).check(target, InstalledBuild.parse(INSTALLED), VARIANT,
+            UpdateChecker.Result result = new UpdateChecker(network).check(target, InstalledBuild.parse(INSTALLED), VARIANT,
                     Collections.singletonList("arm64-v8a"), UpdateChannel.LATEST);
-            assertEquals(Collections.singletonList(
-                    "https://api.github.com/repos/" + target.repository + "/releases/tags/latest"), network.requests);
+            if (target.isUpdatable()) {
+                if (target.versionedApkPrefix != null) {
+                    assertEquals(UpdateChecker.Kind.NOT_ELIGIBLE, result.kind);
+                    assertTrue(network.requests.isEmpty());
+                } else {
+                    assertEquals(Collections.singletonList(target.releaseApiUrl()), network.requests);
+                }
+            } else {
+                assertEquals(UpdateChecker.Kind.NOT_ELIGIBLE, result.kind);
+                assertTrue(network.requests.isEmpty());
+            }
         }
-        assertEquals("pschmitt/termux-app", UpdateTarget.CORE.repository);
-        assertEquals("pschmitt/termux-api", UpdateTarget.API.repository);
-        assertEquals("pschmitt/termux-tasker", UpdateTarget.TASKER.repository);
+        assertEquals("pschmitt/termuxpp-app", UpdateTarget.CORE.repository);
+        assertEquals("pschmitt/termuxpp-api", UpdateTarget.API.repository);
+        assertEquals("pschmitt/termuxpp-tasker", UpdateTarget.TASKER.repository);
     }
 
     @Test
@@ -326,7 +391,15 @@ public class UpdateCheckerTest {
 
     @Test
     public void targetAllowlistIsFixed() {
-        assertEquals(3, UpdateTarget.values().length);
+        assertEquals(7, UpdateTarget.values().length);
+        assertFalse(UpdateTarget.FLOAT.isUpdatable());
+        assertTrue(UpdateTarget.BOOT.isUpdatable());
+        assertTrue(UpdateTarget.STYLING.isUpdatable());
+        assertTrue(UpdateTarget.WIDGET.isUpdatable());
+        assertNull(UpdateTarget.FLOAT.repository);
+        assertEquals("pschmitt/termuxpp-boot", UpdateTarget.BOOT.repository);
+        assertEquals("pschmitt/termuxpp-styling", UpdateTarget.STYLING.repository);
+        assertEquals("pschmitt/termuxpp-widget", UpdateTarget.WIDGET.repository);
         assertEquals(UpdateTarget.API, UpdateTarget.forPackage("dev.pschmitt.termux.api"));
         assertEquals(UpdateTarget.TASKER, UpdateTarget.forPackage("dev.pschmitt.termux.tasker"));
         assertEquals(UpdateTarget.CORE, UpdateTarget.forPackage("dev.pschmitt.termux"));

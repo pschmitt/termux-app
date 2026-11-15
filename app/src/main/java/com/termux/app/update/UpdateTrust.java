@@ -22,8 +22,8 @@ import java.util.regex.Pattern;
 /**
  * What the updater trusts, in one place: the repositories it may install from (those of the
  * {@link UpdateTarget} allowlist), the hosts it may talk to, and the integrity primitives. Nothing
- * downloaded is ever interpreted as a command or a path; the only things taken from release
- * metadata are a commit hash, asset names that must match {@link #SAFE_NAME} and sizes.
+ * downloaded is ever interpreted as a command or a path; release tags and asset names are validated
+ * against restrictive allowlists before they can form a download URL.
  */
 public final class UpdateTrust {
 
@@ -31,6 +31,7 @@ public final class UpdateTrust {
     private static final Pattern SAFE_NAME = Pattern.compile("[A-Za-z0-9_+][A-Za-z0-9._+-]{0,127}");
 
     private static final Pattern SHA256_LINE = Pattern.compile("([0-9a-fA-F]{64})[ \\t]+\\*?(.+)");
+    private static final Pattern SAFE_TAG = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._+-]{0,127}");
 
     private UpdateTrust() {}
 
@@ -39,13 +40,22 @@ public final class UpdateTrust {
     }
 
     /**
-     * The download URL of the asset {@code name} of {@code target}'s latest release. The URL is built
-     * here from constants, not taken from the release metadata. Throws for names that are not safe.
+     * The download URL of the asset {@code name} from a pinned, validated release tag. The host and
+     * repository are fixed here; only a safe tag and asset name from trusted API metadata are used.
      */
     @NonNull
     public static String assetUrl(@NonNull UpdateTarget target, @NonNull String name) {
-        if (!isSafeAssetName(name)) throw new IllegalArgumentException("Unsafe asset name");
-        return "https://github.com" + target.assetPathPrefix() + name;
+        return assetUrl(target, UpdateTarget.LATEST_TAG, name);
+    }
+
+    @NonNull
+    public static String assetUrl(@NonNull UpdateTarget target, @NonNull String tag, @NonNull String name) {
+        if (!isSafeTag(tag) || !isSafeAssetName(name)) throw new IllegalArgumentException("Unsafe release asset");
+        return "https://github.com" + target.assetPathPrefix(tag) + name;
+    }
+
+    public static boolean isSafeTag(@Nullable String tag) {
+        return tag != null && SAFE_TAG.matcher(tag).matches() && !tag.contains("..");
     }
 
     /**
@@ -54,7 +64,12 @@ public final class UpdateTrust {
      * GitHub then redirects to its asset CDN, which {@link #isTrustedDownloadHost} covers.
      */
     public static boolean isTrustedAssetUrl(@NonNull UpdateTarget target, @Nullable String url) {
-        if (url == null) return false;
+        return isTrustedAssetUrl(target, UpdateTarget.LATEST_TAG, url);
+    }
+
+    public static boolean isTrustedAssetUrl(@NonNull UpdateTarget target, @NonNull String tag,
+                                            @Nullable String url) {
+        if (!target.hasReleaseSource() || url == null || !isSafeTag(tag)) return false;
         URI uri;
         try {
             uri = new URI(url);
@@ -65,10 +80,10 @@ public final class UpdateTrust {
         if (!"https".equals(uri.getScheme()) || !"github.com".equals(uri.getHost())
                 || uri.getPort() != -1 || uri.getRawUserInfo() != null
                 || uri.getRawQuery() != null || uri.getRawFragment() != null
-                || path == null || !path.startsWith(target.assetPathPrefix())) {
+                || path == null || !path.startsWith(target.assetPathPrefix(tag))) {
             return false;
         }
-        String name = path.substring(target.assetPathPrefix().length());
+        String name = path.substring(target.assetPathPrefix(tag).length());
         return isSafeAssetName(name);
     }
 

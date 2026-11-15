@@ -44,8 +44,8 @@ public class TermuxHelperRewritesTest {
         values.put("REDIRECT_SO_VAR", "TERMUX_PKG_REDIRECT_SO");
         values.put("CONFIG_DIR_NAME", ".config/termuxpp");
         values.put("PRODUCT_NAME", "TermuxPP");
-        values.put("REPO_URL", "https://github.com/pschmitt/termux-app");
-        values.put("DOCS_URL", "https://github.com/pschmitt/termux-app/tree/main/docs/en");
+        values.put("REPO_URL", "https://github.com/pschmitt/termuxpp-app");
+        values.put("DOCS_URL", "https://github.com/pschmitt/termuxpp-app/tree/main/docs/en");
         values.put("UPSTREAM_PACKAGES_ISSUES_URL", "https://github.com/termux/termux-packages/issues");
         values.put("FORK_ONLY", "fork");
         return values;
@@ -356,8 +356,8 @@ public class TermuxHelperRewritesTest {
         List<TermuxHelperRewrites.Rule> rules = forkRules();
         String stock = stockFile("etc/motd");
         String adapted = TermuxHelperRewrites.apply(rules, "etc/motd", stock);
-        Assert.assertTrue(adapted.startsWith("Welcome to TermuxPP!\n\nDocs:       https://github.com/pschmitt/termux-app/tree/main/docs/en\n"
-            + "Source:     https://github.com/pschmitt/termux-app\n\nWorking with packages:\n"));
+        Assert.assertTrue(adapted.startsWith("Welcome to TermuxPP!\n\nDocs:       https://github.com/pschmitt/termuxpp-app/tree/main/docs/en\n"
+            + "Source:     https://github.com/pschmitt/termuxpp-app\n\nWorking with packages:\n"));
         Assert.assertTrue(adapted.endsWith("try 'termux-change-repo' command.\n\n"
             + "Package issues (upstream Termux): https://github.com/termux/termux-packages/issues\n"));
         Assert.assertFalse(adapted.contains("termux.dev"));

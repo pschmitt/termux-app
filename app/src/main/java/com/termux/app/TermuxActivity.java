@@ -1,14 +1,12 @@
 package com.termux.app;
 
 import android.annotation.SuppressLint;
-import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.ContextMenu;
@@ -28,7 +26,6 @@ import android.widget.Toast;
 import com.termux.R;
 import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.terminal.ReportIssueRequest;
-import com.termux.app.terminal.StylingApp;
 import com.termux.app.terminal.TerminalContextMenu;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxContextMenuSheet;
@@ -662,10 +659,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private TerminalContextMenu.State getContextMenuState(@NonNull TerminalSession session) {
-        // Styling is checked each time the menu opens, so installing or removing Termux:Styling takes effect at once.
         return new TerminalContextMenu.State(mTerminalView.isAutoFillEnabled(),
             !DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText()),
-            StylingApp.isAvailable(getPackageManager()),
             session.getPid(), session.isRunning(), mPreferences.shouldKeepScreenOn());
     }
 
@@ -726,9 +721,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             case TerminalContextMenu.KILL_PROCESS:
                 showKillSessionDialog(session);
                 return true;
-            case TerminalContextMenu.STYLING:
-                showStylingDialog();
-                return true;
             case TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON:
                 toggleKeepScreenOn();
                 return true;
@@ -770,19 +762,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
 
-    private void showStylingDialog() {
-        Intent stylingIntent = StylingApp.createIntent();
-        try {
-            startActivity(stylingIntent);
-        } catch (ActivityNotFoundException | IllegalArgumentException e) {
-            // The startActivity() call is not documented to throw IllegalArgumentException.
-            // However, crash reporting shows that it sometimes does, so catch it here.
-            DialogUtils.builder(this, R.drawable.ui_ic_palette, false).setTitle(getString(R.string.error_styling_not_installed))
-                .setPositiveButton(R.string.action_styling_install,
-                    (dialog, which) -> ActivityUtils.startActivity(this, new Intent(Intent.ACTION_VIEW, Uri.parse(TermuxConstants.TERMUX_STYLING_FDROID_PACKAGE_URL))))
-                .setNegativeButton(android.R.string.cancel, null).show();
-        }
-    }
     private void toggleKeepScreenOn() {
         if (mTerminalView.getKeepScreenOn()) {
             mTerminalView.setKeepScreenOn(false);

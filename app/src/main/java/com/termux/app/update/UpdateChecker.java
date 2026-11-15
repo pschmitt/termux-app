@@ -45,24 +45,30 @@ public final class UpdateChecker {
 
     /** A newer build and the files that install it. */
     public static final class Offer {
-        /** Full 40-digit commit of the published build. */
+        /** Full commit for rolling fork builds, or the fixed GitHub release tag for add-ons. */
         public final String commit;
+        @Nullable public final String releaseTag;
         public final Asset apk;
         public final Asset checksums;
 
         public Offer(@NonNull String commit, @NonNull Asset apk, @NonNull Asset checksums) {
+            this(commit, null, apk, checksums);
+        }
+
+        Offer(@NonNull String commit, @Nullable String releaseTag, @NonNull Asset apk, @NonNull Asset checksums) {
             this.commit = commit;
+            this.releaseTag = releaseTag;
             this.apk = apk;
             this.checksums = checksums;
         }
 
         @NonNull
         public String shortCommit() {
-            return commit.substring(0, SHORT_HASH_LENGTH);
+            return releaseTag == null ? commit.substring(0, SHORT_HASH_LENGTH) : releaseTag;
         }
     }
 
-    public enum Kind { UP_TO_DATE, AVAILABLE, NOT_ELIGIBLE, FAILED }
+    public enum Kind { UP_TO_DATE, AVAILABLE, NOT_ELIGIBLE, UNAVAILABLE, FAILED }
 
     public static final class Result {
         public final Kind kind;
@@ -110,11 +116,26 @@ public final class UpdateChecker {
     @NonNull
     public Result check(@NonNull UpdateTarget target, @NonNull InstalledBuild installed, @Nullable String variant,
                         @NonNull List<String> supportedAbis, @NonNull UpdateChannel channel) {
-        if (!installed.isComparable() || installed.commit == null) return new Result(Kind.NOT_ELIGIBLE, null, null);
-        if (target.hasVariants() && (variant == null || !VARIANT.matcher(variant).matches())) {
-            return new Result(Kind.FAILED, null, "unknown package variant");
-        }
+        return check(target, installed, variant, supportedAbis, channel, false);
+    }
+
+    @NonNull
+    public Result check(@NonNull UpdateTarget target, @NonNull InstalledBuild installed, @Nullable String variant,
+                        @NonNull List<String> supportedAbis, @NonNull UpdateChannel channel, boolean firstInstall) {
+        if (!target.isUpdatable()) return new Result(Kind.NOT_ELIGIBLE, null, "no signed release source");
         try {
+            if (target.versionedApkPrefix != null) {
+                // The tagged addon release has no comparable commit metadata. Until the installed
+                // package can be compared reliably to its release, never claim an update is available.
+                if (!firstInstall) return new Result(Kind.NOT_ELIGIBLE, null, null);
+                return checkVersionedRelease(target);
+            }
+            if ((!installed.isComparable() || installed.commit == null) && !firstInstall) {
+                return new Result(Kind.NOT_ELIGIBLE, null, null);
+            }
+            if (target.hasVariants() && (variant == null || !VARIANT.matcher(variant).matches())) {
+                return new Result(Kind.FAILED, null, "unknown package variant");
+            }
             // Only one channel exists; the switch keeps the extension point explicit.
             switch (channel) {
                 case LATEST:
@@ -122,13 +143,41 @@ public final class UpdateChecker {
                     return checkLatest(target, installed.commit, variant, supportedAbis);
             }
         } catch (UpdateNetwork.HttpStatusException e) {
+            if (target.versionedApkPrefix != null && e.code == HTTP_NOT_FOUND) {
+                return new Result(Kind.UNAVAILABLE, null, null);
+            }
             return new Result(Kind.FAILED, null, "GitHub returned " + e.code);
         } catch (IOException | JSONException | RuntimeException e) {
             return new Result(Kind.FAILED, null, String.valueOf(e.getMessage()));
         }
     }
 
-    private Result checkLatest(UpdateTarget target, String installedCommit, @Nullable String variant, List<String> abis)
+    private Result checkVersionedRelease(UpdateTarget target) throws IOException, JSONException {
+        String apiBaseUrl = apiBaseUrlOverride != null ? apiBaseUrlOverride : target.apiBaseUrl();
+        JSONObject release = new JSONObject(network.fetchApiJson(apiBaseUrl + "/releases/latest"));
+        String tag = release.optString("tag_name", "");
+        if (!UpdateTrust.isSafeTag(tag)) throw new IOException("latest release has an invalid tag");
+        JSONArray assets = release.optJSONArray("assets");
+        if (assets == null) throw new IOException("latest release has no assets");
+
+        Asset apk = null;
+        for (int i = 0; i < assets.length(); i++) {
+            JSONObject asset = assets.optJSONObject(i);
+            if (asset == null) continue;
+            String name = asset.optString("name", "");
+            if (!name.startsWith(target.versionedApkPrefix) || !name.endsWith(".apk")
+                    || !UpdateTrust.isSafeAssetName(name)) continue;
+            long size = asset.optLong("size", 0);
+            if (size > 0 && size <= MAX_APK_BYTES) apk = new Asset(name, size);
+            break;
+        }
+        if (apk == null) throw new IOException("latest release has no APK for this app");
+        Asset checksums = findAsset(assets, "checksums-sha256.txt");
+        if (checksums == null) throw new IOException("latest release has no checksums-sha256.txt");
+        return new Result(Kind.AVAILABLE, new Offer(tag, tag, apk, checksums), null);
+    }
+
+    private Result checkLatest(UpdateTarget target, @Nullable String installedCommit, @Nullable String variant, List<String> abis)
             throws IOException, JSONException {
         String apiBaseUrl = apiBaseUrlOverride != null ? apiBaseUrlOverride : target.apiBaseUrl();
         JSONObject release = new JSONObject(network.fetchApiJson(apiBaseUrl + "/releases/tags/" + UpdateTarget.LATEST_TAG));
@@ -136,11 +185,12 @@ public final class UpdateChecker {
         if (!matcher.find()) throw new IOException("latest release names no commit");
         String remoteCommit = matcher.group();
 
-        if (remoteCommit.startsWith(installedCommit)) return new Result(Kind.UP_TO_DATE, null, null);
-
-        CompareStatus status = compare(apiBaseUrl, installedCommit, remoteCommit);
-        if (status == null || status == CompareStatus.DIVERGED) return new Result(Kind.NOT_ELIGIBLE, null, null);
-        if (status != CompareStatus.AHEAD) return new Result(Kind.UP_TO_DATE, null, null);
+        if (installedCommit != null) {
+            if (remoteCommit.startsWith(installedCommit)) return new Result(Kind.UP_TO_DATE, null, null);
+            CompareStatus status = compare(apiBaseUrl, installedCommit, remoteCommit);
+            if (status == null || status == CompareStatus.DIVERGED) return new Result(Kind.NOT_ELIGIBLE, null, null);
+            if (status != CompareStatus.AHEAD) return new Result(Kind.UP_TO_DATE, null, null);
+        }
 
         JSONArray assets = release.optJSONArray("assets");
         if (assets == null) throw new IOException("latest release has no assets");

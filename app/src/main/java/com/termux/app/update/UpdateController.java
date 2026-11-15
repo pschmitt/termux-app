@@ -31,16 +31,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Runs checks and updates on explicit request from the Updates screen; nothing here is scheduled.
  *
- * <p>One check covers all targets (core and the installed companions), one update covers one
- * target: no unattended updates, no update-all, and nothing is promised about several apps being
- * installed together. Only one check or update runs at a time. Because the three apps share one
- * user id, replacing any of them ends the processes of all of them, this one included.
+ * <p>One check covers all installable targets; tapping an absent app checks its fork release for a
+ * first install. One install covers one target: no unattended updates, no update-all, and nothing is promised about several apps being
+ * installed together. Only one check or update runs at a time. The core and its companions share one
+ * user id, so replacing any of them ends the processes of all of them, this one included.
  *
  * <p>An update goes through these gates, each of which ends it with a distinct {@link UpdateFailure}:
  * trusted source URL, Shizuku ready, enough free storage, download of the APK and of
  * {@code SHA256SUMS} from the target's fixed release, SHA-256 and size match, the archive parses, it
  * is that package with the shared user id and the installed signing certificates (the target's and
- * this app's) and no lower version code, then the privileged install. The downloaded file lives in
+ * this app's), and for updates no lower version code, then the privileged install. The downloaded file lives in
  * the app's private cache and is wiped before each run, after the install and on every failure.
  */
 // The singleton only ever holds the application context.
@@ -140,6 +140,7 @@ public final class UpdateController {
     @MainThread
     public void refreshInstalled() {
         for (UpdateTarget target : UpdateTarget.values()) {
+            if (!target.hasReleaseSource()) continue;
             UpdateState.Phase phase = getState(target).phase;
             boolean installed = ApkInspector.isInstalled(context, target);
             if (!installed && phase != UpdateState.Phase.NOT_INSTALLED && !phase.isBusy()) {
@@ -151,8 +152,8 @@ public final class UpdateController {
     }
 
     /**
-     * Asks GitHub, one request pair per installed target, whether a newer build of the channel
-     * exists. Companions that are not installed are reported as such and cost no request. Ignored
+     * Asks GitHub whether a newer build of the channel exists for installed targets, and checks
+     * release availability for targets that can be installed from a first-install offer. Ignored
      * while another run is busy.
      */
     @MainThread
@@ -160,27 +161,41 @@ public final class UpdateController {
         if (isBusy()) return;
         cancelRequested.set(false);
         for (UpdateTarget target : UpdateTarget.values()) {
-            if (ApkInspector.isInstalled(context, target)) publish(target, UpdateState.of(UpdateState.Phase.CHECKING, null));
-            else publish(target, UpdateState.of(UpdateState.Phase.NOT_INSTALLED, null));
+            if (!target.isUpdatable()) continue;
+            publish(target, UpdateState.of(UpdateState.Phase.CHECKING, null));
         }
         submit(() -> {
             for (UpdateTarget target : UpdateTarget.values()) {
-                if (getState(target).phase != UpdateState.Phase.CHECKING) continue;
+                if (!target.isUpdatable() || getState(target).phase != UpdateState.Phase.CHECKING) continue;
                 if (cancelRequested.get()) {
                     publish(target, UpdateState.IDLE);
                     continue;
                 }
-                publishCheckResult(target, checkOne(target, channel));
+                publishCheckResult(target, performCheck(target, channel));
             }
         });
     }
 
-    private UpdateChecker.Result checkOne(UpdateTarget target, UpdateChannel channel) {
-        InstalledBuild installed = target == UpdateTarget.CORE
-                ? InstalledBuild.parse(BuildConfig.GIT_REVISION)
+    /** Checks one absent companion after its row is tapped, to offer a first install. */
+    @MainThread
+    public void checkOne(@NonNull UpdateTarget target, @NonNull UpdateChannel channel) {
+        if (!target.isUpdatable() || isBusy() || ApkInspector.isInstalled(context, target)) return;
+        cancelRequested.set(false);
+        publish(target, UpdateState.of(UpdateState.Phase.CHECKING, null));
+        submit(() -> publishCheckResult(target, performCheck(target, channel)));
+    }
+
+    private UpdateChecker.Result performCheck(UpdateTarget target, UpdateChannel channel) {
+        boolean installedApp = ApkInspector.isInstalled(context, target);
+        if (installedApp && target != UpdateTarget.CORE && !ApkInspector.declaredBuild(context, target).isComparable()
+                && target.versionedApkPrefix == null) {
+            return new UpdateChecker.Result(UpdateChecker.Kind.NOT_ELIGIBLE, null, null);
+        }
+        InstalledBuild installed = !installedApp ? InstalledBuild.parse(null)
+                : target == UpdateTarget.CORE ? InstalledBuild.parse(BuildConfig.GIT_REVISION)
                 : ApkInspector.declaredBuild(context, target);
-        return new UpdateChecker(network).check(
-                target, installed, BuildConfig.TERMUX_PACKAGE_VARIANT, supportedAbis(), channel);
+        return new UpdateChecker(network).check(target, installed, BuildConfig.TERMUX_PACKAGE_VARIANT,
+                supportedAbis(), channel, !installedApp);
     }
 
     private void publishCheckResult(UpdateTarget target, UpdateChecker.Result result) {
@@ -198,6 +213,9 @@ public final class UpdateController {
             case NOT_ELIGIBLE:
                 publish(target, UpdateState.of(UpdateState.Phase.NOT_ELIGIBLE, null));
                 break;
+            case UNAVAILABLE:
+                publish(target, UpdateState.of(UpdateState.Phase.UNAVAILABLE, null));
+                break;
             default:
                 publish(target, UpdateState.checkFailed(result.detail));
                 break;
@@ -207,7 +225,7 @@ public final class UpdateController {
     /** Downloads, verifies and installs the offer the last check found for {@code target}. */
     @MainThread
     public void startUpdate(@NonNull UpdateTarget target) {
-        if (isBusy()) return;
+        if (!target.isUpdatable() || isBusy()) return;
         UpdateState current = getState(target);
         if (current.phase != UpdateState.Phase.AVAILABLE || current.offer == null) return;
         UpdateChecker.Offer offer = current.offer;
@@ -256,7 +274,7 @@ public final class UpdateController {
     @MainThread
     public void reset() {
         for (UpdateTarget target : UpdateTarget.values()) {
-            if (!getState(target).phase.isBusy()) publish(target, UpdateState.IDLE);
+            if (target.isUpdatable() && !getState(target).phase.isBusy()) publish(target, UpdateState.IDLE);
         }
         refreshInstalled();
     }
@@ -286,9 +304,10 @@ public final class UpdateController {
     /** Gates 1 to 3 and the transfer; returns null on success. */
     @Nullable
     private UpdateFailure download(UpdateTarget target, UpdateChecker.Offer offer, File dir, File file) throws IOException {
-        String apkUrl = UpdateTrust.assetUrl(target, offer.apk.name);
-        String sumsUrl = UpdateTrust.assetUrl(target, offer.checksums.name);
-        if (!UpdateTrust.isTrustedAssetUrl(target, apkUrl) || !UpdateTrust.isTrustedAssetUrl(target, sumsUrl)) {
+        String tag = offer.releaseTag == null ? UpdateTarget.LATEST_TAG : offer.releaseTag;
+        String apkUrl = UpdateTrust.assetUrl(target, tag, offer.apk.name);
+        String sumsUrl = UpdateTrust.assetUrl(target, tag, offer.checksums.name);
+        if (!UpdateTrust.isTrustedAssetUrl(target, tag, apkUrl) || !UpdateTrust.isTrustedAssetUrl(target, tag, sumsUrl)) {
             return UpdateFailure.NOT_TRUSTED;
         }
         if (ShizukuInstaller.state(context) != ShizukuState.READY) return UpdateFailure.SHIZUKU_NOT_READY;
@@ -317,7 +336,8 @@ public final class UpdateController {
         if (Thread.currentThread().isInterrupted()) return UpdateFailure.CANCELLED;
         publish(target, UpdateState.of(UpdateState.Phase.VERIFYING, offer));
 
-        String sums = network.fetchAssetText(UpdateTrust.assetUrl(target, offer.checksums.name), MAX_CHECKSUMS_BYTES);
+        String tag = offer.releaseTag == null ? UpdateTarget.LATEST_TAG : offer.releaseTag;
+        String sums = network.fetchAssetText(UpdateTrust.assetUrl(target, tag, offer.checksums.name), MAX_CHECKSUMS_BYTES);
         Map<String, String> table = UpdateTrust.parseSha256Sums(sums);
         String expected = table.get(offer.apk.name);
         if (expected == null) return UpdateFailure.CHECKSUM_UNAVAILABLE;
@@ -327,7 +347,7 @@ public final class UpdateController {
         ApkFacts installed = ApkInspector.installed(context, target);
         ApkFacts core = ApkInspector.installed(context, UpdateTarget.CORE);
         ApkFacts archive = ApkInspector.archive(context, file);
-        if (installed == null || core == null || archive == null) return UpdateFailure.UNREADABLE_APK;
+        if (core == null || archive == null) return UpdateFailure.UNREADABLE_APK;
         return ApkFacts.checkInstallable(target, installed, archive, core);
     }
 

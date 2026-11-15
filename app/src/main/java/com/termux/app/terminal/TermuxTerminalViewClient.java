@@ -8,14 +8,20 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Environment;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.method.LinkMovementMethod;
+import android.text.style.ClickableSpan;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.termux.R;
@@ -270,14 +276,30 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             return;
         }
 
-        DialogUtils.builder(mActivity, R.drawable.ui_ic_link, false)
-            .setTitle(R.string.title_open_hyperlink)
-            .setMessage(mActivity.getString(R.string.msg_open_hyperlink_concealing, getLabelForDisplay(label), uri))
-            .setPositiveButton(R.string.action_open_hyperlink, (dialog, which) -> ShareUtils.openUrl(mActivity, uri))
-            .setNeutralButton(R.string.action_copy_hyperlink, (dialog, which) ->
+        com.google.android.material.dialog.MaterialAlertDialogBuilder builder =
+            DialogUtils.builder(mActivity, R.drawable.ui_ic_link, false);
+        View content = LayoutInflater.from(builder.getContext()).inflate(R.layout.dialog_hyperlink, null);
+        TextView labelView = content.findViewById(R.id.hyperlink_label);
+        labelView.setText(getLabelForDisplay(label));
+        AlertDialog dialog = builder.setTitle(R.string.title_open_hyperlink)
+            .setView(content)
+            .setPositiveButton(R.string.action_open_hyperlink, (di, which) -> ShareUtils.openUrl(mActivity, uri))
+            .setNeutralButton(R.string.action_copy_hyperlink, (di, which) ->
                 ShareUtils.copyTextToClipboard(mActivity, uri, mActivity.getString(R.string.msg_hyperlink_copied_to_clipboard)))
             .setNegativeButton(android.R.string.cancel, null)
-            .show();
+            .create();
+        TextView addressView = content.findViewById(R.id.hyperlink_address);
+        SpannableString address = new SpannableString(uri);
+        address.setSpan(new ClickableSpan() {
+            @Override
+            public void onClick(@NonNull View widget) {
+                dialog.dismiss();
+                ShareUtils.openUrl(mActivity, uri);
+            }
+        }, 0, address.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        addressView.setText(address);
+        addressView.setMovementMethod(LinkMovementMethod.getInstance());
+        dialog.show();
     }
 
     /** The text of a link on one line and of a bounded length. */
