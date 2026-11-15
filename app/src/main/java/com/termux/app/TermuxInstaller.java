@@ -101,7 +101,7 @@ final class TermuxInstaller {
             if (TermuxFileUtils.isTermuxPrefixDirectoryEmpty()) {
                 Logger.logInfo(LOG_TAG, "The termux prefix directory \"" + TERMUX_PREFIX_DIR_PATH + "\" exists but is empty or only contains specific unimportant files.");
             } else {
-                refreshHelperHookInBackground();
+                refreshHelperHookInBackground(activity.getApplicationContext());
                 whenDone.run();
                 return;
             }
@@ -224,11 +224,11 @@ final class TermuxInstaller {
     }
 
     /**
-     * An app update can come with a new helper rewrite table. Deploy it into the existing prefix and, when
-     * it changed, run the hook once so login and the helpers get the new rows without waiting for an apt run.
+     * An app update can come with a new helper rewrite table. Deploy it into the existing prefix and run the
+     * hook, so login and the helpers get the new rows without waiting for an apt run.
      * Never fatal: the old files keep working, the problem is logged.
      */
-    private static void refreshHelperHookInBackground() {
+    private static void refreshHelperHookInBackground(final android.content.Context context) {
         new Thread("termuxpp-helper-hook") {
             @Override
             public void run() {
@@ -237,15 +237,19 @@ final class TermuxInstaller {
                     if (TermuxBootstrapAdapter.load(TermuxConstants.TERMUX_PACKAGE_NAME, values).isStock()) return;
 
                     File workDir = new File(TermuxConstants.TERMUX_FILES_DIR_PATH, "usr.hook-refresh");
-                    if (!TermuxHelperRewrites.refreshHook(workDir, TERMUX_PREFIX_DIR,
-                        TermuxConstants.TERMUX_PREFIX_DIR_PATH, values)) return;
+                    boolean changed = TermuxHelperRewrites.refreshHook(workDir, TERMUX_PREFIX_DIR,
+                        TermuxConstants.TERMUX_PREFIX_DIR_PATH, values);
 
-                    Logger.logInfo(LOG_TAG, "The helper rewrite table changed, running the hook.");
+                    // Run the hook on every start, not only after a refresh: it is idempotent and cheap, and a
+                    // run that failed once (or an apt that replaced a helper) is retried on the next start.
+                    Logger.logInfo(LOG_TAG, "Running the helper hook" + (changed ? " (the rewrite table changed)." : "."));
                     String prefix = TermuxConstants.TERMUX_PREFIX_DIR_PATH;
                     ProcessBuilder builder = new ProcessBuilder(prefix + "/bin/bash", prefix + "/" + TermuxHelperRewrites.HOOK_SCRIPT);
-                    builder.environment().put("PREFIX", prefix);
-                    builder.environment().put("HOME", TermuxConstants.TERMUX_HOME_DIR_PATH);
-                    builder.environment().put("PATH", prefix + "/bin");
+                    // The same environment as a Termux shell: the fork binaries need LD_LIBRARY_PATH and the
+                    // pkg-redirect preload, they do not carry a runpath.
+                    builder.environment().clear();
+                    builder.environment().putAll(
+                        new com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment().getEnvironment(context, false));
                     builder.redirectErrorStream(true);
                     Process process = builder.start();
                     java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
