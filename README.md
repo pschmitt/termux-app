@@ -1,6 +1,6 @@
 # Termux:Tasker
 
-[![Build status](https://github.com/termux/termux-tasker/workflows/Build/badge.svg)](https://github.com/termux/termux-tasker/actions)
+[![Build status](https://github.com/pschmitt/termuxpp-tasker/workflows/Build/badge.svg)](https://github.com/pschmitt/termuxpp-tasker/actions)
 [![Join the chat at https://gitter.im/termux/termux](https://badges.gitter.im/termux/termux.svg)](https://gitter.im/termux/termux)
 
 A [Termux] plugin app allowing `Termux` commands to be executed from [Tasker] and other plugin host apps.
@@ -42,7 +42,7 @@ The `F-Droid` app often may not notify you of updates and you will manually have
 
 ### Github
 
-`Termux:Tasker` application can be obtained on `Github` either from [`Github Releases`](https://github.com/termux/termux-tasker/releases) for version `>= 0.6.0` or from [`Github Actions`](https://github.com/termux/termux-tasker/actions/workflows/github_action_build.yml?query=branch%3Amaster+event%3Apush).
+`Termux:Tasker` application can be obtained on `Github` either from [`Github Releases`](https://github.com/pschmitt/termuxpp-tasker/releases) for version `>= 0.6.0` or from [`Github Actions`](https://github.com/pschmitt/termuxpp-tasker/actions/workflows/github_action_build.yml?query=branch%3Amaster+event%3Apush).
 
 The APKs for `Github Releases` will be listed under `Assets` drop-down of the release. These are automatically attached when a new version is released.
 
@@ -267,8 +267,7 @@ The templates were written for version `< 0.6.0` and currently have not been upd
     - `XML`
         Download the [Termux Tasker Plugin Basic Templates Task XML](templates/plugin_hosts/tasker/Termux_Tasker_Plugin_Basic_Templates.tsk.xml) file to the android download directory. To download, right-click or hold the `Raw` button at the top after opening a file link and select `Download/Save link` or use `curl` from a termux shell. Then import the downloaded task file into Tasker by long pressing the `Task` tab button in Tasker home and selecting `Import Task`.  
 
-        `curl -L 'https://github.com/termux/termux-tasker/raw/master/templates/plugin_hosts/tasker/Termux_Tasker_Plugin_Basic_Templates.tsk.xml' -o "/sdcard/Download/Termux_Tasker_Plugin_Basic_Templates.tsk.xml"`  
-
+        `curl -L 'https://github.com/pschmitt/termuxpp-tasker/raw/master/templates/plugin_hosts/tasker/Termux_Tasker_Plugin_Basic_Templates.tsk.xml' -o "/sdcard/Download/Termux_Tasker_Plugin_Basic_Templates.tsk.xml"`
     - `Taskernet`
         Import `Termux Tasker Plugin Basic Templates Task` from `Taskernet` from [here](https://taskernet.com/shares/?user=AS35m8mXdvaT1Vj8TwkSaCaoMUv220IIGtHe3pG4MymrCUhpgzrat6njEOnDVVulhAIHLi6BPUt1&id=Task%3ATermux+Tasker+Plugin+Basic+Templates).  
 
@@ -281,10 +280,8 @@ The templates were written for version `< 0.6.0` and currently have not been upd
 
         - Download to `~/.termux/tasker/` directly from github using `curl` using a non-root termux shell.  
 
-            `curl -L 'https://github.com/termux/termux-tasker/raw/master/templates/scripts/termux_tasker_basic_bash_test' -o "/data/data/com.termux/files/home/.termux/tasker/termux_tasker_basic_bash_test"`  
-
-            `curl -L 'https://github.com/termux/termux-tasker/raw/master/templates/scripts/termux_tasker_basic_python_test' -o "/data/data/com.termux/files/home/.termux/tasker/termux_tasker_basic_python_test"`  
-
+            `curl -L 'https://github.com/pschmitt/termuxpp-tasker/raw/master/templates/scripts/termux_tasker_basic_bash_test' -o "/data/data/com.termux/files/home/.termux/tasker/termux_tasker_basic_bash_test"`
+            `curl -L 'https://github.com/pschmitt/termuxpp-tasker/raw/master/templates/scripts/termux_tasker_basic_python_test' -o "/data/data/com.termux/files/home/.termux/tasker/termux_tasker_basic_python_test"`
         - Download them manually to android download directory and then use `cat` to copy them to `~/.termux/tasker/` or manually do it with a [SAF file browser](#Creating-And-Modifying-Scripts).  
 
             `cat "/sdcard/Download/termux_tasker_basic_bash_test" > "/data/data/com.termux/files/home/.termux/tasker/termux_tasker_basic_bash_test"`  
