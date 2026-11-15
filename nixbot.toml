@@ -1,0 +1,3 @@
+# Build the x86_64-linux package outputs with nixbot.
+# Flake checks and aarch64 outputs are intentionally excluded until they exist.
+attribute = "packages.x86_64-linux"

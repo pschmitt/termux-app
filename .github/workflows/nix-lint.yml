@@ -1,0 +1,22 @@
+name: Nix lint
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.nix'
+      - flake.lock
+      - .github/workflows/nix-lint.yml
+  pull_request:
+    paths:
+      - '**.nix'
+      - flake.lock
+      - .github/workflows/nix-lint.yml
+  workflow_dispatch:
+
+jobs:
+  nix-lint:
+    permissions:
+      contents: read
+    uses: pschmitt/ci-workflows/.github/workflows/nix-lint.yaml@main
