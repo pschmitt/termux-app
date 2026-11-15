@@ -42,6 +42,7 @@ public class TermuxHelperRewritesTest {
         values.put("WAKE_UNLOCK_ACTION", "dev.pschmitt.termux.service_wake_unlock");
         values.put("DATA_DIR", "/data/data/dev.pschmitt.termux");
         values.put("REDIRECT_SO_VAR", "TERMUX_PKG_REDIRECT_SO");
+        values.put("CONFIG_DIR_NAME", ".config/termuxpp");
         values.put("FORK_ONLY", "fork");
         return values;
     }
@@ -165,10 +166,10 @@ public class TermuxHelperRewritesTest {
             }
         }
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.IDENTITY.ordinal()]);
-        Assert.assertEquals(11, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
+        Assert.assertEquals(19, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.APPEND.ordinal()]);
-        Assert.assertEquals(2, counts[TermuxHelperRewrites.Kind.REQUIRE.ordinal()]);
-        Assert.assertEquals(9, counts[TermuxHelperRewrites.Kind.FORBID.ordinal()]);
+        Assert.assertEquals(5, counts[TermuxHelperRewrites.Kind.REQUIRE.ordinal()]);
+        Assert.assertEquals(12, counts[TermuxHelperRewrites.Kind.FORBID.ordinal()]);
     }
 
     @Test
@@ -236,6 +237,82 @@ public class TermuxHelperRewritesTest {
         String login = TermuxHelperRewrites.apply(rules, "bin/login",
             stockFile("bin/login").replace("export LD_PRELOAD=\"/", "export LD_PRELOAD=$X/"));
         Assert.assertEquals(1, TermuxHelperRewrites.verify(rules, "bin/login", login).size());
+    }
+
+    @Test
+    public void loginLooksUpMotdAndShellInTheConfigDirsInOrder() throws IOException {
+        List<TermuxHelperRewrites.Rule> rules = forkRules();
+        String login = TermuxHelperRewrites.apply(rules, "bin/login", stockFile("bin/login"));
+        Assert.assertFalse(login.contains("~/.termux/"));
+        int order = login.indexOf("\"$HOME/.config/termuxpp/motd.sh\" \"$HOME/.config/termux/motd.sh\" \"$HOME/.termux/motd.sh\"");
+        Assert.assertTrue(order >= 0);
+        Assert.assertTrue(login.contains("\"$HOME/.config/termuxpp/shell\" \"$HOME/.config/termux/shell\" \"$HOME/.termux/shell\""));
+        Assert.assertTrue(login.contains("export SHELL=\"$(realpath \"$termuxpp_shell\")\""));
+        Assert.assertEquals(login, TermuxHelperRewrites.apply(rules, "bin/login", login));
+        Assert.assertEquals(Collections.emptyList(), TermuxHelperRewrites.verify(rules, "bin/login", login));
+    }
+
+    @Test
+    public void loginLookupFragmentsPickTheFirstExistingFile() throws IOException {
+        List<TermuxHelperRewrites.Rule> rules = forkRules();
+        String login = TermuxHelperRewrites.apply(rules, "bin/login", stockFile("bin/login"));
+        // The motd and shell lookup fragments of the adapted login, run for real against a temporary HOME.
+        String motdFragment = fragment(login, "for termuxpp_motd in", "done;");
+        File home = temp.newFolder("login-home");
+        File pp = new File(home, ".config/termuxpp");
+        File xdg = new File(home, ".config/termux");
+        File old = new File(home, ".termux");
+        Assert.assertTrue(pp.mkdirs() && xdg.mkdirs() && old.mkdirs());
+        Assert.assertEquals("", runLookup(home, motdFragment, "termuxpp_motd"));
+        Files.write(new File(old, "motd.sh").toPath(), "x".getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(old.getPath() + "/motd.sh", runLookup(home, motdFragment, "termuxpp_motd"));
+        Files.write(new File(xdg, "motd.sh").toPath(), "x".getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(xdg.getPath() + "/motd.sh", runLookup(home, motdFragment, "termuxpp_motd"));
+        Files.write(new File(pp, "motd.sh").toPath(), "x".getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(pp.getPath() + "/motd.sh", runLookup(home, motdFragment, "termuxpp_motd"));
+    }
+
+    private static String fragment(String script, String start, String end) {
+        int from = script.indexOf(start);
+        Assert.assertTrue(start, from >= 0);
+        int to = script.indexOf(end, from);
+        Assert.assertTrue(end, to > from);
+        return script.substring(from, to + end.length());
+    }
+
+    /** Runs the lookup fragment with sh and prints the variable it selected, or nothing if none matched. */
+    private static String runLookup(File home, String fragment, String variable) throws IOException {
+        String script = fragment + "\n[ -f \"$" + variable + "\" ] && printf '%s' \"$" + variable + "\"\n";
+        ProcessBuilder builder = new ProcessBuilder("sh", "-c", script);
+        builder.environment().put("HOME", home.getPath());
+        builder.redirectErrorStream(true);
+        Process process = builder.start();
+        byte[] out = readAll(process.getInputStream());
+        try {
+            process.waitFor();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return new String(out, StandardCharsets.UTF_8);
+    }
+
+    private static byte[] readAll(java.io.InputStream in) throws IOException {
+        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+        byte[] chunk = new byte[4096];
+        int n;
+        while ((n = in.read(chunk)) > 0) buffer.write(chunk, 0, n);
+        return buffer.toByteArray();
+    }
+
+    @Test
+    public void reloadSettingsHelpNamesTheCanonicalConfigDir() throws IOException {
+        List<TermuxHelperRewrites.Rule> rules = forkRules();
+        String reload = TermuxHelperRewrites.apply(rules, "bin/termux-reload-settings", stockHelper("termux-reload-settings"));
+        Assert.assertTrue(reload.contains("~/.config/termuxpp/termux.properties"));
+        Assert.assertTrue(reload.contains("~/.config/termuxpp/colors.properties"));
+        Assert.assertTrue(reload.contains("~/.config/termuxpp/font.ttf"));
+        Assert.assertFalse(reload.contains("~/.termux/"));
+        Assert.assertEquals(reload, TermuxHelperRewrites.apply(rules, "bin/termux-reload-settings", reload));
     }
 
     @Test
@@ -314,10 +391,10 @@ public class TermuxHelperRewritesTest {
     }
 
     @Test
-    public void strictParseAcceptsTheRealForkTableWithTwentyFourRows() throws IOException {
+    public void strictParseAcceptsTheRealForkTableWithThirtyEightRows() throws IOException {
         String rendered = TermuxHelperRewrites.render(
             TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), forkValues());
-        Assert.assertEquals(24, TermuxHelperRewrites.parseStrict(rendered).size());
+        Assert.assertEquals(38, TermuxHelperRewrites.parseStrict(rendered).size());
         Assert.assertEquals(TermuxHelperRewrites.parse(rendered).size(), TermuxHelperRewrites.parseStrict(rendered).size());
     }
 

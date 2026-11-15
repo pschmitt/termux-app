@@ -231,6 +231,8 @@ final class TermuxInstaller {
         values.put("WAKE_UNLOCK_ACTION", TermuxConstants.TERMUX_APP.TERMUX_SERVICE.ACTION_WAKE_UNLOCK);
         values.put("DATA_DIR", TermuxConstants.TERMUX_INTERNAL_PRIVATE_APP_DATA_DIR_PATH);
         values.put("REDIRECT_SO_VAR", "TERMUX_PKG_REDIRECT_SO");
+        // The canonical config directory relative to the home directory, like ".config/termuxpp".
+        values.put("CONFIG_DIR_NAME", TermuxConstants.TERMUX_CONFIG_TERMUXPP_DIR_PATH.substring(TermuxConstants.TERMUX_HOME_DIR_PATH.length() + 1));
         values.put("FORK_ONLY", "fork");
         return values;
     }

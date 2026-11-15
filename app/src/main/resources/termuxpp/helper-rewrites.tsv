@@ -14,13 +14,17 @@
 #                                                (the guard is @FORK_ONLY@, so that the checks vanish for
 #                                                the stock identity, and a failed check makes the hook fail)
 # Placeholders (@PACKAGE@, @DATA_DIR@, @RELOAD_STYLE_ACTION@, @WAKE_LOCK_ACTION@, @WAKE_UNLOCK_ACTION@,
-# @REDIRECT_SO_VAR@, @FORK_ONLY@) are filled from TermuxConstants. @REDIRECT_SO_VAR@ is the name of the
-# environment variable that holds the path of the native pkg-redirect library. It and @FORK_ONLY@ are
-# empty for the stock identity, so those rows are dropped and stock stays byte-identical. A row with an
+# @REDIRECT_SO_VAR@, @CONFIG_DIR_NAME@, @FORK_ONLY@) are filled from TermuxConstants. @REDIRECT_SO_VAR@ is
+# the name of the environment variable that holds the path of the native pkg-redirect library and
+# @CONFIG_DIR_NAME@ the canonical config directory relative to the home directory (.config/termuxpp). They
+# and @FORK_ONLY@ are empty for the stock identity, so those rows are dropped and stock stays byte-identical. A row with an
 # unresolved placeholder, or one that would change nothing, is ignored.
 # Rules are literal, never patterns. Java class names stay under com.termux.* and are deliberately not
 # rewritten. Every stock text is chosen so that the fork text never matches it again (idempotent).
 # The path of the pkg-redirect library is never written down: scripts only reference the variable.
+# The login rows look up motd.sh and shell in ~/.config/termuxpp, ~/.config/termux and ~/.termux, in that
+# order (the first existing one wins), spelled with $HOME so that the stock text ~/.termux/... never
+# matches the fork text again.
 identity	/data/data/com.termux	@DATA_DIR@
 rule	bin/login	export LD_PRELOAD="/	export LD_PRELOAD="${@REDIRECT_SO_VAR@:+$@REDIRECT_SO_VAR@:}/
 append	etc/termux-login.sh	@REDIRECT_SO_VAR@	\nif [ -n "${@REDIRECT_SO_VAR@:-}" ] && [ -f "$@REDIRECT_SO_VAR@" ]; then\n    case ":${LD_PRELOAD:-}:" in\n        *":$@REDIRECT_SO_VAR@:"*) ;;\n        *) export LD_PRELOAD="$@REDIRECT_SO_VAR@${LD_PRELOAD:+:$LD_PRELOAD}" ;;\n    esac\nfi\n
@@ -34,6 +38,14 @@ rule	bin/termux-wake-unlock	-a "com.termux.service_wake_unlock"	-a "@WAKE_UNLOCK
 rule	bin/termux-wake-unlock	"com.termux/com.termux.app.TermuxService"	"@PACKAGE@/com.termux.app.TermuxService"
 rule	bin/termux-reset	"com.termux/com.termux.app.TermuxService"	"@PACKAGE@/com.termux.app.TermuxService"
 rule	bin/termux-info	echo -n "com.termux" |	echo -n "@PACKAGE@" |
+rule	bin/login	if [ -f ~/.termux/motd.sh ]; then	for termuxpp_motd in "$HOME/@CONFIG_DIR_NAME@/motd.sh" "$HOME/.config/termux/motd.sh" "$HOME/.termux/motd.sh"; do if [ -f "$termuxpp_motd" ]; then break; fi; done; if [ -f "$termuxpp_motd" ]; then
+rule	bin/login	[ ! -x ~/.termux/motd.sh ] && chmod u+x ~/.termux/motd.sh	[ ! -x "$termuxpp_motd" ] && chmod u+x "$termuxpp_motd" # @CONFIG_DIR_NAME@ first
+rule	bin/login	~/.termux/motd.sh	"$termuxpp_motd" # @CONFIG_DIR_NAME@ first
+rule	bin/login	if [ -G ~/.termux/shell ]; then	for termuxpp_shell in "$HOME/@CONFIG_DIR_NAME@/shell" "$HOME/.config/termux/shell" "$HOME/.termux/shell"; do if [ -G "$termuxpp_shell" ]; then break; fi; done; if [ -G "$termuxpp_shell" ]; then
+rule	bin/login	export SHELL="`realpath ~/.termux/shell`"	export SHELL="$(realpath "$termuxpp_shell")" # @CONFIG_DIR_NAME@ first
+rule	bin/termux-reload-settings	~/.termux/colors.properties	~/@CONFIG_DIR_NAME@/colors.properties
+rule	bin/termux-reload-settings	~/.termux/font.ttf	~/@CONFIG_DIR_NAME@/font.ttf
+rule	bin/termux-reload-settings	~/.termux/termux.properties	~/@CONFIG_DIR_NAME@/termux.properties
 require	bin/login	${@REDIRECT_SO_VAR@:+$@REDIRECT_SO_VAR@:}	@FORK_ONLY@
 require	etc/termux-login.sh	@REDIRECT_SO_VAR@	@FORK_ONLY@
 forbid	bin/termux-open	"com.termux/	@FORK_ONLY@
@@ -45,3 +57,9 @@ forbid	bin/termux-reset	"com.termux/	@FORK_ONLY@
 forbid	bin/termux-reload-settings	"com.termux.app.reload_style"	@FORK_ONLY@
 forbid	bin/termux-setup-storage	"com.termux.app.reload_style"	@FORK_ONLY@
 forbid	bin/termux-info	echo -n "com.termux"	@FORK_ONLY@
+require	bin/login	termuxpp_motd	@FORK_ONLY@
+require	bin/login	termuxpp_shell	@FORK_ONLY@
+forbid	bin/login	~/.termux/motd.sh	@FORK_ONLY@
+forbid	bin/login	~/.termux/shell	@FORK_ONLY@
+require	bin/termux-reload-settings	~/@CONFIG_DIR_NAME@/termux.properties	@FORK_ONLY@
+forbid	bin/termux-reload-settings	~/.termux/	@FORK_ONLY@

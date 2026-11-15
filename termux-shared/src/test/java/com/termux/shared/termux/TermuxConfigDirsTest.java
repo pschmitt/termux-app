@@ -170,6 +170,33 @@ public class TermuxConfigDirsTest {
     }
 
     @Test
+    public void absoluteScriptPathInALegacyDirFollowsTheMovedScript() throws IOException {
+        List<String> taskerDirs = Arrays.asList(
+            new File(pp, "tasker").getPath(), new File(xdg, "tasker").getPath(), new File(legacy, "tasker").getPath());
+        write(pp, "tasker/moved.sh", "x");
+        write(pp, "tasker/sub/nested.sh", "x");
+        write(legacy, "tasker/only-legacy.sh", "x");
+
+        // A profile still pointing at the old location finds the script in the canonical directory
+        assertEquals(new File(pp, "tasker/moved.sh").getCanonicalPath(),
+            TermuxConfigDirs.resolveScriptCanonicalPath(new File(legacy, "tasker/moved.sh").getPath(), taskerDirs));
+        assertEquals(new File(pp, "tasker/moved.sh").getCanonicalPath(),
+            TermuxConfigDirs.resolveScriptCanonicalPath(new File(xdg, "tasker/moved.sh").getPath(), taskerDirs));
+        assertEquals(new File(pp, "tasker/sub/nested.sh").getCanonicalPath(),
+            TermuxConfigDirs.resolveScriptCanonicalPath(new File(xdg, "tasker/sub/nested.sh").getPath(), taskerDirs));
+        // The other way round works as well
+        assertEquals(new File(legacy, "tasker/only-legacy.sh").getCanonicalPath(),
+            TermuxConfigDirs.resolveScriptCanonicalPath(new File(pp, "tasker/only-legacy.sh").getPath(), taskerDirs));
+        // Existing absolute paths are never redirected
+        write(xdg, "tasker/moved.sh", "y");
+        assertEquals(new File(xdg, "tasker/moved.sh").getCanonicalPath(),
+            TermuxConfigDirs.resolveScriptCanonicalPath(new File(xdg, "tasker/moved.sh").getPath(), taskerDirs));
+        // Nothing found anywhere: unchanged, so the caller reports the missing file
+        assertEquals(new File(legacy, "tasker/nope.sh").getCanonicalPath(),
+            TermuxConfigDirs.resolveScriptCanonicalPath(new File(legacy, "tasker/nope.sh").getPath(), taskerDirs));
+    }
+
+    @Test
     public void scriptEscapingTheScriptsDirsIsNotMatched() throws IOException {
         List<String> taskerDirs = Arrays.asList(new File(pp, "tasker").getPath(), new File(legacy, "tasker").getPath());
         write(pp, "secret.sh", "x");

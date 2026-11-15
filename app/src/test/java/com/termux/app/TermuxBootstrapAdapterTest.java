@@ -44,18 +44,18 @@ public class TermuxBootstrapAdapterTest {
     // ---- the real resource ----
 
     @Test
-    public void theRealResourceLoadsWithAllTwentyFourForkRows() throws IOException {
+    public void theRealResourceLoadsWithAllThirtyEightForkRows() throws IOException {
         TermuxBootstrapAdapter adapter = fork();
         Assert.assertFalse(adapter.isStock());
         Assert.assertEquals(FORK_DIR, adapter.dataDir());
         int[] counts = new int[TermuxHelperRewrites.Kind.values().length];
         for (TermuxHelperRewrites.Rule rule : adapter.rules()) counts[rule.kind.ordinal()]++;
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.IDENTITY.ordinal()]);
-        Assert.assertEquals(11, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
+        Assert.assertEquals(19, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.APPEND.ordinal()]);
-        Assert.assertEquals(2, counts[TermuxHelperRewrites.Kind.REQUIRE.ordinal()]);
-        Assert.assertEquals(9, counts[TermuxHelperRewrites.Kind.FORBID.ordinal()]);
-        Assert.assertEquals(24, adapter.rules().size());
+        Assert.assertEquals(5, counts[TermuxHelperRewrites.Kind.REQUIRE.ordinal()]);
+        Assert.assertEquals(12, counts[TermuxHelperRewrites.Kind.FORBID.ordinal()]);
+        Assert.assertEquals(38, adapter.rules().size());
     }
 
     @Test

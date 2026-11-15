@@ -49,7 +49,10 @@ public final class TermuxConfigDirs {
      * Get the canonical path of a Tasker script executable. Expands the Termux path variables,
      * then, if the path is relative, resolves it against the first scripts directory in
      * {@code dirPaths} that has it; if none has it, against the canonical (first) one.
-     * Absolute paths are only canonicalized.
+     * Absolute paths are canonicalized; if one does not exist but lies under one of the scripts
+     * directories (a Tasker profile that still points at {@code ~/.termux/tasker/job.sh} after the
+     * script moved to {@code ~/.config/termuxpp/tasker}), the same relative path is looked up in
+     * the other scripts directories and the first match is used.
      */
     @NonNull
     public static String resolveScriptCanonicalPath(@Nullable String path, @NonNull List<String> dirPaths) {
@@ -65,7 +68,36 @@ public final class TermuxConfigDirs {
             }
         }
 
-        return FileUtils.getCanonicalPath(expanded, prefix);
+        String canonical = FileUtils.getCanonicalPath(expanded, prefix);
+
+        if (expanded.startsWith("/") && !new File(canonical).exists()) {
+            String moved = findMovedScript(canonical, dirPaths);
+            if (moved != null) return moved;
+        }
+
+        return canonical;
+    }
+
+    /**
+     * Find the script that {@code canonicalPath}, which does not exist, refers to in another scripts
+     * directory. Returns {@code null} if the path is in none of the directories or no other
+     * directory has the script.
+     */
+    @Nullable
+    private static String findMovedScript(@NonNull String canonicalPath, @NonNull List<String> dirPaths) {
+        for (String dirPath : dirPaths) {
+            if (!FileUtils.isPathInDirPath(canonicalPath, dirPath, true)) continue;
+
+            String relativePath = canonicalPath.substring(FileUtils.normalizePath(dirPath).length());
+            for (String otherDirPath : dirPaths) {
+                if (otherDirPath.equals(dirPath)) continue;
+                File candidate = new File(otherDirPath + relativePath);
+                if (candidate.exists()) return FileUtils.getCanonicalPath(candidate.getPath(), null);
+            }
+            return null;
+        }
+
+        return null;
     }
 
     /**
