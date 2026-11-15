@@ -6,21 +6,21 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
-import com.termux.shared.activities.TextIOActivity;
-import com.termux.shared.activity.media.AppCompatActivityUtils;
-import com.termux.shared.data.DataUtils;
-import com.termux.shared.data.IntentUtils;
-import com.termux.shared.errors.Error;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.models.TextIOInfo;
-import com.termux.shared.termux.TermuxConfigDirs;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
-import com.termux.shared.file.FileUtils;
-import com.termux.shared.termux.TermuxUtils;
-import com.termux.shared.termux.file.TermuxFileUtils;
-import com.termux.shared.termux.theme.TermuxThemeUtils;
-import com.termux.shared.theme.NightMode;
+import dev.pschmitt.termux.shared.activities.TextIOActivity;
+import dev.pschmitt.termux.shared.activity.media.AppCompatActivityUtils;
+import dev.pschmitt.termux.shared.data.DataUtils;
+import dev.pschmitt.termux.shared.data.IntentUtils;
+import dev.pschmitt.termux.shared.errors.Error;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.models.TextIOInfo;
+import dev.pschmitt.termux.shared.termux.TermuxConfigDirs;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
+import dev.pschmitt.termux.shared.file.FileUtils;
+import dev.pschmitt.termux.shared.termux.TermuxUtils;
+import dev.pschmitt.termux.shared.termux.file.TermuxFileUtils;
+import dev.pschmitt.termux.shared.termux.theme.TermuxThemeUtils;
+import dev.pschmitt.termux.shared.theme.NightMode;
 import dev.pschmitt.termux.tasker.utils.LoggerUtils;
 import dev.pschmitt.termux.tasker.utils.PluginUtils;
 import dev.pschmitt.termux.tasker.utils.TaskerPlugin;
@@ -100,8 +100,8 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
 
         setContentView(R.layout.activity_edit_configuration);
 
-        AppCompatActivityUtils.setToolbar(this, com.termux.shared.R.id.toolbar);
-        AppCompatActivityUtils.setToolbarTitle(this, com.termux.shared.R.id.toolbar, TermuxConstants.TERMUX_TASKER_APP_NAME, 0);
+        AppCompatActivityUtils.setToolbar(this, dev.pschmitt.termux.shared.R.id.toolbar);
+        AppCompatActivityUtils.setToolbarTitle(this, dev.pschmitt.termux.shared.R.id.toolbar, TermuxConstants.TERMUX_TASKER_APP_NAME, 0);
         AppCompatActivityUtils.setShowBackButtonInActionBar(this, true);
 
         setStartTextIOActivityForResult();

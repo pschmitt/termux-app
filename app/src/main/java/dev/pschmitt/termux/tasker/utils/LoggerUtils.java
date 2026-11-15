@@ -4,11 +4,11 @@ import android.content.Context;
 
 import androidx.appcompat.app.AlertDialog;
 
-import com.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
 import dev.pschmitt.termux.tasker.R;
-import com.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.logger.Logger;
 
-import static com.termux.shared.logger.Logger.getLogLevelLabel;
+import static dev.pschmitt.termux.shared.logger.Logger.getLogLevelLabel;
 
 public class LoggerUtils {
 
@@ -16,7 +16,7 @@ public class LoggerUtils {
         if (context == null) return;
 
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(context.getString(com.termux.shared.R.string.log_level_title));
+        builder.setTitle(context.getString(dev.pschmitt.termux.shared.R.string.log_level_title));
 
         String[] logLevels = {
                 getLogLevelLabel(context, Logger.LOG_LEVEL_OFF, true),

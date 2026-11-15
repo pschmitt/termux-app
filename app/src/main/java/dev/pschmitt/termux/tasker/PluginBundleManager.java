@@ -9,10 +9,10 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.termux.shared.android.PackageUtils;
-import com.termux.shared.data.DataUtils;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.android.PackageUtils;
+import dev.pschmitt.termux.shared.data.DataUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
 
 /**
  * Class for managing the {@link com.twofortyfouram.locale.Intent#EXTRA_BUNDLE} for this plug-in.
@@ -32,7 +32,7 @@ public class PluginBundleManager {
     public static final String EXTRA_STDIN = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.STDIN"; // Default: "dev.pschmitt.termux.tasker.extra.STDIN"
 
     /** The {@code String} extra for terminal session action defined by
-     * {@link com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE}
+     * {@link dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE}
      * `VALUE_EXTRA_SESSION_ACTION_*` values.
      */
     public static final String EXTRA_SESSION_ACTION = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.SESSION_ACTION"; // Default: "dev.pschmitt.termux.tasker.extra.SESSION_ACTION"

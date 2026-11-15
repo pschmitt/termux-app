@@ -2,7 +2,7 @@
 
 This fork targets `dev.pschmitt.termux` and installs as
 `dev.pschmitt.termux.tasker`. The plug-in Java namespace is also
-`dev.pschmitt.termux.tasker`; shared classes retain `com.termux.shared`.
+`dev.pschmitt.termux.tasker`; shared classes retain `dev.pschmitt.termux.shared`.
 The Locale/Tasker protocol action names remain unchanged.
 
 ## Build
@@ -53,15 +53,14 @@ migrated automatically. Scripts live in TermuxPP's `~/.config/termuxpp/tasker`. 
 the file wins, and all three count as the scripts directory for the
 `allow-external-apps` check.
 
-Plug-in hosts such as Tasker only request the stock `com.termux.permission.RUN_COMMAND`
-permission and cannot be granted `dev.pschmitt.termux.permission.RUN_COMMAND`. The
-plug-in's fire receiver is therefore protected with the stock permission name, which
-Tasker holds once you granted it for stock Termux (Android app info, permissions).
-The stock Termux app (or any app declaring that permission) must stay installed: if
-the permission is undeclared, Tasker reports "plugin error: missing, disabled, not
-exported or no permission receiver, or too many receivers". The core's own
-`RunCommandService` still requires the TermuxPP permission and is only reached from
-the plug-in's shared UID.
+Plug-in hosts such as Tasker request the stock `com.termux.permission.RUN_COMMAND`
+name and cannot be granted `dev.pschmitt.termux.permission.RUN_COMMAND`. The core therefore
+declares the stock-named dangerous permission as a standalone compatibility alias, and
+this receiver requires it. Grant Tasker the permission in Android app settings if it is
+not already granted. Do not install this standalone TermuxPP build alongside stock Termux:
+both declare the same permission name under different signing identities, which Android
+rejects. The core's own `RunCommandService` still requires the fork-specific permission
+and is only reached from the plug-in's shared UID.
 Keep the existing command permission and external-execution policy checks;
 configure `allow-external-apps` explicitly only when required by your workflow.
 Test a foreground and background script, arguments, stdin, stdout, stderr,

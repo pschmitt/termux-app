@@ -4,7 +4,7 @@ import android.app.IntentService;
 import android.content.Intent;
 import androidx.annotation.Nullable;
 
-import com.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.tasker.utils.PluginUtils;
 
 public class PluginResultsService extends IntentService {
