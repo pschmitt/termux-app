@@ -4,25 +4,17 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Keep in sync with non-adaptive ic_launcher.xml -->
+    <!-- TermuxPP:Boot: shared prompt chevron plus a sunrise over the prompt. -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M34,38
-                          h6
-                          l12,16
-                          l-12,16
-                          h-6
-                          l12,-16
-                          "
-        />
-
+        android:pathData="M34,38 h6 l12,16 l-12,16 h-6 l12,-16 z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M56,66
-                          h18
-                          v4
-                          h-18
-                          "
-        />
-
+        android:pathData="M56,66 h18 v4 h-18 z" />
+    <path
+        android:fillColor="#A3E635"
+        android:pathData="M60,39 a9,9 0 0 1 18,0 h-3 a6,6 0 0 0 -12,0 z
+                          M68,27 h3 v5 h-3 z
+                          M56,32 l2,-2 4,4 -2,2 z
+                          M75,34 l4,-4 2,2 -4,4 z" />
 </vector>

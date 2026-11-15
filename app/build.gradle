@@ -9,7 +9,7 @@ android {
     def apkVersionTag = System.getenv("TERMUX_BOOT_APP_BUILD__APK_VERSION_TAG") ?: ""
 
     defaultConfig {
-        applicationId "com.termux.boot"
+        applicationId "dev.pschmitt.termux.boot"
         minSdk project.properties.minSdkVersion.toInteger()
         targetSdk project.properties.targetSdkVersion.toInteger()
         versionCode 1000
@@ -55,6 +55,7 @@ android {
 
 dependencies {
     implementation "androidx.annotation:annotation:1.7.0"
+    testImplementation "junit:junit:4.13.2"
 }
 
 task versionName {

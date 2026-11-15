@@ -1,25 +1,19 @@
-<p>The Termux:Boot add-on provides functionality to run programs under Termux when the device boots up.
+<p>TermuxPP:Boot runs programs under TermuxPP when the device boots.</p>
 
 <h2>Usage</h2>
 <ul>
-	<li>Start the Termux:Boot app once to allow the system to start the app at boot time.
-	<li>Create the ~/.termux/boot/ directory.
-	<li>Put scripts you want to execute inside the ~/.termux/boot/ directory.
-	<li>If there are multiple files, they will be executed in a sorted order.
-	<li>Note that you may want to run termux-wake-lock as first thing if you want to ensure that the device is prevented from sleeping.
+    <li>Open TermuxPP:Boot once after installation. Android requires the app to be opened before it delivers boot broadcasts.</li>
+    <li>Put scripts in <code>~/.config/termuxpp/boot/</code>.</li>
+    <li>For each filename, the first regular file found is used in this order: <code>~/.config/termuxpp/boot/</code>, <code>~/.config/termux/boot/</code>, then <code>~/.termux/boot/</code>.</li>
+    <li>Scripts with different filenames from all three directories are retained; same-named lower-priority scripts are skipped.</li>
+    <li>Scripts run in filename-sorted order.</li>
+    <li>Consider running <code>termux-wake-lock</code> first if the device should be kept awake.</li>
 </ul>
 
 <h2>Example</h2>
-<p>To start an sshd server and prevent the device from sleeping at boot, create a file at ~/.termux/boot/start-sshd containing the three lines</p>
-
+<p>Create <code>~/.config/termuxpp/boot/start-sshd</code> containing:</p>
 <pre>
-    #!/data/data/com.termux/files/usr/bin/sh
-    termux-wake-lock
-    sshd
+#!/data/data/dev.pschmitt.termux/files/usr/bin/sh
+termux-wake-lock
+sshd
 </pre>
-
-<h2>Learn more</h2>
-<p>Join the Termux community through the various channels listed at <a href="https://termux.org/community">https://termux.org/community</a>
-
-<h2>Report issues</h2>
-<p><a href="https://github.com/termux/termux-boot/issues">https://github.com/termux/termux-boot/issues</a>

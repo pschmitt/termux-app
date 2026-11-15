@@ -1,54 +1,40 @@
-# Termux:Boot
+# TermuxPP:Boot
 
-[![Build status](https://github.com/termux/termux-boot/workflows/Build/badge.svg)](https://github.com/termux/termux-boot/actions)
-[![Join the chat at https://gitter.im/termux/termux](https://badges.gitter.im/termux/termux.svg)](https://gitter.im/termux/termux)
+A TermuxPP add-on app to run programs when the device boots.
 
-A [Termux](https://termux.dev) add-on app to run programs at boot.
-
-When developing (or packaging), note that this app needs to be signed with the
-same key as the main Termux app in order to have the permission to execute scripts.
+This fork keeps the upstream Java namespace (`com.termux.boot`) and uses the
+TermuxPP Android package `dev.pschmitt.termux.boot`. It shares the UID and
+signing certificate of the TermuxPP core (`dev.pschmitt.termux`).
 
 ## Installation
 
-Termux:Boot application can be obtained from [F-Droid](https://f-droid.org/en/packages/com.termux.boot/).
-
-Additionally we provide per-commit debug builds for those who want to try
-out the latest features or test their pull request. This build can be obtained
-from one of the workflow runs listed on [Github Actions](https://github.com/termux/termux-boot/actions/workflows/github_action_build.yml?query=branch%3Amaster+event%3Apush)
-page.
-
-Signature keys of all offered builds are different. Before you switch the
-installation source, you will have to uninstall the Termux application and
-all currently installed plugins. Check https://github.com/termux/termux-app#Installation for more info.
+Install the TermuxPP:Boot APK built for TermuxPP. It is not interchangeable
+with upstream Termux:Boot or an APK signed with a different key.
 
 ## How to use
 
-1. Install the Termux:Boot app.
-2. Start the Termux:Boot app once by clicking on its launcher icon. This allows the app to be run at boot.
-3. Create the `~/.termux/boot/` directory.
-4. Put scripts you want to execute inside the `~/.termux/boot/` directory. If there are multiple files, they will be executed in a sorted order.
-5. Note that you may want to run `termux-wake-lock` as first thing if you want to ensure that the device is prevented from sleeping.
+1. Install TermuxPP:Boot.
+2. Open it once after installation. Android requires this before it will
+   deliver boot broadcasts to the app.
+3. Put executable scripts in `~/.config/termuxpp/boot/`.
+4. Scripts run in filename-sorted order. If the same filename exists in
+   multiple supported directories, only the first is used, following this
+   per-file precedence order:
+   - `~/.config/termuxpp/boot/` (preferred)
+   - `~/.config/termux/boot/` (legacy XDG location)
+   - `~/.termux/boot/` (legacy location)
 
-### Examples
+   Different filenames from all three directories are retained. A script in a
+   higher-priority directory replaces only a lower-priority script with the
+   same filename.
+5. Consider running `termux-wake-lock` first if the device should be kept awake.
 
-To start an sshd server and prevent the device from sleeping at boot,
-create the following file at `~/.termux/boot/start-sshd`:
+For example, create `~/.config/termuxpp/boot/start-sshd`:
 
 ```sh
-#!/data/data/com.termux/files/usr/bin/sh
+#!/data/data/dev.pschmitt.termux/files/usr/bin/sh
 termux-wake-lock
 sshd
-```
-
-To start
-[termux-services](https://wiki.termux.com/wiki/Termux-services), which
-in turn starts enabled services, you can put the following in
-`~/.termux/boot/start-services`:
-
-```sh
-#!/data/data/com.termux/files/usr/bin/sh
-termux-wake-lock
-source /data/data/com.termux/files/usr/etc/profile.d/start-services.sh
 ```
 
 ## License

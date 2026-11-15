@@ -11,14 +11,16 @@ import android.util.Log;
 
 public class BootJobService extends JobService {
 
-    public static final String SCRIPT_FILE_PATH = "com.termux.boot.script_path";
+    public static final String SCRIPT_FILE_PATH = "dev.pschmitt.termux.boot.script_path";
 
     private static final String TAG = "termux";
 
-    // Constants from TermuxService.
+    // Keep the Java namespace independent from the TermuxPP Android application ID.
+    private static final String TERMUX_PACKAGE_NAME = "dev.pschmitt.termux";
     private static final String TERMUX_SERVICE = "com.termux.app.TermuxService";
-    private static final String ACTION_EXECUTE = "com.termux.service_execute";
-    private static final String EXTRA_EXECUTE_IN_BACKGROUND = "com.termux.execute.background";
+    private static final String ACTION_EXECUTE = TERMUX_PACKAGE_NAME + ".service_execute";
+    private static final String URI_SCHEME_SERVICE_EXECUTE = TERMUX_PACKAGE_NAME + ".file";
+    private static final String EXTRA_EXECUTE_IN_BACKGROUND = TERMUX_PACKAGE_NAME + ".execute.background";
 
     @Override
     public boolean onStartJob(JobParameters params) {
@@ -27,9 +29,9 @@ public class BootJobService extends JobService {
         PersistableBundle extras = params.getExtras();
         String filePath = extras.getString(SCRIPT_FILE_PATH);
 
-        Uri scriptUri = new Uri.Builder().scheme("com.termux.file").path(filePath).build();
+        Uri scriptUri = new Uri.Builder().scheme(URI_SCHEME_SERVICE_EXECUTE).path(filePath).build();
         Intent executeIntent = new Intent(ACTION_EXECUTE, scriptUri);
-        executeIntent.setClassName("com.termux", TERMUX_SERVICE);
+        executeIntent.setClassName(TERMUX_PACKAGE_NAME, TERMUX_SERVICE);
         executeIntent.putExtra(EXTRA_EXECUTE_IN_BACKGROUND, true);
 
         Context context = getApplicationContext();
