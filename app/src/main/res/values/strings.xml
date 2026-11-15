@@ -20,6 +20,7 @@
     <string name="plugin_api_help">Visit %1$s for more info on plugin usage.</string>
 
     <!-- TermuxTaskerMainActivity -->
+    <string name="main_activity_heading">Run commands from Tasker</string>
     <string name="msg_change_launcher_activity_state_info">The &TERMUX_TASKER_APP_NAME; app does not
         require a require launcher activity/icon to function. You can optionally disable the launcher
         activity if you want and enable it again from the main activity if required.
