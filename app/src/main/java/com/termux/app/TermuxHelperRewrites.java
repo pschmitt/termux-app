@@ -8,6 +8,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -233,6 +236,45 @@ final class TermuxHelperRewrites {
             hookScript(prefixPath, readResource(HOOK_SCRIPT_RESOURCE)), true);
         writeFile(new File(stagingPrefixDir, HOOK_TABLE), hookTable(prefixPath, renderedTable), false);
         writeFile(new File(stagingPrefixDir, APT_CONFIG), aptConfig(prefixPath), false);
+    }
+
+    /**
+     * Bring the hook of an existing prefix up to date with this app: the script, its table and the APT
+     * configuration are rendered into {@code workDir} (which must be on the same file system as
+     * {@code prefixDir} and not exist yet or be empty) and every file that differs from the deployed one
+     * replaces it atomically. Returns true when something changed, so the caller can run the hook to
+     * re-apply the new rows. The work directory is removed again.
+     */
+    static boolean refreshHook(@NonNull File workDir, @NonNull File prefixDir, @NonNull String prefixPath,
+                               @NonNull Map<String, String> values) throws IOException {
+        boolean changed = false;
+        try {
+            deployHook(workDir, prefixPath, values);
+            for (String relative : new String[] {HOOK_SCRIPT, HOOK_TABLE, APT_CONFIG}) {
+                File source = new File(workDir, relative);
+                File target = new File(prefixDir, relative);
+                if (target.isFile() && Arrays.equals(Files.readAllBytes(source.toPath()), Files.readAllBytes(target.toPath()))) {
+                    continue;
+                }
+                File parent = target.getParentFile();
+                if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+                    throw new IOException("Cannot create directory " + parent);
+                }
+                Files.move(source.toPath(), target.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                changed = true;
+            }
+        } finally {
+            deleteTree(workDir);
+        }
+        return changed;
+    }
+
+    private static void deleteTree(File file) {
+        File[] children = file.listFiles();
+        if (children != null) for (File child : children) deleteTree(child);
+        //noinspection ResultOfMethodCallIgnored
+        file.delete();
     }
 
     private static void writeFile(File file, String content, boolean executable) throws IOException {

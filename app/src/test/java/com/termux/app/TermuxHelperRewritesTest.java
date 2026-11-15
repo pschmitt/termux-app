@@ -369,6 +369,33 @@ public class TermuxHelperRewritesTest {
     }
 
     @Test
+    public void refreshHookReplacesOnlyWhatChangedAndLeavesNoWorkDirectory() throws IOException {
+        String prefixPath = "/data/data/dev.pschmitt.termux/files/usr";
+        File prefix = temp.newFolder("usr.live");
+        TermuxHelperRewrites.deployHook(prefix, prefixPath, forkValues());
+
+        // Up to date: nothing changes.
+        File work = new File(temp.getRoot(), "usr.hook-refresh");
+        Assert.assertFalse(TermuxHelperRewrites.refreshHook(work, prefix, prefixPath, forkValues()));
+        Assert.assertFalse(work.exists());
+
+        // An older table from a previous app version is replaced, the others are left alone.
+        File table = new File(prefix, "libexec/termuxpp/helper-rewrites.tsv");
+        Files.write(table.toPath(), "prefix\t/old\n".getBytes(StandardCharsets.UTF_8));
+        Assert.assertTrue(TermuxHelperRewrites.refreshHook(work, prefix, prefixPath, forkValues()));
+        Assert.assertFalse(work.exists());
+        String refreshed = new String(Files.readAllBytes(table.toPath()), StandardCharsets.UTF_8);
+        Assert.assertTrue(refreshed.startsWith("prefix\t" + prefixPath + "\n"));
+        Assert.assertEquals(forkRules().size(), TermuxHelperRewrites.parse(refreshed).size());
+        Assert.assertTrue(new File(prefix, "libexec/termuxpp/adapt-helpers").canExecute());
+
+        // A prefix without a hook (never deployed) gets one.
+        File bare = temp.newFolder("usr.bare");
+        Assert.assertTrue(TermuxHelperRewrites.refreshHook(work, bare, prefixPath, forkValues()));
+        Assert.assertTrue(new File(bare, "etc/apt/apt.conf.d/99termuxpp-helpers").isFile());
+    }
+
+    @Test
     public void unsafePrefixesAreRefused() throws IOException {
         File staging = temp.newFolder("usr.staging2");
         for (String prefix : Arrays.asList("relative/path", "/data/../etc", "/data/a b", "/data/a\"b", "/data/a\nb", "")) {

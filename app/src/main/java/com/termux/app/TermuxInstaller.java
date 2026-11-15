@@ -101,6 +101,7 @@ final class TermuxInstaller {
             if (TermuxFileUtils.isTermuxPrefixDirectoryEmpty()) {
                 Logger.logInfo(LOG_TAG, "The termux prefix directory \"" + TERMUX_PREFIX_DIR_PATH + "\" exists but is empty or only contains specific unimportant files.");
             } else {
+                refreshHelperHookInBackground();
                 whenDone.run();
                 return;
             }
@@ -217,6 +218,48 @@ final class TermuxInstaller {
                             // Activity already dismissed - ignore.
                         }
                     });
+                }
+            }
+        }.start();
+    }
+
+    /**
+     * An app update can come with a new helper rewrite table. Deploy it into the existing prefix and, when
+     * it changed, run the hook once so login and the helpers get the new rows without waiting for an apt run.
+     * Never fatal: the old files keep working, the problem is logged.
+     */
+    private static void refreshHelperHookInBackground() {
+        new Thread("termuxpp-helper-hook") {
+            @Override
+            public void run() {
+                try {
+                    Map<String, String> values = helperIdentityValues();
+                    if (TermuxBootstrapAdapter.load(TermuxConstants.TERMUX_PACKAGE_NAME, values).isStock()) return;
+
+                    File workDir = new File(TermuxConstants.TERMUX_FILES_DIR_PATH, "usr.hook-refresh");
+                    if (!TermuxHelperRewrites.refreshHook(workDir, TERMUX_PREFIX_DIR,
+                        TermuxConstants.TERMUX_PREFIX_DIR_PATH, values)) return;
+
+                    Logger.logInfo(LOG_TAG, "The helper rewrite table changed, running the hook.");
+                    String prefix = TermuxConstants.TERMUX_PREFIX_DIR_PATH;
+                    ProcessBuilder builder = new ProcessBuilder(prefix + "/bin/bash", prefix + "/" + TermuxHelperRewrites.HOOK_SCRIPT);
+                    builder.environment().put("PREFIX", prefix);
+                    builder.environment().put("HOME", TermuxConstants.TERMUX_HOME_DIR_PATH);
+                    builder.environment().put("PATH", prefix + "/bin");
+                    builder.redirectErrorStream(true);
+                    Process process = builder.start();
+                    java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
+                    byte[] buffer = new byte[4096];
+                    int read;
+                    try (java.io.InputStream in = process.getInputStream()) {
+                        while ((read = in.read(buffer)) > 0) captured.write(buffer, 0, read);
+                    }
+                    String output = new String(captured.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+                    int exit = process.waitFor();
+                    if (exit == 0) Logger.logInfo(LOG_TAG, "The helper hook ran: " + output.trim());
+                    else Logger.logError(LOG_TAG, "The helper hook failed with exit " + exit + ": " + output.trim());
+                } catch (Exception e) {
+                    Logger.logError(LOG_TAG, "Could not refresh the helper hook: " + e);
                 }
             }
         }.start();
