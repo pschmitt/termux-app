@@ -366,6 +366,17 @@ public class UpdateCheckerTest {
     }
 
     @Test
+    public void controllerAllowsUnknownCommitChecksForInstalledCompanionsOnly() {
+        InstalledBuild unknown = InstalledBuild.parseMetaData(null);
+        assertFalse(UpdateController.requiresKnownCommitToCheck(UpdateTarget.API, unknown));
+        assertFalse(UpdateController.requiresKnownCommitToCheck(UpdateTarget.TASKER, unknown));
+        assertFalse(UpdateController.requiresKnownCommitToCheck(UpdateTarget.BOOT, unknown));
+        assertTrue(UpdateController.requiresKnownCommitToCheck(UpdateTarget.CORE, unknown));
+        assertFalse(UpdateController.requiresKnownCommitToCheck(UpdateTarget.API,
+                InstalledBuild.parseMetaData("git-" + INSTALLED)));
+    }
+
+    @Test
     public void unknownCompanionBuildsCanReinstallFromFixedLatestRelease() throws Exception {
         String[] metas = {null, "", "unknown", "git-unknown", "git-" + INSTALLED + "-dirty", INSTALLED};
         for (String meta : metas) {

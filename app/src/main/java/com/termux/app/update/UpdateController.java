@@ -193,18 +193,22 @@ public final class UpdateController {
 
     private UpdateChecker.Result performCheck(UpdateTarget target, UpdateChannel channel) {
         boolean installedApp = ApkInspector.isInstalled(context, target);
-        if (installedApp && target != UpdateTarget.CORE && !ApkInspector.declaredBuild(context, target).isComparable()
-                && target.versionedApkPrefix == null) {
-            return new UpdateChecker.Result(UpdateChecker.Kind.NOT_ELIGIBLE, null, null);
-        }
         InstalledBuild installed = !installedApp ? InstalledBuild.parse(null)
                 : target == UpdateTarget.CORE ? InstalledBuild.parse(BuildConfig.GIT_REVISION)
                 : ApkInspector.declaredBuild(context, target);
+        if (installedApp && requiresKnownCommitToCheck(target, installed)) {
+            return new UpdateChecker.Result(UpdateChecker.Kind.NOT_ELIGIBLE, null, null);
+        }
         UpdateChecker.Result result = new UpdateChecker(network).check(target, installed, BuildConfig.TERMUX_PACKAGE_VARIANT,
                 supportedAbis(), channel, !installedApp);
         if (target.versionedApkPrefix == null || !installedApp || result.kind != UpdateChecker.Kind.AVAILABLE
                 || result.offer == null) return result;
         return compareVerifiedAddonCandidate(target, result.offer);
+    }
+
+    /** Core rolling releases require a commit identity; companions can use their fixed fork releases. */
+    static boolean requiresKnownCommitToCheck(UpdateTarget target, InstalledBuild installed) {
+        return target == UpdateTarget.CORE && !installed.isComparable();
     }
 
     /** Download and verify a signed add-on candidate before comparing its actual embedded version. */
