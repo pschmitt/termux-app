@@ -8,7 +8,7 @@ android {
     def apkVersionTag = System.getenv("TERMUX_FLOAT_APP__BUILD__APK_VERSION_TAG") ?: ""
 
     defaultConfig {
-        applicationId "com.termux.window"
+        applicationId "dev.pschmitt.termux.window"
         minSdk project.properties.minSdkVersion.toInteger()
         targetSdk project.properties.targetSdkVersion.toInteger()
         versionCode 1001
@@ -17,9 +17,9 @@ android {
         if (appVersionName) versionName = appVersionName
         validateVersionName(versionName)
 
-        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
-        manifestPlaceholders.TERMUX_APP_NAME = "Termux"
-        manifestPlaceholders.TERMUX_FLOAT_APP_NAME = "Termux:Float"
+        manifestPlaceholders.TERMUX_PACKAGE_NAME = "dev.pschmitt.termux"
+        manifestPlaceholders.TERMUX_APP_NAME = "TermuxPP"
+        manifestPlaceholders.TERMUX_FLOAT_APP_NAME = "TermuxPP:Float"
     }
 
     signingConfigs {
@@ -72,8 +72,8 @@ dependencies {
 
     implementation "androidx.annotation:annotation:1.9.1"
 
-    implementation "com.termux.termux-app:termux-shared:8aca6dbbf4"
-    implementation "com.termux.termux-app:terminal-view:8aca6dbbf4"
+    implementation project(':termux-shared')
+    implementation project(':terminal-view')
 
     // Use if below libraries are published locally by termux-app with `./gradlew publishReleasePublicationToMavenLocal` and used with `mavenLocal()`.
     // If updates are done, republish there and sync project with gradle files here

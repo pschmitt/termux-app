@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!DOCTYPE resources [
-    <!ENTITY TERMUX_PACKAGE_NAME "com.termux">
-    <!ENTITY TERMUX_APP_NAME "Termux">
-    <!ENTITY TERMUX_FLOAT_APP_NAME "Termux:Float">
+    <!ENTITY TERMUX_PACKAGE_NAME "dev.pschmitt.termux">
+    <!ENTITY TERMUX_APP_NAME "TermuxPP">
+    <!ENTITY TERMUX_FLOAT_APP_NAME "TermuxPP:Float">
+    <!ENTITY TERMUX_FLOAT_GITHUB_REPO_URL "https://github.com/pschmitt/termuxpp-float">
     ]>
 
 <resources>
     <string name="app_name">&TERMUX_FLOAT_APP_NAME;</string>
+    <string name="termux_float_github_repo_url" translatable="false">&TERMUX_FLOAT_GITHUB_REPO_URL;</string>
 	<string name="initial_instruction_toast">Long press on window to move or resize\n\nDouble tap and drag finger up or down to change font size</string>
 	<string name="after_long_press">Drag to position and pinch to resize</string>
 
