@@ -33,8 +33,11 @@ public class TermuxTaskerMainActivity extends AppCompatActivity {
         AppCompatActivityUtils.setToolbarTitle(this, com.termux.shared.R.id.toolbar, TermuxConstants.TERMUX_TASKER_APP_NAME, 0);
 
         TextView pluginInfo = findViewById(R.id.textview_plugin_info);
-        pluginInfo.setText(getString(R.string.plugin_info, TermuxConstants.TERMUX_GITHUB_REPO_URL,
-                TermuxConstants.TERMUX_TASKER_GITHUB_REPO_URL));
+        pluginInfo.setText(getString(R.string.plugin_info,
+                "https://github.com/pschmitt/termuxpp-app",
+                "https://github.com/pschmitt/termux-tasker",
+                "https://github.com/termux/termux-app",
+                "https://github.com/termux/termux-tasker"));
     }
 
     @Override
