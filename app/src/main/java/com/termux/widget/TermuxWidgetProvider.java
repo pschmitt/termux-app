@@ -32,6 +32,7 @@ import com.termux.shared.termux.TermuxConstants.TERMUX_WIDGET_APP.TERMUX_WIDGET_
 import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.file.TermuxFileUtils;
 import com.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
+import com.termux.widget.activities.TermuxWidgetMainActivity;
 import com.termux.widget.utils.ShortcutUtils;
 
 import java.io.File;
@@ -40,7 +41,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Widget providing a list to launch scripts in ~/.shortcuts/.
+ * Widget providing a list to launch scripts from the configured shortcuts directory.
  * <p>
  * See https://developer.android.com/guide/topics/appwidgets/index.html
  */
@@ -86,7 +87,8 @@ public final class TermuxWidgetProvider extends AppWidgetProvider {
         // The empty view is displayed when the collection has no items. It should be a sibling
         // of the collection view:
         remoteViews.setEmptyView(R.id.widget_list, R.id.empty_view);
-        remoteViews.setTextViewText(R.id.empty_view, context.getString(R.string.msg_no_shortcut_scripts));
+        remoteViews.setTextViewText(R.id.empty_view, context.getString(R.string.msg_no_shortcut_scripts,
+                TermuxFileUtils.getUnExpandedTermuxPath(ShortcutUtils.getShortcutScriptsDir().getAbsolutePath())));
 
         // Setup intent which points to the TermuxWidgetService which will provide the views for this collection.
         Intent intent = new Intent(context, TermuxWidgetService.class);
@@ -295,11 +297,12 @@ public final class TermuxWidgetProvider extends AppWidgetProvider {
 
         // If executable is not a regular file, or is not readable or executable, then return
         // RESULT_CODE_FAILED to plugin host app
-        // Setting of read and execute permissions are only done if executable is under TermuxConstants#TERMUX_SHORTCUT_SCRIPTS_DIR_PATH
+        // Set read and execute permissions only for files under a configured shortcuts directory.
+        String shortcutScriptsRoot = ShortcutUtils.getShortcutScriptsRootPath(executionCommand.executable);
         error = FileUtils.validateRegularFileExistenceAndPermissions("executable", executionCommand.executable,
-                TermuxConstants.TERMUX_SHORTCUT_SCRIPTS_DIR_PATH,
+                shortcutScriptsRoot,
                 FileUtils.APP_EXECUTABLE_FILE_PERMISSIONS,
-                true, true,
+                shortcutScriptsRoot != null, true,
                 false);
         if (error != null) {
             error.appendMessage("\n" + context.getString(R.string.msg_executable_absolute_path, executionCommand.executable));
@@ -333,7 +336,7 @@ public final class TermuxWidgetProvider extends AppWidgetProvider {
         executionIntent.setClassName(TermuxConstants.TERMUX_PACKAGE_NAME, TermuxConstants.TERMUX_APP.TERMUX_SERVICE_NAME);
         executionIntent.putExtra(TERMUX_SERVICE.EXTRA_RUNNER, executionCommand.runner); // Runner extra will be prioritized over background extra
         executionIntent.putExtra(TERMUX_SERVICE.EXTRA_BACKGROUND, Runner.APP_SHELL.getName().equals(executionCommand.runner)); // Backward compatibility for runner
-        executionIntent.putExtra(TERMUX_SERVICE.EXTRA_PLUGIN_API_HELP, context.getString(R.string.plugin_api_help, TermuxConstants.TERMUX_WIDGET_GITHUB_REPO_URL));
+        executionIntent.putExtra(TERMUX_SERVICE.EXTRA_PLUGIN_API_HELP, context.getString(R.string.plugin_api_help, TermuxWidgetMainActivity.TERMUXPP_WIDGET_GITHUB_REPO_URL));
 
         Logger.logVerboseExtended(logTag, executionCommand.toString());
         Logger.logDebug(logTag, "Sending execution intent to " + executionIntent.getComponent().toString() + " for \"" + executionCommand.executable + "\" with runner " + executionCommand.runner);

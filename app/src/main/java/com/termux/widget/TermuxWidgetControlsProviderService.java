@@ -225,11 +225,11 @@ public class TermuxWidgetControlsProviderService extends ControlsProviderService
     }
 
     /**
-     * Recursively finds shortcut files starting from {@link TermuxConstants#TERMUX_SHORTCUT_SCRIPTS_DIR}
+     * Recursively finds shortcut files starting from {@link ShortcutUtils#getShortcutScriptsDir()}
      * @return List<File>
      */
     private List<File> createShortcutFilesList() {
-        File shortcutDir = TermuxConstants.TERMUX_SHORTCUT_SCRIPTS_DIR;
+        File shortcutDir = ShortcutUtils.getShortcutScriptsDir();
 
         List<File> shortcutFiles = new ArrayList<>();
         addShortcutFile(shortcutDir, shortcutFiles, 0);

@@ -8,7 +8,7 @@ android {
     def apkVersionTag = System.getenv("TERMUX_WIDGET_APP__BUILD__APK_VERSION_TAG") ?: ""
 
     defaultConfig {
-        applicationId "com.termux.widget"
+        applicationId "dev.pschmitt.termux.widget"
         minSdk project.properties.minSdkVersion.toInteger()
         targetSdk project.properties.targetSdkVersion.toInteger()
         versionCode 1001
@@ -17,9 +17,9 @@ android {
         if (appVersionName) versionName = appVersionName
         validateVersionName(versionName)
 
-        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
-        manifestPlaceholders.TERMUX_APP_NAME = "Termux"
-        manifestPlaceholders.TERMUX_WIDGET_APP_NAME = "Termux:Widget"
+        manifestPlaceholders.TERMUX_PACKAGE_NAME = "dev.pschmitt.termux"
+        manifestPlaceholders.TERMUX_APP_NAME = "TermuxPP"
+        manifestPlaceholders.TERMUX_WIDGET_APP_NAME = "TermuxPP:Widget"
     }
 
     signingConfigs {
@@ -64,6 +64,54 @@ android {
     }
 }
 
+tasks.register("verifyDebug16kAlignment") {
+    dependsOn "assembleDebug"
+    doLast {
+        def apk = file("$buildDir/outputs/apk/debug/termux-widget-app_v${android.defaultConfig.versionName}+debug.apk")
+        if (!apk.isFile()) throw new GradleException("Debug APK not found: $apk")
+
+        def zipalign = file("${android.sdkDirectory}/build-tools/36.0.0/zipalign")
+        if (!zipalign.isFile()) throw new GradleException("zipalign not found: $zipalign")
+        exec {
+            commandLine zipalign, "-c", "-P", "16", "-v", "4", apk
+        }
+
+        def pageSize = 16384L
+        def zip = new java.util.zip.ZipFile(apk)
+        try {
+            def libraries = zip.entries().findAll { it.name.endsWith(".so") }
+            if (libraries.isEmpty()) throw new GradleException("APK contains no native libraries to validate")
+            libraries.each { entry ->
+                byte[] data = zip.getInputStream(entry).bytes
+                def elf = java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                if (data.length < 64 || elf.getInt(0) != 0x464c457f) {
+                    throw new GradleException("Invalid ELF library: ${entry.name}")
+                }
+                boolean is64Bit = (data[4] & 0xff) == 2
+                long phoff = is64Bit ? elf.getLong(32) : (elf.getInt(28) & 0xffffffffL)
+                int phentsize = elf.getShort(is64Bit ? 54 : 42) & 0xffff
+                int phnum = elf.getShort(is64Bit ? 56 : 44) & 0xffff
+                int loadCount = 0
+                for (int i = 0; i < phnum; i++) {
+                    int position = (int) (phoff + (long) i * phentsize)
+                    if (elf.getInt(position) != 1) continue
+                    long offset = is64Bit ? elf.getLong(position + 8) : (elf.getInt(position + 4) & 0xffffffffL)
+                    long vaddr = is64Bit ? elf.getLong(position + 16) : (elf.getInt(position + 8) & 0xffffffffL)
+                    long alignment = is64Bit ? elf.getLong(position + 48) : (elf.getInt(position + 28) & 0xffffffffL)
+                    loadCount++
+                    if (alignment < pageSize || (offset % pageSize) != (vaddr % pageSize)) {
+                        throw new GradleException("${entry.name} has a PT_LOAD segment incompatible with 16 KB pages (align=${alignment}, offset=${offset}, vaddr=${vaddr})")
+                    }
+                }
+                if (loadCount == 0) throw new GradleException("${entry.name} has no PT_LOAD segments")
+                logger.lifecycle("16 KB ELF alignment verified: ${entry.name}")
+            }
+        } finally {
+            zip.close()
+        }
+    }
+}
+
 dependencies {
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
 
@@ -75,7 +123,7 @@ dependencies {
     implementation "com.google.android.material:material:1.12.0"
     implementation "com.google.guava:guava:24.1-jre"
 
-    implementation 'com.termux.termux-app:termux-shared:8aca6dbbf4'
+    implementation project(':termux-shared')
     // Use if below libraries are published locally by termux-app with `./gradlew publishReleasePublicationToMavenLocal` and used with `mavenLocal()`.
     // If updates are done, republish there and sync project with gradle files here
     // https://github.com/termux/termux-app/wiki/Termux-Libraries

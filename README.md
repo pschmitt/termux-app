@@ -1,6 +1,8 @@
-# Termux:Widget
+# TermuxPP:Widget
 
-[![Build status](https://github.com/termux/termux-widget/workflows/Build/badge.svg)](https://github.com/termux/termux-widget/actions)
+[![Build status](https://github.com/pschmitt/termuxpp-widget/actions/workflows/github_action_build.yml/badge.svg)](https://github.com/pschmitt/termuxpp-widget/actions)
+
+For upstream Termux:Widget, see <https://github.com/termux/termux-widget>. This fork targets TermuxPP and is not compatible with stock Termux.
 [![Join the chat at https://gitter.im/termux/termux](https://badges.gitter.im/termux/termux.svg)](https://gitter.im/termux/termux)
 
 A [Termux] plugin app to run scripts in Termux with launcher shortcuts and widgets.
@@ -23,7 +25,7 @@ A [Termux] plugin app to run scripts in Termux with launcher shortcuts and widge
 
 Latest version is `v0.15.0`.
 
-Check [`termux-app` Installation](https://github.com/termux/termux-app#Installation) for details before reading forward.
+Install the TermuxPP core app from [pschmitt/termuxpp-app](https://github.com/pschmitt/termuxpp-app) before proceeding.
 
 ### F-Droid
 
@@ -37,7 +39,7 @@ The `F-Droid` app often may not notify you of updates and you will manually have
 
 ### Github
 
-`Termux:Widget` application can be obtained on `Github` either from [`Github Releases`](https://github.com/termux/termux-widget/releases) for version `>= 0.13.0` or from [`Github Actions`](https://github.com/termux/termux-widget/actions/workflows/github_action_build.yml?query=branch%3Amaster+event%3Apush).
+`TermuxPP:Widget` builds and releases are available from [pschmitt/termuxpp-widget Releases](https://github.com/pschmitt/termuxpp-widget/releases) and its [GitHub Actions](https://github.com/pschmitt/termuxpp-widget/actions/workflows/github_action_build.yml?query=branch%3Amain+event%3Apush).
 
 The APKs for `Github Releases` will be listed under `Assets` drop-down of the release. These are automatically attached when a new version is released.
 
@@ -55,36 +57,36 @@ The APKs for both of these are [`debuggable`](https://developer.android.com/stud
 ### Setup Instructions
 
 #### Install `Termux` app (Mandatory)
-The `Termux:Widget` plugin requires [Termux] app to run the actual commands. You need to install it and start it at least once and have it install the bootstrap files for the plugin to start working. The Termux prefix directory `/data/data/com.termux/files/usr/` and Termux home directory `/data/data/com.termux/files/home/` must also exist and must have read, write and execute permissions `(0700)` for the plugin to work. The `$PREFIX/` is shortcut for the Termux [prefix directory](https://github.com/termux/termux-packages/wiki/Termux-file-system-layout) and can also be referred by the `$PREFIX` shell environment variable. The `~/` is a shortcut for the Termux home directory and can also be referred by the `$HOME` shell environment variable. Note that `~/` will not expand inside single or double quotes when running commands. Permissions and ownerships can be checked with the `stat <path>` command.
+The `TermuxPP:Widget` plugin requires the TermuxPP app to run the actual commands. You need to install it and start it at least once and have it install the bootstrap files for the plugin to start working. The TermuxPP prefix directory `/data/data/dev.pschmitt.termux/files/usr/` and TermuxPP home directory `/data/data/dev.pschmitt.termux/files/home/` must also exist and must have read, write and execute permissions `(0700)` for the plugin to work. The `$PREFIX/` is shortcut for the Termux [prefix directory](https://github.com/termux/termux-packages/wiki/Termux-file-system-layout) and can also be referred by the `$PREFIX` shell environment variable. The `~/` is a shortcut for the Termux home directory and can also be referred by the `$HOME` shell environment variable. Note that `~/` will not expand inside single or double quotes when running commands. Permissions and ownerships can be checked with the `stat <path>` command.
 
 
 #### Script Directories (Mandatory)
 
-The `~/.shortcuts/` directory stores the scripts that can be run with the plugin in foreground terminal sessions in the `Termux` app. The `~/.shortcuts/tasks` directory stores the scripts that can be run with the plugin in background with the `Termux` app and will show as running tasks in `Termux` app notification.
+The canonical `~/.config/termuxpp/shortcuts/` directory stores scripts that run in foreground TermuxPP sessions. Scripts under `~/.config/termuxpp/shortcuts/tasks/` run in the background and show as running tasks in a TermuxPP notification. For existing setups, `~/.shortcuts/` and `~/.shortcuts/tasks/` remain as fallbacks only when the canonical shortcuts directory does not exist.
 
 The parent directory of the scripts must have read permission, otherwise the plugin will not be able to read the script files and will not show any scripts in the launcher widget and will give errors like `No regular file found at path` when executing launcher shortcuts. The parent directory of the script must also have executable permissions for the script to be allowed to execute.
 
-Files under hidden directories whose name starts with a dot `.`, broken symlinks or files whose canonical path is not under the `~/.shortcuts` or `~/.termux` directory are not shown in the widget and execution is not allowed for the later either.
+Files under hidden directories whose name starts with a dot `.`, broken symlinks or files whose canonical path is not under the selected shortcuts directory or `~/.termux` are not shown in the widget and execution is not allowed for the latter either.
 
-Open a non-root termux session and run the below commands to create the directories and give them read, write and executable permissions `(0700)`.
+Open a non-root TermuxPP session and run the below commands to create the directories and give them read, write and executable permissions `(0700)`.
 
-- Create `~/.shortcuts/` directory.
-
-```
-mkdir -p /data/data/com.termux/files/home/.shortcuts
-chmod 700 -R /data/data/com.termux/files/home/.shortcuts
-```
-
-- Create `~/.shortcuts/tasks` directory.
+- Create `~/.config/termuxpp/shortcuts/` directory.
 
 ```
-mkdir -p /data/data/com.termux/files/home/.shortcuts/tasks
-chmod 700 -R /data/data/com.termux/files/home/.shortcuts/tasks
+mkdir -p /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/shortcuts
+chmod 700 -R /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/shortcuts
+```
+
+- Create `~/.config/termuxpp/shortcuts/tasks` directory.
+
+```
+mkdir -p /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/shortcuts/tasks
+chmod 700 -R /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/shortcuts/tasks
 ```
 
 Once you have created the directories, you can then create scripts files as per instructions in [Creating And Modifying Scripts](#Creating-And-Modifying-Scripts).
 
-Once you have created script files, you can add a launcher widget for the `Termux:Widget` app that will show the list of the script files, which you can execute by clicking them. If you create/modify shortcuts files, you will have to press the refresh button on the widget for the updated list to be shown. You can also update all widgets from inside the app with the `REFRESH` button in the refresh widgets section. You can also refresh a specific widget by running `am broadcast -n com.termux.widget/.TermuxWidgetProvider -a com.termux.widget.ACTION_REFRESH_WIDGET --ei appWidgetId <id>` from Termux terminal/scripts for version `>= 0.13.0`, where `id` is the number in the `Termux widgets reloaded: <id>)` flash shown when you press the refresh button. You can pass `0` to update all widgets for version `>= 0.114.0`. Refreshing widgets with the in-app `REFRESH` button or running command with id `0` may also be needed in some cases after app updates where widgets become non-responsive and do not show any shortcuts and refresh buttons of the widgets itself do not work either.
+Once you have created script files, you can add a launcher widget for the `TermuxPP:Widget` app that will show the list of the script files, which you can execute by clicking them. If you create/modify shortcuts files, you will have to press the refresh button on the widget for the updated list to be shown. You can also update all widgets from inside the app with the `REFRESH` button in the refresh widgets section. You can also refresh a specific widget by running `am broadcast -n dev.pschmitt.termux.widget/com.termux.widget.TermuxWidgetProvider -a dev.pschmitt.termux.widget.ACTION_REFRESH_WIDGET --ei appWidgetId <id>` from Termux terminal/scripts for version `>= 0.13.0`, where `id` is the number in the `Termux widgets reloaded: <id>)` flash shown when you press the refresh button. You can pass `0` to update all widgets for version `>= 0.114.0`. Refreshing widgets with the in-app `REFRESH` button or running command with id `0` may also be needed in some cases after app updates where widgets become non-responsive and do not show any shortcuts and refresh buttons of the widgets itself do not work either.
 
 You can also add a launcher shortcut or dynamic shortcut for any script file with an optional custom icon as detailed in [Script Icon Directory](#script-icon-directory-optional).
 
@@ -93,19 +95,19 @@ You can also add a launcher shortcut or dynamic shortcut for any script file wit
 
 #### Script Icon Directory (Optional)
 
-The `~/.shortcuts/icons` directory stores the icon that will be used for a script when a launcher shortcut is created for it for version `>= 0.12`. The icon file name must be equal to `<script_name>.png`, like `script.sh.png`. For a `1080p` `~6in` screen, something like `96x96px` `png` file should probably be fine, otherwise try `144px` or `196px` for higher resolution screens.
+The `~/.config/termuxpp/shortcuts/icons` directory stores the icon that will be used for a script when a launcher shortcut is created for it for version `>= 0.12`. The icon file name must be equal to `<script_name>.png`, like `script.sh.png`. For a `1080p` `~6in` screen, something like `96x96px` `png` file should probably be fine, otherwise try `144px` or `196px` for higher resolution screens.
 
 The parent directory of the icons must have read permission, otherwise the plugin will not be able to read them.
 
-The icon file must be a regular file and its canonical path must exist under `~/.shortcuts/icons` or `~/.termux` directory.
+The icon file must be a regular file and its canonical path must exist under `~/.config/termuxpp/shortcuts/icons` or `~/.termux` directory.
 
 Open a non-root termux session and run the below commands to create the directory and give it appropriate permissions.
 
-- Create `~/.shortcuts/icons` directory.
+- Create `~/.config/termuxpp/shortcuts/icons` directory.
 
 ```
-mkdir -p /data/data/com.termux/files/home/.shortcuts/icons
-chmod -R a-x,u=rwX,go-rwx /data/data/com.termux/files/home/.shortcuts/icons
+mkdir -p /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/shortcuts/icons
+chmod -R a-x,u=rwX,go-rwx /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/shortcuts/icons
 ```
 The `chmod` command will set the `icons` directory permissions to `0700`, but any files already in the directory will be set to `0600` which is recommended.
 
@@ -114,7 +116,7 @@ The `chmod` command will set the `icons` directory permissions to `0700`, but an
 
 Dynamic shortcuts will normally show when long holding the `Termux:Widget` app launcher icon and in launcher searches results.
 
-To create dynamic shortcuts, put desired scripts/binaries in `~/.termux/widget/dynamic_shortcuts` with the Termux app and then click the `CREATE SHORTCUTS` button in the `Termux:Widget` app in the dynamic shortcuts section. To remove published dynamic shortcuts, click the `REMOVE SHORTCUTS` button but this won't remove dynamic shortcuts already converted to launcher shortcuts.
+To create dynamic shortcuts, put desired scripts/binaries in `~/.config/termuxpp/widget/dynamic_shortcuts` and click the `CREATE SHORTCUTS` button in `TermuxPP:Widget`. Existing scripts under `~/.termux/widget/dynamic_shortcuts` are used only when the canonical directory does not exist.
 
 For some launchers it might be necessary to regenerate the app shortcuts to display them correctly. Lookup the settings of your launcher to find such actions.
 
@@ -173,15 +175,15 @@ For android `>= 10` there are new [restrictions](https://developer.android.com/g
 
 ### Creating And Modifying Scripts
 
-You can create scripts in `~/.shortcuts/` and `~/.shortcuts/tasks` directories after following their [Setup Instructions](#Setup-Instructions).
+You can create scripts in `~/.config/termuxpp/shortcuts/` and `~/.config/termuxpp/shortcuts/tasks` directories after following their [Setup Instructions](#Setup-Instructions).
 
 You can use `shell` based text editors like `nano`, `vim` or `emacs` to create and modify scripts.
 
-`nano ~/.shortcuts/some_script`
+`nano ~/.config/termuxpp/shortcuts/some_script`
 
-You can also use `GUI` based text editor android apps that support `SAF`. Termux provides a [Storage Access Framework (SAF)](https://wiki.termux.com/wiki/Internal_and_external_storage) file provider to allow other apps to access its `~/` home directory. However, the `$PREFIX/` directory is not accessible to other apps. The [QuickEdit] or [QuickEdit Pro] app does support `SAF` and can handle large files without crashing, however, it is closed source and its pro version without ads is paid. You can also use [Acode editor] or [Turbo Editor] if you want an open source app.
+You can also use `GUI` based text editor android apps that support `SAF`. TermuxPP provides a [Storage Access Framework (SAF)](https://wiki.termux.com/wiki/Internal_and_external_storage) file provider to allow other apps to access its `~/` home directory. However, the `$PREFIX/` directory is not accessible to other apps. The [QuickEdit] or [QuickEdit Pro] app does support `SAF` and can handle large files without crashing, however, it is closed source and its pro version without ads is paid. You can also use [Acode editor] or [Turbo Editor] if you want an open source app.
 
-Note that the android default `SAF` `Document` file picker may not support hidden file or directories like `~/.shortcuts` which start with a dot `.`, so if you try to use it to open files for a text editor app, then that directory will not show. You can instead create a symlink for  `~/.shortcuts` at `~/shortcuts_sym` so that it is shown. Use `ln -s "/data/data/com.termux/files/home/.shortcuts" "/data/data/com.termux/files/home/shortcuts_sym"` to create it.
+Note that the android default `SAF` `Document` file picker may not support hidden file or directories like `~/.shortcuts` which start with a dot `.`, so if you try to use it to open files for a text editor app, then that directory will not show. You can instead create a symlink for  `~/.shortcuts` at `~/shortcuts_sym` so that it is shown. Use `ln -s "/data/data/dev.pschmitt.termux/files/home/.shortcuts" "/data/data/dev.pschmitt.termux/files/home/shortcuts_sym"` to create it.
 ##
 
 
@@ -208,12 +210,20 @@ Once log levels have been set, you can run the `logcat` command in `Termux` app 
 
 ##### Termux Environment
 
-Termux does not load the environment fully for external plugins or [RUN_COMMAND Intent] commands, like setting `LD_PRELOAD`, so any *external* scripts which do not have shebangs to full path to termux bin directory will not work if called from inside your *plugin* scripts, since `libtermux-exec.so` is not called since `LD_PRELOAD` isn't set and you will get `bad interpreter: No such file or directory` errors. Simply setting `LD_PRELOAD` will not work either without starting a new shell. So make sure to set the shebangs correctly for any *external* scripts you want to run from inside your *plugin* script. The correct shebangs for termux scripts are like `#!/data/data/com.termux/files/usr/bin/bash` for bash scripts instead of `#!/usr/bin/bash` used in common linux distros. You can also use [termux-fix-shebang](https://wiki.termux.com/wiki/Termux-fix-shebang) command on the *external* scripts before running them with the plugin to fix the shebangs automatically or use `tudo`/`sudo`.
+TermuxPP does not load the environment fully for external plugins or [RUN_COMMAND Intent] commands, like setting `LD_PRELOAD`, so any *external* scripts which do not have shebangs to full path to termux bin directory will not work if called from inside your *plugin* scripts, since `libtermux-exec.so` is not called since `LD_PRELOAD` isn't set and you will get `bad interpreter: No such file or directory` errors. Simply setting `LD_PRELOAD` will not work either without starting a new shell. So make sure to set the shebangs correctly for any *external* scripts you want to run from inside your *plugin* script. The correct shebangs for termux scripts are like `#!/data/data/dev.pschmitt.termux/files/usr/bin/bash` for bash scripts instead of `#!/usr/bin/bash` used in common linux distros. You can also use [termux-fix-shebang](https://wiki.termux.com/wiki/Termux-fix-shebang) command on the *external* scripts before running them with the plugin to fix the shebangs automatically or use `tudo`/`sudo`.
 
 The [`tudo`](https://github.com/agnostic-apollo/tudo) script can be used for running commands in termux user context and the [`sudo`](https://github.com/agnostic-apollo/sudo) script for running commands with super user (root) context. You can call the *external* scripts in your scripts with the `path` command type of `tudo`/`sudo`. These scripts will load the termux environment properly like setting `LD_PRELOAD` etc before running the commands.
 ##
 
 
+
+## TermuxPP:Widget
+
+This fork installs alongside stock Termux:Widget as `dev.pschmitt.termux.widget` and shares the `dev.pschmitt.termux` UID with TermuxPP. All installed TermuxPP apps must be signed with the same certificate. The checked-in debug key is public and untrusted; use it only for development.
+
+Build with JDK 17 and Android SDK 36 using `./gradlew :app:lintDebug verifyDebug16kAlignment`. The alignment task checks 16 KB ELF load segments and APK ZIP alignment. The `termux-app` submodule pins TermuxPP's shared libraries and should be cloned recursively.
+
+Shortcut scripts and their optional icons use `~/.config/termuxpp/shortcuts/`; dynamic shortcuts use `~/.config/termuxpp/widget/dynamic_shortcuts/`. Existing paths under `~/.shortcuts/` and `~/.termux/widget/dynamic_shortcuts/` remain as fallbacks when their canonical directory is absent. The core's shared constants route commands to TermuxPP. Existing stock Termux:Widget and its shortcuts remain independent.
 
 ## For Maintainers and Contributors
 
@@ -236,4 +246,4 @@ Check [Forking](https://github.com/termux/termux-app#Forking) section of `termux
 [Acode editor]: https://github.com/deadlyjack/code-editor
 [Turbo Editor]: https://github.com/vmihalachi/turbo-editor
 [`root`]: https://topjohnwu.github.io/Magisk/tools.html#su
-[RUN_COMMAND Intent]: https://github.com/termux/termux-app/blob/master/app/src/main/java/com/termux/app/RunCommandService.java
+[RUN_COMMAND Intent]: https://github.com/pschmitt/termuxpp-app/blob/main/app/src/main/java/com/termux/app/RunCommandService.java

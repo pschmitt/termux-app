@@ -140,7 +140,7 @@ public final class ShortcutFile {
     @Nullable
     private File getIconFile(Context context, boolean showToastForIconUsed) {
         String errmsg;
-        String shortcutIconFilePath = TermuxConstants.TERMUX_SHORTCUT_SCRIPT_ICONS_DIR_PATH +
+        String shortcutIconFilePath = ShortcutUtils.getShortcutIconsDirPath(getPath()) +
                 "/" + ShellUtils.getExecutableBasename(getPath()) + ".png";
 
         FileType fileType = FileUtils.getFileType(shortcutIconFilePath, true);

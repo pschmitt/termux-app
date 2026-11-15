@@ -13,6 +13,9 @@ import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.termux.shared.activity.media.AppCompatActivityUtils;
 import com.termux.shared.android.PackageUtils;
@@ -37,14 +40,25 @@ import java.util.regex.Pattern;
 public class TermuxWidgetMainActivity extends AppCompatActivity {
 
     public static final String LOG_TAG = "TermuxWidgetMainActivity";
+    public static final String TERMUXPP_APP_GITHUB_REPO_URL = "https://github.com/pschmitt/termuxpp-app";
+    public static final String TERMUXPP_WIDGET_GITHUB_REPO_URL = "https://github.com/pschmitt/termuxpp-widget";
 
-    /** Termux:Widget app data home directory path. */
-    public static final String TERMUX_WIDGET_DATA_HOME_DIR_PATH = TermuxConstants.TERMUX_DATA_HOME_DIR_PATH + "/widget"; // Default: "/data/data/com.termux/files/home/.termux/widget"
+    /** Canonical dynamic shortcut directory under ~/.config/termuxpp. */
+    public static final String TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH =
+            TermuxConstants.TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/widget/dynamic_shortcuts";
+    /** Legacy directory retained as a fallback while existing setups migrate. */
+    public static final String LEGACY_TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH =
+            TermuxConstants.TERMUX_DATA_HOME_DIR_PATH + "/widget/dynamic_shortcuts";
 
-    /** Termux:Widget app directory path to store scripts/binaries to be used as dynamic shortcuts. */
-    public static final String TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH = TERMUX_WIDGET_DATA_HOME_DIR_PATH + "/dynamic_shortcuts"; // Default: "/data/data/com.termux/files/home/.termux/widget/dynamic_shortcuts"
+    private static String getDynamicShortcutsDirPath() {
+        File canonical = new File(TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH);
+        File legacy = new File(LEGACY_TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH);
+        return canonical.exists() || !legacy.exists()
+                ? TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH
+                : LEGACY_TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH;
+    }
 
-    public static final String MAX_SHORTCUTS_LIMIT_DOCS_URL = TermuxConstants.TERMUX_WIDGET_GITHUB_REPO_URL + "#max-shortcuts-limit-optional"; // Default: "https://github.com/termux/termux-widget#max-shortcuts-limit-optional"
+    public static final String MAX_SHORTCUTS_LIMIT_DOCS_URL = TERMUXPP_WIDGET_GITHUB_REPO_URL + "#max-shortcuts-limit-optional";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,19 +67,36 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
         Logger.logDebug(LOG_TAG, "onCreate");
 
         setContentView(R.layout.activity_termux_widget_main);
-
         AppCompatActivityUtils.setNightMode(this, NightMode.getAppNightMode().getName(), true);
+        applySystemBarInsets();
 
         AppCompatActivityUtils.setToolbar(this, com.termux.shared.R.id.toolbar);
         AppCompatActivityUtils.setToolbarTitle(this, com.termux.shared.R.id.toolbar, TermuxConstants.TERMUX_WIDGET_APP_NAME, 0);
 
         TextView pluginInfo = findViewById(R.id.textview_plugin_info);
-        pluginInfo.setText(getString(R.string.plugin_info, TermuxConstants.TERMUX_GITHUB_REPO_URL,
-                TermuxConstants.TERMUX_WIDGET_GITHUB_REPO_URL));
+        pluginInfo.setText(getString(R.string.plugin_info, TERMUXPP_APP_GITHUB_REPO_URL,
+                TERMUXPP_WIDGET_GITHUB_REPO_URL));
 
         setDynamicShortcutsViews();
         setRefreshAllWidgetsViews();
         sendIntentToRefreshAllWidgets();
+    }
+
+    private void applySystemBarInsets() {
+        View root = findViewById(R.id.widget_main_root);
+        int initialLeft = root.getPaddingLeft();
+        int initialTop = root.getPaddingTop();
+        int initialRight = root.getPaddingRight();
+        int initialBottom = root.getPaddingBottom();
+
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            view.setPadding(initialLeft + insets.left, initialTop + insets.top,
+                    initialRight + insets.right, initialBottom + insets.bottom);
+            return windowInsets;
+        });
+        ViewCompat.requestApplyInsets(root);
     }
 
     @Override
@@ -150,7 +181,7 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
             TextView dynamicShortcutsInfoTextView = findViewById(R.id.textview_dynamic_shortcuts_info);
             dynamicShortcutsInfoTextView.setText(MarkdownUtils.getSpannedMarkdownText(this,
                     getString(R.string.msg_dynamic_shortcuts_info,
-                    TermuxFileUtils.getUnExpandedTermuxPath(TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH))));
+                    TermuxFileUtils.getUnExpandedTermuxPath(getDynamicShortcutsDirPath()))));
 
             Button createDynamicShortcutsButton = findViewById(R.id.button_create_dynamic_shortcuts);
             createDynamicShortcutsButton.setOnClickListener(v -> createDynamicShortcuts(this));
@@ -178,18 +209,18 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
         if (shortcutManager == null) return;
 
         // Create directory if necessary so user more easily finds where to put shortcuts
-        Error error = FileUtils.createDirectoryFile(TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH);
+        Error error = FileUtils.createDirectoryFile(getDynamicShortcutsDirPath());
         if (error != null) {
             Logger.logError(LOG_TAG, error.toString());
             Logger.showToast(this, error.getMinimalErrorLogString(), true);
         }
 
         List<ShortcutFile> shortcutFiles = new ArrayList<>();
-        ShortcutUtils.enumerateShortcutFiles(shortcutFiles, new File(TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH), false);
+        ShortcutUtils.enumerateShortcutFiles(shortcutFiles, new File(getDynamicShortcutsDirPath()), false);
 
         if (shortcutFiles.size() == 0) {
             Logger.showToast(context, getString(R.string.msg_no_shortcut_files_found_in_directory,
-                    TermuxFileUtils.getUnExpandedTermuxPath(TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH)), true);
+                    TermuxFileUtils.getUnExpandedTermuxPath(getDynamicShortcutsDirPath())), true);
             return;
         }
 
@@ -206,7 +237,7 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
             while (shortcuts.size() > maxShortcuts) {
                 String message = getString(R.string.msg_skipping_shortcut,
                         shortcuts.get(shortcuts.size() - 1).getId().replaceAll(
-                                "^" + Pattern.quote(TERMUX_WIDGET_DYNAMIC_SHORTCUTS_DIR_PATH + "/"), ""));
+                                "^" + Pattern.quote(getDynamicShortcutsDirPath() + "/"), ""));
                 Logger.showToast(context, message, false);
                 Logger.logDebug(LOG_TAG, message);
                 shortcuts.remove(shortcuts.size() - 1);

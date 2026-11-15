@@ -25,4 +25,10 @@
                           "
         />
 
+    <!-- A small widget grid distinguishes this app from the core terminal icon. -->
+    <path
+        android:fillColor="#86EFAC"
+        android:pathData="M59,35 h6 v6 h-6 z M68,35 h6 v6 h-6 z
+                          M59,44 h6 v6 h-6 z M68,44 h6 v6 h-6 z" />
+
 </vector>

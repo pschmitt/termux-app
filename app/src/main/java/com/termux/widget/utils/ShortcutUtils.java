@@ -24,14 +24,25 @@ public class ShortcutUtils {
 
     public static final int TERMUX_SHORTCUTS_SCRIPTS_DIR_MAX_SEARCH_DEPTH = 5;
 
+    public static final String TERMUXPP_SHORTCUTS_DIR_PATH =
+            TermuxConstants.TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/shortcuts";
+    public static final String LEGACY_SHORTCUTS_DIR_PATH =
+            TermuxConstants.TERMUX_SHORTCUT_SCRIPTS_DIR_PATH;
+    public static final String TERMUXPP_SHORTCUT_ICONS_DIR_PATH =
+            TERMUXPP_SHORTCUTS_DIR_PATH + "/icons";
+    public static final String LEGACY_SHORTCUT_ICONS_DIR_PATH =
+            TermuxConstants.TERMUX_SHORTCUT_SCRIPT_ICONS_DIR_PATH;
+
     /* Allowed paths under which shortcut files can exist. */
     public static final List<String> SHORTCUT_FILES_ALLOWED_PATHS_LIST = Arrays.asList(
-            TermuxConstants.TERMUX_SHORTCUT_SCRIPTS_DIR_PATH,
+            TERMUXPP_SHORTCUTS_DIR_PATH,
+            LEGACY_SHORTCUTS_DIR_PATH,
             TermuxConstants.TERMUX_DATA_HOME_DIR_PATH);
 
     /* Allowed paths under which shortcut icons files can exist. */
     public static final List<String> SHORTCUT_ICONS_FILES_ALLOWED_PATHS_LIST = Arrays.asList(
-            TermuxConstants.TERMUX_SHORTCUT_SCRIPT_ICONS_DIR_PATH,
+            TERMUXPP_SHORTCUT_ICONS_DIR_PATH,
+            LEGACY_SHORTCUT_ICONS_DIR_PATH,
             TermuxConstants.TERMUX_DATA_HOME_DIR_PATH);
 
     public static final FileFilter SHORTCUT_FILES_FILTER = new FileFilter() {
@@ -45,17 +56,40 @@ public class ShortcutUtils {
             } else if (!FileUtils.isPathInDirPaths(file.getAbsolutePath(), SHORTCUT_FILES_ALLOWED_PATHS_LIST, true)) {
                 // Do not show files that are not under SHORTCUT_FILES_ALLOWED_PATHS_LIST
                 return false;
-            } else if (TermuxConstants.TERMUX_SHORTCUT_SCRIPTS_DIR.equals(file.getParentFile()) &&
+            } else if ((file.getParentFile() != null && (file.getParentFile().getAbsolutePath().equals(TERMUXPP_SHORTCUTS_DIR_PATH) ||
+                    file.getParentFile().getAbsolutePath().equals(LEGACY_SHORTCUTS_DIR_PATH))) &&
                     file.getName().equals(TermuxConstants.TERMUX_SHORTCUT_SCRIPT_ICONS_DIR_BASENAME)) {
-                // Do not show files under TERMUX_SHORTCUT_SCRIPT_ICONS_DIR_PATH
+                // Keep per-script icons out of the shortcut list.
                 return false;
             }
             return true;
         }
     };
 
+    /** Return the canonical directory when present; otherwise honor the legacy directory. */
+    @NonNull
+    public static File getShortcutScriptsDir() {
+        File canonical = new File(TERMUXPP_SHORTCUTS_DIR_PATH);
+        File legacy = new File(LEGACY_SHORTCUTS_DIR_PATH);
+        return canonical.exists() || !legacy.exists() ? canonical : legacy;
+    }
+
+    public static String getShortcutScriptsRootPath(@NonNull String shortcutPath) {
+        if (FileUtils.isPathInDirPaths(shortcutPath, Arrays.asList(TERMUXPP_SHORTCUTS_DIR_PATH), true))
+            return TERMUXPP_SHORTCUTS_DIR_PATH;
+        if (FileUtils.isPathInDirPaths(shortcutPath, Arrays.asList(LEGACY_SHORTCUTS_DIR_PATH), true))
+            return LEGACY_SHORTCUTS_DIR_PATH;
+        return null;
+    }
+
+    @NonNull
+    public static String getShortcutIconsDirPath(@NonNull String shortcutPath) {
+        return TERMUXPP_SHORTCUTS_DIR_PATH.equals(getShortcutScriptsRootPath(shortcutPath))
+                ? TERMUXPP_SHORTCUT_ICONS_DIR_PATH : LEGACY_SHORTCUT_ICONS_DIR_PATH;
+    }
+
     public static void enumerateShortcutFiles(List<ShortcutFile> files, boolean sorted) {
-        enumerateShortcutFiles(files, TermuxConstants.TERMUX_SHORTCUT_SCRIPTS_DIR, sorted, 0);
+        enumerateShortcutFiles(files, getShortcutScriptsDir(), sorted, 0);
     }
 
     public static void enumerateShortcutFiles(List<ShortcutFile> files, File dir, boolean sorted) {
