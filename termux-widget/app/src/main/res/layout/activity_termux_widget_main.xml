@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/widget_main_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".activities.TermuxWidgetMainActivity">
+
+    <include
+        layout="@layout/partial_primary_toolbar"
+        android:id="@+id/partial_primary_toolbar"/>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" >
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="20dp"
+            android:paddingBottom="24dp"
+            android:paddingStart="@dimen/activity_horizontal_margin"
+            android:paddingEnd="@dimen/activity_horizontal_margin"
+            android:background="@color/ui_surface">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/main_activity_heading"
+                android:textAppearance="@style/TextAppearance.TermuxPP.ToolbarTitle"
+                android:accessibilityHeading="true" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/textview_plugin_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="12dp"
+                android:paddingBottom="16dp"
+                android:gravity="start|center_vertical"
+                android:textSize="14sp"
+                android:lineSpacingMultiplier="1.15"
+                android:textStyle="normal"
+                android:textColor="@color/ui_on_surface_variant"
+                android:textColorLink="@color/ui_primary"
+                android:textIsSelectable="true"
+                android:autoLink="web"/>
+
+
+
+            <LinearLayout
+                android:id="@+id/linearlayout_max_shortcuts_limit_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <View style="@style/ViewDivider"/>
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/textview_max_shortcuts_limit_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="16dp"
+                    android:gravity="start|center_vertical"
+                    android:textSize="14sp"
+                    android:lineSpacingMultiplier="1.15"
+                    android:textStyle="normal"
+                    android:textColor="@color/ui_on_surface_variant"
+                    android:textColorLink="@color/ui_primary"
+                    android:autoLink="web"/>
+
+            </LinearLayout>
+
+
+
+            <View style="@style/ViewDivider"/>
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/textview_change_launcher_activity_state_details"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="16dp"
+                android:gravity="start|center_vertical"
+                android:textSize="14sp"
+                android:lineSpacingMultiplier="1.15"
+                android:textStyle="normal"
+                android:textColor="@color/ui_on_surface_variant"
+                android:textColorLink="@color/ui_primary"
+                android:textIsSelectable="true"
+                android:autoLink="web"/>
+
+            <com.google.android.material.button.MaterialButton
+                style="@style/Widget.TermuxPP.Button.Tonal"
+                android:id="@+id/button_change_launcher_activity_state"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:gravity="center"
+                android:minHeight="48dp"
+                android:textSize="14sp"
+                android:textAllCaps="false"
+                android:letterSpacing="0"
+                app:strokeWidth="0dp"/>
+
+
+
+            <LinearLayout
+                android:id="@+id/linearlayout_dynamic_shortcuts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <View style="@style/ViewDivider"/>
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/textview_dynamic_shortcuts_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingBottom="16dp"
+                    android:gravity="start|center_vertical"
+                    android:textSize="14sp"
+                    android:lineSpacingMultiplier="1.15"
+                    android:textStyle="normal"
+                    android:textColor="@color/ui_on_surface_variant"
+                    android:textColorLink="@color/ui_primary"
+                    android:textIsSelectable="true"
+                    android:autoLink="web"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.TermuxPP.Button.Tonal"
+                        android:id="@+id/button_remove_dynamic_shortcuts"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:layout_marginStart="@dimen/content_padding_half"
+                        android:layout_marginEnd="@dimen/content_padding_half"
+                        android:text="@string/action_remove_dynamic_shortcuts"
+                        app:strokeWidth="0dp"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.TermuxPP.Button.Tonal"
+                        android:id="@+id/button_create_dynamic_shortcuts"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:layout_marginStart="@dimen/content_padding_half"
+                        android:layout_marginEnd="@dimen/content_padding_half"
+                        android:text="@string/action_create_dynamic_shortcuts"
+                        app:strokeWidth="0dp"/>
+                </LinearLayout>
+
+            </LinearLayout>
+
+
+
+            <View style="@style/ViewDivider"/>
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/textview_refresh_all_widgets"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="16dp"
+                android:gravity="start|center_vertical"
+                android:text="@string/msg_refresh_all_widgets_info"
+                android:textSize="14sp"
+                android:lineSpacingMultiplier="1.15"
+                android:textStyle="normal"
+                android:textColor="@color/ui_on_surface_variant"
+                android:textColorLink="@color/ui_primary"
+                android:textIsSelectable="true"
+                android:autoLink="web"/>
+
+            <com.google.android.material.button.MaterialButton
+                style="@style/Widget.TermuxPP.Button.Tonal"
+                android:id="@+id/button_refresh_all_widgets"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:gravity="center"
+                android:minHeight="48dp"
+                android:text="@string/action_refresh_all_widgets"
+                android:textSize="14sp"
+                android:textAllCaps="false"
+                android:letterSpacing="0"
+                app:strokeWidth="0dp"/>
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>
