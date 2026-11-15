@@ -91,6 +91,8 @@ public class TerminalContextMenuTest {
         Assert.assertEquals(1, allIds.indexOf(TerminalContextMenu.KILL_PROCESS)
             - allIds.indexOf(TerminalContextMenu.RESET_TERMINAL));
         Assert.assertEquals(activity.getString(R.string.action_kill_process_accessibility), "Kill session");
+        Assert.assertEquals("Kill session", activity.getString(R.string.action_kill_session));
+        Assert.assertTrue(activity.getString(R.string.msg_confirm_kill_process).contains("process will stop"));
     }
 
     @Test

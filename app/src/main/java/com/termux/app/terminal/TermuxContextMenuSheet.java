@@ -348,7 +348,8 @@ public class TermuxContextMenuSheet {
         button.setEnabled(action.enabled);
         button.setClickable(action.enabled);
         button.setFocusable(action.enabled);
-        int tintRes = action.enabled ? R.color.ui_on_surface_variant : R.color.ui_outline;
+        int tintRes = !action.enabled ? R.color.ui_outline
+            : (action.id == TerminalContextMenu.KILL_PROCESS ? R.color.ui_danger : R.color.ui_on_surface_variant);
         button.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(dialog.getContext(), tintRes)));
         if (action.enabled) {
             button.setOnClickListener(v -> {

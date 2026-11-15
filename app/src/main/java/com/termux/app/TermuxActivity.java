@@ -742,13 +742,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void showKillSessionDialog(TerminalSession session) {
         if (session == null) return;
 
-        DialogUtils.builder(this, R.drawable.ui_ic_warning, true)
+        DialogUtils.builder(this, R.drawable.ui_ic_delete, true)
             .setTitle(R.string.title_confirm_kill_process)
-            .setPositiveButton(android.R.string.yes, (dialog, id) -> {
+            .setMessage(R.string.msg_confirm_kill_process)
+            .setPositiveButton(R.string.action_kill_session, (dialog, id) -> {
                 dialog.dismiss();
                 session.finishIfRunning();
             })
-            .setNegativeButton(android.R.string.no, null)
+            .setNegativeButton(android.R.string.cancel, null)
             .show();
     }
 

@@ -53,7 +53,7 @@ public final class TerminalContextMenu {
             .addItem(SELECT_URL, R.string.action_select_url, R.drawable.ui_ic_link);
         if (state.hasSelectedText) {
             sheet.addDualAction(R.string.ui_menu_share,
-                SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_share,
+                SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_select_text,
                 SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share);
         } else {
             sheet.addItem(SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share);
@@ -66,7 +66,7 @@ public final class TerminalContextMenu {
         sheet.addGroup(R.string.ui_menu_group_session)
             .addDualAction(R.string.ui_menu_session_controls,
                 RESET_TERMINAL, R.string.action_reset_terminal, R.drawable.ui_ic_refresh, true,
-                KILL_PROCESS, R.string.action_kill_process_accessibility, R.drawable.ui_ic_power, state.sessionRunning)
+                KILL_PROCESS, R.string.action_kill_process_accessibility, R.drawable.ui_ic_delete, state.sessionRunning)
             .addToggle(TOGGLE_KEEP_SCREEN_ON, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_lightbulb,
                 state.keepScreenOn)
             .addGroup(R.string.ui_menu_group_app)
