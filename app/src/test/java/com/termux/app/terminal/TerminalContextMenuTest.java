@@ -129,9 +129,56 @@ public class TerminalContextMenuTest {
             if (view.getId() == R.id.context_tile_title) titles.add(((TextView) view).getText().toString());
             if (view.getId() == R.id.context_tile_detail) details.add(((TextView) view).getText().toString());
         }
-        Assert.assertEquals(Arrays.asList("Open URL", "Share", "Autofill", "Reset", "Kill zsh"), titles);
+        Assert.assertEquals(Arrays.asList("Open URL", "Share", "Autofill", "Reset", "Kill zsh", "Keep screen on"),
+            titles);
         Assert.assertEquals(Arrays.asList("2 found", "selection or all", "user or password",
-            "terminal state", "hold to kill now"), details);
+            "terminal state", "hold to kill now", "off"), details);
+    }
+
+    private static View tileTitled(BottomSheetDialog dialog, String title) {
+        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
+            if (view.getId() == R.id.context_tile_title && title.contentEquals(((TextView) view).getText())) {
+                View tile = view;
+                while (tile.getId() != R.id.context_tile) tile = (View) tile.getParent();
+                return tile;
+            }
+        }
+        throw new AssertionError("Missing tile: " + title);
+    }
+
+    @Test
+    public void killAndKeepScreenOnAlwaysShareTheLastRow() {
+        Activity activity = activity();
+        for (TerminalContextMenu.State state : Arrays.asList(session(null, true, 1, 1), minimal())) {
+            BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
+                new TermuxContextMenuSheet(activity), activity.getResources(), state).show(id -> { });
+            String kill = state.processName == null ? "Kill session" : "Kill zsh";
+            View killTile = tileTitled(dialog, kill);
+            Assert.assertSame(killTile.getParent(), tileTitled(dialog, "Keep screen on").getParent());
+            // Kill, the gap between the tiles, Keep screen on.
+            Assert.assertEquals(3, ((android.view.ViewGroup) killTile.getParent()).getChildCount());
+        }
+        // Without autofill there are five tiles: Reset gets a row of its own instead of joining Kill.
+        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
+            new TermuxContextMenuSheet(activity), activity.getResources(), minimal()).show(id -> { });
+        Assert.assertEquals(1, ((android.view.ViewGroup) tileTitled(dialog, "Reset").getParent()).getChildCount());
+    }
+
+    @Test
+    public void keepScreenOnTileShowsItsStateAsASwitch() {
+        Activity activity = activity();
+        TerminalContextMenu.State on = new TerminalContextMenu.State(false, false, 4182, true, true,
+            null, "zsh", "~", 1, 1, 0);
+        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
+            new TermuxContextMenuSheet(activity), activity.getResources(), on).show(id -> { });
+        View tile = tileTitled(dialog, "Keep screen on");
+        Assert.assertEquals("on", ((TextView) tile.findViewById(R.id.context_tile_detail)).getText().toString());
+        androidx.core.view.accessibility.AccessibilityNodeInfoCompat info =
+            androidx.core.view.accessibility.AccessibilityNodeInfoCompat.obtain();
+        androidx.core.view.ViewCompat.onInitializeAccessibilityNodeInfo(tile, info);
+        Assert.assertEquals("android.widget.Switch", String.valueOf(info.getClassName()));
+        Assert.assertTrue(info.isCheckable());
+        Assert.assertTrue(info.isChecked());
     }
 
     @Test

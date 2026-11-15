@@ -44,6 +44,8 @@
     <string name="ui_menu_kill_session_target">session</string>
     <string name="ui_menu_kill_now">Kill now</string>
     <string name="ui_menu_not_running">not running</string>
+    <string name="ui_menu_toggle_on">on</string>
+    <string name="ui_menu_toggle_off">off</string>
     <string name="ui_menu_session_pid">pid %1$d</string>
     <string name="ui_menu_session_position">%1$d of %2$d</string>
     <string name="ui_menu_session_detail_separator">" · "</string>

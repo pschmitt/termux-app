@@ -101,6 +101,8 @@ public class TermuxContextMenuSheet {
         final boolean card;
         /** What a card acts on, shown in a small terminal-like box, or null for none. */
         @Nullable final CharSequence preview;
+        /** The state of a toggle tile, or null if the tile is not a toggle. */
+        @Nullable Boolean checked;
 
         Tile(int id, CharSequence title, @Nullable CharSequence detail, int icon, boolean enabled, boolean danger,
              int longPressId, @Nullable CharSequence longPressLabel) {
@@ -132,6 +134,8 @@ public class TermuxContextMenuSheet {
     static final int TILE_GAP_DP = 8;
 
     private final Activity mActivity;
+    private static final Object ROW_BREAK = new Object();
+
     private final List<Object> mRows = new ArrayList<>();
     @Nullable private Header mHeader;
     /** The number of lines of the longest card preview. */
@@ -187,6 +191,21 @@ public class TermuxContextMenuSheet {
     public TermuxContextMenuSheet addCard(int id, CharSequence title, @Nullable CharSequence detail,
                                           @DrawableRes int icon, @Nullable CharSequence preview) {
         mRows.add(new Tile(id, title, detail, icon, true, false, -1, null, true, preview));
+        return this;
+    }
+
+    /** Add an on/off setting to the grid; its badge is filled while it is on. */
+    public TermuxContextMenuSheet addToggleTile(int id, CharSequence title, @DrawableRes int icon, boolean checked,
+                                                CharSequence onDetail, CharSequence offDetail) {
+        Tile tile = new Tile(id, title, checked ? onDetail : offDetail, icon, true, false, -1, null);
+        tile.checked = checked;
+        mRows.add(tile);
+        return this;
+    }
+
+    /** Start a new row of the grid, so that the next tiles are laid out together. */
+    public TermuxContextMenuSheet addRowBreak() {
+        mRows.add(ROW_BREAK);
         return this;
     }
 
@@ -273,6 +292,8 @@ public class TermuxContextMenuSheet {
                     tileRow.addView(createTileGap(tileRow));
                 }
                 tileRow.addView(createTile(tileRow, dialog, (Tile) row, chosen));
+            } else if (row == ROW_BREAK) {
+                tileRow = null;
             } else if (row instanceof Entry) {
                 tileRow = null;
                 container.addView(createItem(container, dialog, (Entry) row, chosen));
@@ -445,6 +466,21 @@ public class TermuxContextMenuSheet {
             detail.setTextColor(color);
         } else if (!tile.enabled) {
             title.setTextColor(color);
+        } else if (Boolean.TRUE.equals(tile.checked)) {
+            icon.setBackgroundResource(R.drawable.ui_sheet_tile_icon_on_bg);
+            icon.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(dialog.getContext(), R.color.ui_on_primary)));
+        }
+        if (tile.checked != null) {
+            final boolean checked = tile.checked;
+            ViewCompat.setAccessibilityDelegate(view, new AccessibilityDelegateCompat() {
+                @Override
+                public void onInitializeAccessibilityNodeInfo(@NonNull View host, @NonNull AccessibilityNodeInfoCompat info) {
+                    super.onInitializeAccessibilityNodeInfo(host, info);
+                    info.setClassName("android.widget.Switch");
+                    info.setCheckable(true);
+                    info.setChecked(checked);
+                }
+            });
         }
 
         view.setEnabled(tile.enabled);

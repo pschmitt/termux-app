@@ -129,12 +129,15 @@ public final class TerminalContextMenu {
             resources.getString(R.string.ui_menu_reset_detail), R.drawable.ui_ic_menu_reset);
         String killTarget = TextUtils.isEmpty(state.processName)
             ? resources.getString(R.string.ui_menu_kill_session_target) : state.processName;
+        // Kill and Keep screen on always share the last row.
+        sheet.addRowBreak();
         sheet.addDangerTile(KILL_PROCESS, resources.getString(R.string.ui_menu_kill, killTarget),
             resources.getString(state.sessionRunning ? R.string.ui_menu_kill_detail : R.string.ui_menu_not_running),
             R.drawable.ui_ic_menu_power, state.sessionRunning,
             KILL_PROCESS_NOW, resources.getString(R.string.ui_menu_kill_now));
-        sheet.addToggle(TOGGLE_KEEP_SCREEN_ON, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_menu_sun,
-            state.keepScreenOn);
+        sheet.addToggleTile(TOGGLE_KEEP_SCREEN_ON, resources.getString(R.string.action_toggle_keep_screen_on),
+            R.drawable.ui_ic_menu_sun, state.keepScreenOn,
+            resources.getString(R.string.ui_menu_toggle_on), resources.getString(R.string.ui_menu_toggle_off));
         return sheet;
     }
 
