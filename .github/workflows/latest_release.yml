@@ -2,7 +2,8 @@
 # (Settings > Updates) reads. See docs/en/self-update.md.
 #
 # - The release is a prerelease named "Latest build"; its tag is moved to the built commit.
-# - Assets: the apt-android-7 debug APKs (universal plus one per ABI) and SHA256SUMS over them.
+# - Assets: the core debug APKs (universal plus one per ABI), API and Tasker debug APKs,
+#   and SHA256SUMS over them.
 # - The release body names the full 40-digit commit; the updater compares that commit with the
 #   installed one, so the body must keep it.
 # - Never cancelled midway and serial per ref: a half-uploaded release would offer a partial set.
@@ -45,9 +46,20 @@ jobs:
           current="$(grep -m 1 -E "$version_regex" ./app/build.gradle | sed -r "s/$version_regex/\1/")"
           export TERMUX_APP_VERSION_NAME="$current+${GITHUB_SHA:0:7}"
 
-          # No TERMUX_APK_VERSION_TAG: the updater expects the default names
+          # No TERMUX_APK_VERSION_TAG: the updater expects the default core names
           # termux-app_<variant>-debug_<abi|universal>.apk
-          ./gradlew assembleDebug
+          # Companion names are fixed by the updater as well.
+          api_version_regex='\s+versionName "([^"]+)"$'
+          api_version="$(grep -m 1 -E "$api_version_regex" ./termux-api/app/build.gradle | sed -r "s/$api_version_regex/\1/")"
+          export TERMUX_API_APP__BUILD__APP_VERSION_NAME="$api_version+${GITHUB_SHA:0:7}"
+          export TERMUX_API_APP__BUILD__APK_VERSION_TAG="debug"
+
+          tasker_version_regex='\s+versionName "([^"]+)"$'
+          tasker_version="$(grep -m 1 -E "$tasker_version_regex" ./termux-tasker/app/build.gradle | sed -r "s/$tasker_version_regex/\1/")"
+          export TERMUX_TASKER_APP__BUILD__APP_VERSION_NAME="$tasker_version+${GITHUB_SHA:0:7}"
+          export TERMUX_TASKER_APP__BUILD__APK_VERSION_TAG="debug"
+
+          ./gradlew :app:assembleDebug :termux-api:assembleDebug :termux-tasker:assembleDebug
 
       - name: Collect the APKs
         shell: bash
@@ -65,6 +77,17 @@ jobs:
               exit 1
             }
             cp "$apk_dir/$apk" "$out/"
+          done
+          for apk in termux-api-app_debug.apk termux-tasker-app_debug.apk
+          do
+            module="${apk%%-app_*}"
+            path="./$module/app/build/outputs/apk/debug/$apk"
+            test -f "$path" || {
+              echo "Missing $path. Found:" >&2
+              ls "./$module/app/build/outputs/apk/debug" >&2
+              exit 1
+            }
+            cp "$path" "$out/"
           done
           ls -la "$out"
 
@@ -119,8 +142,8 @@ jobs:
           dir="$RUNNER_TEMP/assets"
           mkdir -p "$dir"
           cp "$RUNNER_TEMP"/downloaded/*.apk "$dir/"
-          # universal plus four ABIs
-          [ "$(ls -1 "$dir" | wc -l)" -eq 5 ]
+          # Five core variants plus fixed API and Tasker companion APKs.
+          [ "$(ls -1 "$dir" | wc -l)" -eq 7 ]
           (cd "$dir" && sha256sum -- *.apk > SHA256SUMS)
           cat "$dir/SHA256SUMS"
           echo "dir=$dir" >> "$GITHUB_OUTPUT"
