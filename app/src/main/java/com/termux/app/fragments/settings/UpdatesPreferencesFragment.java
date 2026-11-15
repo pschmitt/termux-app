@@ -20,6 +20,7 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.StringRes;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -60,6 +61,7 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
     };
 
     private UpdateController controller;
+    @Nullable private SwipeRefreshLayout swipeRefreshLayout;
     private boolean shizukuListening;
     @Nullable private CharSequence previousTitle;
     /** Whether the icon currently set on each app row is the installed app's own, to set it only when that changes. */
@@ -103,6 +105,33 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
     }
 
     @Override
+    public void onViewCreated(@NonNull android.view.View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        Context context = getContext();
+        if (context == null || !(view.getParent() instanceof android.view.ViewGroup)) return;
+
+        SwipeRefreshLayout refresh = new SwipeRefreshLayout(context);
+        refresh.setColorSchemeColors(ContextCompat.getColor(context, R.color.ui_primary));
+        refresh.setOnRefreshListener(() -> {
+            if (controller == null || controller.isBusy()) {
+                refresh.setRefreshing(false);
+                return;
+            }
+            controller.checkAll(selectedChannel());
+            renderAll();
+        });
+        android.view.ViewGroup parent = (android.view.ViewGroup) view.getParent();
+        int index = parent.indexOfChild(view);
+        android.view.ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
+        parent.removeView(view);
+        parent.addView(refresh, index, layoutParams);
+        refresh.addView(view);
+        android.view.View list = getListView();
+        refresh.setOnChildScrollUpCallback((layout, child) -> list.canScrollVertically(-1));
+        swipeRefreshLayout = refresh;
+    }
+
+    @Override
     public void onStart() {
         super.onStart();
         Activity activity = getActivity();
@@ -123,6 +152,20 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
         }
         controller.refreshInstalled();
         refreshShizuku();
+    }
+
+    @Override
+    public void onDestroyView() {
+        SwipeRefreshLayout refresh = swipeRefreshLayout;
+        if (refresh != null) {
+            refresh.setOnRefreshListener(null);
+            refresh.setOnChildScrollUpCallback(null);
+            if (refresh.getParent() instanceof android.view.ViewGroup) {
+                ((android.view.ViewGroup) refresh.getParent()).removeView(refresh);
+            }
+            swipeRefreshLayout = null;
+        }
+        super.onDestroyView();
     }
 
     @Override
@@ -232,6 +275,14 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
         if (check != null) {
             check.setTitle(busy ? R.string.termux_update_cancel : R.string.termux_update_check);
             check.setEnabled(!busy || controller.isCancellable());
+        }
+        SwipeRefreshLayout refresh = swipeRefreshLayout;
+        if (refresh != null) {
+            boolean refreshing = busy && controller.isCancellable();
+            refresh.setEnabled(!busy || controller.isCancellable());
+            refresh.setRefreshing(refreshing);
+            refresh.setContentDescription(getString(busy
+                    ? R.string.termux_update_status_checking : R.string.termux_update_check));
         }
         ListPreference channel = findPreference("update_channel");
         if (channel != null) channel.setEnabled(!busy);
