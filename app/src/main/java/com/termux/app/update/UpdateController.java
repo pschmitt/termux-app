@@ -15,7 +15,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.termux.BuildConfig;
-import com.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.logger.Logger;
 
 import java.io.File;
 import java.io.IOException;

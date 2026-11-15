@@ -4,7 +4,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 
-import com.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
 
 import org.junit.Assert;
 import org.junit.Test;

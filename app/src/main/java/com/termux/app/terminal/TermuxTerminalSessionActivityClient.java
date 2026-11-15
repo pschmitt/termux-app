@@ -16,18 +16,18 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.termux.R;
-import com.termux.shared.interact.DialogUtils;
-import com.termux.shared.interact.ShareUtils;
-import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
-import com.termux.shared.termux.interact.TextInputDialogUtils;
+import dev.pschmitt.termux.shared.interact.DialogUtils;
+import dev.pschmitt.termux.shared.interact.ShareUtils;
+import dev.pschmitt.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
+import dev.pschmitt.termux.shared.termux.interact.TextInputDialogUtils;
 import com.termux.app.TermuxActivity;
-import com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
-import com.termux.shared.termux.TermuxConfigDirs;
-import com.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
+import dev.pschmitt.termux.shared.termux.TermuxConfigDirs;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
 import com.termux.app.TermuxService;
-import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
-import com.termux.shared.termux.terminal.io.BellHandler;
-import com.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
+import dev.pschmitt.termux.shared.termux.terminal.io.BellHandler;
+import dev.pschmitt.termux.shared.logger.Logger;
 import com.termux.terminal.TerminalColors;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -273,7 +273,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                     .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).build()).build();
 
             try {
-                mBellSoundId = mBellSoundPool.load(mActivity, com.termux.shared.R.raw.bell, 1);
+                mBellSoundId = mBellSoundPool.load(mActivity, dev.pschmitt.termux.shared.R.raw.bell, 1);
             } catch (Exception e){
                 // Catch java.lang.RuntimeException: Unable to resume activity {com.termux/com.termux.app.TermuxActivity}: android.content.res.Resources$NotFoundException: File res/raw/bell.ogg from drawable resource ID
                 Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load bell sound pool", e);

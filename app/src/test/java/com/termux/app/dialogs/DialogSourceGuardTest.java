@@ -90,7 +90,7 @@ public class DialogSourceGuardTest {
     @Test
     public void everyInventoriedCreationPathUsesTheSharedDialogs() throws IOException {
         String app = "app/src/main/java/com/termux/app/";
-        String shared = "termux-shared/src/main/java/com/termux/shared/";
+        String shared = "termux-shared/src/main/java/dev/pschmitt/termux/shared/";
 
         String activity = source(app + "TermuxActivity.java");
         Assert.assertEquals("kill session dialog", 1, count(activity, "DialogUtils.builder("));

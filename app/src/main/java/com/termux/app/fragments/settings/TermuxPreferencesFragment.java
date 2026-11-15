@@ -12,8 +12,8 @@ import androidx.preference.PreferenceManager;
 
 import com.termux.R;
 import com.termux.app.terminal.StylingApp;
-import com.termux.shared.interact.DialogUtils;
-import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
+import dev.pschmitt.termux.shared.interact.DialogUtils;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 
 @Keep
 public class TermuxPreferencesFragment extends PreferenceFragmentCompat {

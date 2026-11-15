@@ -26,9 +26,9 @@ import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.shape.MaterialShapeDrawable;
 import com.google.android.material.textfield.TextInputEditText;
 import com.termux.R;
-import com.termux.shared.interact.DialogUtils;
-import com.termux.shared.interact.MessageDialogUtils;
-import com.termux.shared.termux.interact.TextInputDialogUtils;
+import dev.pschmitt.termux.shared.interact.DialogUtils;
+import dev.pschmitt.termux.shared.interact.MessageDialogUtils;
+import dev.pschmitt.termux.shared.termux.interact.TextInputDialogUtils;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -298,7 +298,7 @@ public class DialogStyleTest {
     // -- Text input dialog (named session, rename session, file receiver) --------------------------
 
     private static TextInputEditText input(@NonNull AlertDialog dialog) {
-        TextInputEditText input = dialog.findViewById(com.termux.shared.R.id.dialog_input);
+        TextInputEditText input = dialog.findViewById(dev.pschmitt.termux.shared.R.id.dialog_input);
         Assert.assertNotNull(input);
         return input;
     }
@@ -315,7 +315,7 @@ public class DialogStyleTest {
         Assert.assertEquals("abc", input.getText().toString());
         Assert.assertEquals(3, input.getSelectionStart());
         Assert.assertEquals(3, input.getSelectionEnd());
-        Assert.assertNotNull(dialog.findViewById(com.termux.shared.R.id.dialog_input_layout));
+        Assert.assertNotNull(dialog.findViewById(dev.pschmitt.termux.shared.R.id.dialog_input_layout));
         Assert.assertEquals(activity.getString(android.R.string.cancel),
             dialog.getButton(DialogInterface.BUTTON_NEGATIVE).getText().toString());
         Assert.assertNotEquals(View.VISIBLE, dialog.getButton(DialogInterface.BUTTON_NEUTRAL).getVisibility());
@@ -390,7 +390,7 @@ public class DialogStyleTest {
         AlertDialog dialog = latest();
         Assert.assertSame(progress, dialog);
 
-        TextView text = dialog.findViewById(com.termux.shared.R.id.dialog_progress_message);
+        TextView text = dialog.findViewById(dev.pschmitt.termux.shared.R.id.dialog_progress_message);
         Assert.assertNotNull(text);
         Assert.assertEquals(activity.getString(R.string.bootstrap_installer_body), text.getText().toString());
         Assert.assertTrue(containsSpinner(dialog.getWindow().getDecorView()));

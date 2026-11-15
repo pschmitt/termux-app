@@ -27,32 +27,32 @@ import android.widget.Toast;
 import com.termux.R;
 import com.termux.app.TermuxActivity;
 import com.termux.app.TermuxService;
-import com.termux.shared.file.FileUtils;
-import com.termux.shared.interact.DialogUtils;
-import com.termux.shared.interact.MessageDialogUtils;
-import com.termux.shared.interact.ShareUtils;
-import com.termux.shared.shell.ShellUtils;
-import com.termux.shared.termux.TermuxBootstrap;
-import com.termux.shared.termux.settings.properties.TerminalGestureAction;
-import com.termux.shared.termux.settings.properties.TermuxSharedProperties;
-import com.termux.shared.termux.terminal.TermuxTerminalViewClientBase;
-import com.termux.shared.termux.extrakeys.SpecialButton;
-import com.termux.shared.termux.extrakeys.TerminalKeySequence;
+import dev.pschmitt.termux.shared.file.FileUtils;
+import dev.pschmitt.termux.shared.interact.DialogUtils;
+import dev.pschmitt.termux.shared.interact.MessageDialogUtils;
+import dev.pschmitt.termux.shared.interact.ShareUtils;
+import dev.pschmitt.termux.shared.shell.ShellUtils;
+import dev.pschmitt.termux.shared.termux.TermuxBootstrap;
+import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxSharedProperties;
+import dev.pschmitt.termux.shared.termux.terminal.TermuxTerminalViewClientBase;
+import dev.pschmitt.termux.shared.termux.extrakeys.SpecialButton;
+import dev.pschmitt.termux.shared.termux.extrakeys.TerminalKeySequence;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
-import com.termux.shared.android.AndroidUtils;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.activities.ReportActivity;
-import com.termux.shared.models.ReportInfo;
+import dev.pschmitt.termux.shared.android.AndroidUtils;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.activities.ReportActivity;
+import dev.pschmitt.termux.shared.models.ReportInfo;
 import com.termux.app.models.UserAction;
 import com.termux.app.terminal.io.KeyboardShortcut;
-import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
-import com.termux.shared.data.DataUtils;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.markdown.MarkdownUtils;
-import com.termux.shared.termux.TermuxUtils;
-import com.termux.shared.termux.data.TermuxUrlUtils;
-import com.termux.shared.view.KeyboardUtils;
-import com.termux.shared.view.ViewUtils;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
+import dev.pschmitt.termux.shared.data.DataUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.markdown.MarkdownUtils;
+import dev.pschmitt.termux.shared.termux.TermuxUtils;
+import dev.pschmitt.termux.shared.termux.data.TermuxUrlUtils;
+import dev.pschmitt.termux.shared.view.KeyboardUtils;
+import dev.pschmitt.termux.shared.view.ViewUtils;
 import com.termux.terminal.KeyHandler;
 import com.termux.terminal.TerminalBuffer;
 import com.termux.terminal.TerminalEmulator;
@@ -1022,8 +1022,8 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
 
         MessageDialogUtils.showMessage(mActivity, TermuxConstants.TERMUX_APP_NAME + " Report Issue",
             mActivity.getString(R.string.msg_add_termux_debug_info),
-            mActivity.getString(com.termux.shared.R.string.action_yes), (dialog, which) -> reportIssueFromTranscript(transcriptText, true),
-            mActivity.getString(com.termux.shared.R.string.action_no), (dialog, which) -> reportIssueFromTranscript(transcriptText, false),
+            mActivity.getString(dev.pschmitt.termux.shared.R.string.action_yes), (dialog, which) -> reportIssueFromTranscript(transcriptText, true),
+            mActivity.getString(dev.pschmitt.termux.shared.R.string.action_no), (dialog, which) -> reportIssueFromTranscript(transcriptText, false),
             null);
     }
 

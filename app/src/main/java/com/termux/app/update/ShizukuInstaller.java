@@ -13,7 +13,7 @@ import android.os.Process;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.logger.Logger;
 
 import org.lsposed.hiddenapibypass.HiddenApiBypass;
 

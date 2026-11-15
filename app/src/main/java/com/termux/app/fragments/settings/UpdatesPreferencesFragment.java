@@ -37,8 +37,8 @@ import com.termux.app.update.UpdateController;
 import com.termux.app.update.UpdateFailure;
 import com.termux.app.update.UpdateState;
 import com.termux.app.update.UpdateTarget;
-import com.termux.shared.interact.DialogUtils;
-import com.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.interact.DialogUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
 
 import rikka.shizuku.Shizuku;
 

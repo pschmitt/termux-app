@@ -10,21 +10,21 @@ import android.os.Build;
 import android.os.IBinder;
 
 import com.termux.R;
-import com.termux.shared.data.DataUtils;
-import com.termux.shared.data.IntentUtils;
-import com.termux.shared.termux.plugins.TermuxPluginUtils;
-import com.termux.shared.termux.file.TermuxFileUtils;
-import com.termux.shared.file.filesystem.FileType;
-import com.termux.shared.errors.Errno;
-import com.termux.shared.errors.Error;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.TermuxConstants.TERMUX_APP.RUN_COMMAND_SERVICE;
-import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
-import com.termux.shared.file.FileUtils;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.notification.NotificationUtils;
-import com.termux.shared.shell.command.ExecutionCommand;
-import com.termux.shared.shell.command.ExecutionCommand.Runner;
+import dev.pschmitt.termux.shared.data.DataUtils;
+import dev.pschmitt.termux.shared.data.IntentUtils;
+import dev.pschmitt.termux.shared.termux.plugins.TermuxPluginUtils;
+import dev.pschmitt.termux.shared.termux.file.TermuxFileUtils;
+import dev.pschmitt.termux.shared.file.filesystem.FileType;
+import dev.pschmitt.termux.shared.errors.Errno;
+import dev.pschmitt.termux.shared.errors.Error;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_APP.RUN_COMMAND_SERVICE;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
+import dev.pschmitt.termux.shared.file.FileUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.notification.NotificationUtils;
+import dev.pschmitt.termux.shared.shell.command.ExecutionCommand;
+import dev.pschmitt.termux.shared.shell.command.ExecutionCommand.Runner;
 
 /**
  * A service that receives {@link RUN_COMMAND_SERVICE#ACTION_RUN_COMMAND} intent from third party apps and

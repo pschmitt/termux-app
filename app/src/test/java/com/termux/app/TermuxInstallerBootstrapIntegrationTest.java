@@ -1,6 +1,6 @@
 package com.termux.app;
 
-import com.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
 
 import org.junit.Assert;
 import org.junit.Assume;

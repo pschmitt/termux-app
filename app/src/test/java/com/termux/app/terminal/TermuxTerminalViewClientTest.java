@@ -3,7 +3,7 @@ package com.termux.app.terminal;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 
-import com.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
 
 import org.junit.Assert;
 import org.junit.Test;

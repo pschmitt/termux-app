@@ -18,12 +18,12 @@ import androidx.preference.PreferenceFragmentCompat;
 
 import com.termux.R;
 import com.termux.app.terminal.StylingApp;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.settings.preferences.TermuxAPIAppSharedPreferences;
-import com.termux.shared.termux.settings.preferences.TermuxFloatAppSharedPreferences;
-import com.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
-import com.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
-import com.termux.shared.interact.DialogUtils;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxAPIAppSharedPreferences;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxFloatAppSharedPreferences;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
+import dev.pschmitt.termux.shared.interact.DialogUtils;
 
 @Keep
 public class CompanionAppsPreferencesFragment extends PreferenceFragmentCompat {

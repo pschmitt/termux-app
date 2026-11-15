@@ -15,12 +15,12 @@ import com.termux.R;
 import com.termux.app.TermuxActivity;
 import com.termux.app.models.UserAction;
 import com.termux.app.terminal.ReportIssueRequest;
-import com.termux.shared.activities.ReportActivity;
-import com.termux.shared.android.AndroidUtils;
-import com.termux.shared.file.FileUtils;
-import com.termux.shared.models.ReportInfo;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.TermuxUtils;
+import dev.pschmitt.termux.shared.activities.ReportActivity;
+import dev.pschmitt.termux.shared.android.AndroidUtils;
+import dev.pschmitt.termux.shared.file.FileUtils;
+import dev.pschmitt.termux.shared.models.ReportInfo;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxUtils;
 
 @Keep
 public class AboutPreferencesFragment extends PreferenceFragmentCompat {

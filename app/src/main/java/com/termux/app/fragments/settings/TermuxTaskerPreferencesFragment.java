@@ -9,7 +9,7 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceManager;
 
 import com.termux.R;
-import com.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
 
 @Keep
 public class TermuxTaskerPreferencesFragment extends PreferenceFragmentCompat {

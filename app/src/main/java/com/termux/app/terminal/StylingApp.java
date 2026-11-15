@@ -7,7 +7,7 @@ import android.content.pm.ResolveInfo;
 
 import androidx.annotation.NonNull;
 
-import com.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
 
 /**
  * The Termux:Styling companion that the "Style" menu entry opens.

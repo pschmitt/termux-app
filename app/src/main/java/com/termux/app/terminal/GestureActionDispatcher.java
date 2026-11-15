@@ -3,8 +3,8 @@ package com.termux.app.terminal;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.termux.shared.termux.extrakeys.TerminalKeySequence;
-import com.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.extrakeys.TerminalKeySequence;
+import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
 
 /**
  * Carries out a {@link TerminalGestureAction} that a tap or a swipe was mapped to, on a

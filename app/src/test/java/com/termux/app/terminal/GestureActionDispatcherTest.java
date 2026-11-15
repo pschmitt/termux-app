@@ -2,8 +2,8 @@ package com.termux.app.terminal;
 
 import androidx.annotation.NonNull;
 
-import com.termux.shared.termux.extrakeys.TerminalKeySequence;
-import com.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.extrakeys.TerminalKeySequence;
+import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
 
 import org.junit.Before;
 import org.junit.Test;

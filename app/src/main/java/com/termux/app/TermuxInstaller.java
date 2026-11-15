@@ -9,28 +9,28 @@ import android.system.Os;
 import android.view.WindowManager;
 
 import com.termux.R;
-import com.termux.shared.file.FileUtils;
-import com.termux.shared.termux.crash.TermuxCrashUtils;
-import com.termux.shared.termux.file.TermuxFileUtils;
-import com.termux.shared.interact.DialogUtils;
-import com.termux.shared.interact.MessageDialogUtils;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.markdown.MarkdownUtils;
-import com.termux.shared.errors.Error;
-import com.termux.shared.android.PackageUtils;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.TermuxUtils;
-import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
+import dev.pschmitt.termux.shared.file.FileUtils;
+import dev.pschmitt.termux.shared.termux.crash.TermuxCrashUtils;
+import dev.pschmitt.termux.shared.termux.file.TermuxFileUtils;
+import dev.pschmitt.termux.shared.interact.DialogUtils;
+import dev.pschmitt.termux.shared.interact.MessageDialogUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.markdown.MarkdownUtils;
+import dev.pschmitt.termux.shared.errors.Error;
+import dev.pschmitt.termux.shared.android.PackageUtils;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxUtils;
+import dev.pschmitt.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR;
-import static com.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR_PATH;
-import static com.termux.shared.termux.TermuxConstants.TERMUX_STAGING_PREFIX_DIR;
-import static com.termux.shared.termux.TermuxConstants.TERMUX_STAGING_PREFIX_DIR_PATH;
+import static dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR;
+import static dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR_PATH;
+import static dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_STAGING_PREFIX_DIR;
+import static dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_STAGING_PREFIX_DIR_PATH;
 
 /**
  * Install the Termux bootstrap packages if necessary by following the below steps:
@@ -249,7 +249,7 @@ final class TermuxInstaller {
                     // pkg-redirect preload, they do not carry a runpath.
                     builder.environment().clear();
                     builder.environment().putAll(
-                        new com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment().getEnvironment(context, false));
+                        new dev.pschmitt.termux.shared.termux.shell.command.environment.TermuxShellEnvironment().getEnvironment(context, false));
                     builder.redirectErrorStream(true);
                     Process process = builder.start();
                     java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();

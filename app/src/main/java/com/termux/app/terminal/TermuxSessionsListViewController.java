@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat;
 
 import com.termux.R;
 import com.termux.app.TermuxActivity;
-import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
+import dev.pschmitt.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.terminal.TerminalSession;
 
 import java.util.List;

@@ -32,30 +32,30 @@ import com.termux.app.terminal.TermuxContextMenuSheet;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.ExtraKeysSwipeViewPager;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
-import com.termux.shared.activities.ReportActivity;
-import com.termux.shared.activity.ActivityUtils;
-import com.termux.shared.activity.media.AppCompatActivityUtils;
-import com.termux.shared.data.IntentUtils;
-import com.termux.shared.interact.DialogUtils;
-import com.termux.shared.android.PermissionUtils;
-import com.termux.shared.data.DataUtils;
-import com.termux.shared.termux.TermuxConstants;
-import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY;
+import dev.pschmitt.termux.shared.activities.ReportActivity;
+import dev.pschmitt.termux.shared.activity.ActivityUtils;
+import dev.pschmitt.termux.shared.activity.media.AppCompatActivityUtils;
+import dev.pschmitt.termux.shared.data.IntentUtils;
+import dev.pschmitt.termux.shared.interact.DialogUtils;
+import dev.pschmitt.termux.shared.android.PermissionUtils;
+import dev.pschmitt.termux.shared.data.DataUtils;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY;
 import com.termux.app.activities.SettingsActivity;
-import com.termux.shared.termux.crash.TermuxCrashUtils;
-import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
+import dev.pschmitt.termux.shared.termux.crash.TermuxCrashUtils;
+import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.app.terminal.TermuxSessionsListViewController;
 import com.termux.app.terminal.io.TerminalToolbarViewPager;
 import com.termux.app.terminal.TermuxTerminalViewClient;
-import com.termux.shared.termux.extrakeys.ExtraKeysView;
-import com.termux.shared.termux.interact.TextInputDialogUtils;
-import com.termux.shared.logger.Logger;
-import com.termux.shared.termux.TermuxUtils;
-import com.termux.shared.termux.settings.properties.TerminalGestureAction;
-import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
-import com.termux.shared.termux.theme.TermuxThemeUtils;
-import com.termux.shared.theme.NightMode;
-import com.termux.shared.view.ViewUtils;
+import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysView;
+import dev.pschmitt.termux.shared.termux.interact.TextInputDialogUtils;
+import dev.pschmitt.termux.shared.logger.Logger;
+import dev.pschmitt.termux.shared.termux.TermuxUtils;
+import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
+import dev.pschmitt.termux.shared.termux.theme.TermuxThemeUtils;
+import dev.pschmitt.termux.shared.theme.NightMode;
+import dev.pschmitt.termux.shared.view.ViewUtils;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
@@ -792,13 +792,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     TermuxActivity.this, requestCode, !isPermissionCallback)) {
                     if (isPermissionCallback)
                         Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
-                            getString(com.termux.shared.R.string.msg_storage_permission_granted_on_request));
+                            getString(dev.pschmitt.termux.shared.R.string.msg_storage_permission_granted_on_request));
 
                     TermuxInstaller.setupStorageSymlinks(TermuxActivity.this);
                 } else {
                     if (isPermissionCallback)
                         Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
-                            getString(com.termux.shared.R.string.msg_storage_permission_not_granted_on_request));
+                            getString(dev.pschmitt.termux.shared.R.string.msg_storage_permission_not_granted_on_request));
                 }
             }
         }.start();
