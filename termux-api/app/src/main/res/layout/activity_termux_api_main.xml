@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/api_main_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/ui_surface">
+
+    <include
+        layout="@layout/partial_primary_toolbar"
+        android:id="@+id/partial_primary_toolbar"/>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" >
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="20dp"
+            android:paddingBottom="24dp"
+            android:paddingStart="@dimen/activity_horizontal_margin"
+            android:paddingEnd="@dimen/activity_horizontal_margin"
+            android:background="@color/ui_surface"
+            tools:context=".activities.TermuxAPIMainActivity">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/main_activity_heading"
+                android:textAppearance="@style/TextAppearance.TermuxPP.ToolbarTitle"
+                android:accessibilityHeading="true" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/textview_plugin_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="12dp"
+                android:paddingBottom="16dp"
+                android:gravity="start|center_vertical"
+                android:textSize="14sp"
+                android:lineSpacingMultiplier="1.15"
+                android:textStyle="normal"
+                android:textColor="@color/ui_on_surface_variant"
+                android:textColorLink="@color/ui_primary"
+                android:textIsSelectable="true"
+                android:autoLink="web"/>
+
+
+
+            <View style="@style/ViewDivider"/>
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/textview_battery_optimization_not_disabled_warning"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="@dimen/activity_vertical_margin"
+                android:gravity="start|center_vertical"
+                android:text="@string/msg_battery_optimization_not_disabled_warning"
+                android:textSize="14sp"
+                android:textStyle="normal"
+                android:textColor="@color/red_error"
+                android:textColorLink="@color/red_error_link"
+                android:textIsSelectable="true"
+                android:autoLink="web"/>
+
+            <com.google.android.material.button.MaterialButton
+                style="@style/Widget.TermuxPP.Button.Tonal"
+                android:id="@+id/btn_disable_battery_optimizations"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:gravity="center"
+                android:minHeight="48dp"
+                android:text="@string/action_disable_battery_optimizations"
+                android:textSize="14sp"
+                android:textAllCaps="false"
+                android:letterSpacing="0"
+                android:textColor="@color/ui_on_container"
+                android:backgroundTint="@color/ui_container"
+                app:strokeWidth="0dp"/>
+
+
+
+            <View style="@style/ViewDivider"/>
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/textview_display_over_other_apps_not_granted_warning"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="@dimen/activity_vertical_margin"
+                android:gravity="start|center_vertical"
+                android:text="@string/msg_display_over_other_apps_permission_not_granted_warning"
+                android:textSize="14sp"
+                android:textStyle="normal"
+                android:textColor="@color/red_error"
+                android:textColorLink="@color/red_error_link"
+                android:textIsSelectable="true"
+                android:autoLink="web"/>
+
+            <com.google.android.material.button.MaterialButton
+                style="@style/Widget.TermuxPP.Button.Tonal"
+                android:id="@+id/button_grant_display_over_other_apps_permission"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:gravity="center"
+                android:minHeight="48dp"
+                android:layout_marginBottom="@dimen/activity_vertical_margin"
+                android:text="@string/action_grant_display_over_other_apps_permission"
+                android:textSize="14sp"
+                android:textAllCaps="false"
+                android:letterSpacing="0"
+                android:textColor="@color/ui_on_container"
+                android:backgroundTint="@color/ui_container"
+                app:strokeWidth="0dp"/>
+
+
+
+            <View style="@style/ViewDivider"/>
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/textview_change_launcher_activity_state_details"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="@dimen/activity_vertical_margin"
+                android:gravity="start|center_vertical"
+                android:textSize="14sp"
+                android:textStyle="normal"
+                android:textColor="@color/ui_on_surface_variant"
+                android:textColorLink="@color/ui_primary"
+                android:textIsSelectable="true"
+                android:autoLink="web"/>
+
+            <com.google.android.material.button.MaterialButton
+                style="@style/Widget.TermuxPP.Button.Tonal"
+                android:id="@+id/button_change_launcher_activity_state"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:gravity="center"
+                android:minHeight="48dp"
+                android:textSize="14sp"
+                android:textAllCaps="false"
+                android:letterSpacing="0"
+                android:textColor="@color/ui_on_container"
+                android:backgroundTint="@color/ui_container"
+                app:strokeWidth="0dp"/>
+        </LinearLayout>
+
+    </ScrollView>
+</LinearLayout>

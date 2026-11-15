@@ -1,0 +1,175 @@
+# Publishes every push to main as the rolling "latest" prerelease that the core app's
+# Settings > Updates screen reads (the core app manages the updates of Termux:API).
+#
+# - The release is a prerelease named "Latest build"; its tag is moved to the built commit.
+# - Assets: the debug APK as termux-api-app_debug.apk (a fixed name, the updater never reads names from the
+#   release) and SHA256SUMS over it.
+# - The release body names the full 40-digit commit; the updater compares that commit with the
+#   one the installed app declares in its manifest (dev.pschmitt.termux.GIT_REVISION).
+# - Never cancelled midway and serial per ref: a half-uploaded release would offer a partial set.
+
+name: Latest Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Debug APK
+    runs-on: ubuntu-latest
+    concurrency:
+      group: latest-release-build-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: pschmitt/ci-workflows/.github/actions/setup-jdk-gradle@main
+        with:
+          java-version: "17"
+
+      - name: Build the APK
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          # The installed app declares this commit in its manifest (dev.pschmitt.termux.GIT_REVISION).
+          export TERMUX_GIT_REVISION="$GITHUB_SHA"
+
+          version_regex='\s+versionName "([^"]+)"$'
+          current="$(grep -m 1 -E "$version_regex" ./app/build.gradle | sed -r "s/$version_regex/\1/")"
+          export TERMUX_API_APP__BUILD__APP_VERSION_NAME="$current+${GITHUB_SHA:0:7}"
+          # A fixed APK name: the updater downloads termux-api-app_debug.apk and nothing else.
+          export TERMUX_API_APP__BUILD__APK_VERSION_TAG="debug"
+
+          ./gradlew assembleDebug
+
+      - name: Collect the APK
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apk="app/build/outputs/apk/debug/termux-api-app_debug.apk"
+          test -f "$apk" || {
+            echo "Missing $apk. Found:" >&2
+            ls app/build/outputs/apk/debug >&2
+            exit 1
+          }
+          mkdir -p "$RUNNER_TEMP/apks"
+          cp "$apk" "$RUNNER_TEMP/apks/"
+          ls -la "$RUNNER_TEMP/apks"
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: latest-apks
+          path: ${{ runner.temp }}/apks/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    # Serial per ref and never cancelled: the release's assets are replaced as a whole by one run at a time.
+    name: GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency:
+      group: latest-release-publish-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Skip a superseded build
+        # A newer push to main has its own run; do not let an older commit replace "latest" after it.
+        id: stale
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          head="$(git ls-remote origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)"
+          if [[ -n "$head" && "$head" != "$GITHUB_SHA" ]]
+          then
+            echo "::notice::$GITHUB_SHA is superseded by $head; leaving the release to that run."
+            echo "superseded=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download the APK
+        if: steps.stale.outputs.superseded != 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: latest-apks
+          path: ${{ runner.temp }}/downloaded
+
+      - name: Assemble the assets and checksums
+        id: assets
+        if: steps.stale.outputs.superseded != 'true'
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/assets"
+          mkdir -p "$dir"
+          cp "$RUNNER_TEMP"/downloaded/*.apk "$dir/"
+          [ "$(ls -1 "$dir" | wc -l)" -eq 1 ]
+          (cd "$dir" && sha256sum -- *.apk > SHA256SUMS)
+          cat "$dir/SHA256SUMS"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
+      - name: Generate the release notes
+        if: steps.stale.outputs.superseded != 'true'
+        run: |
+          {
+            echo "Automated debug build of the latest main ($GITHUB_SHA), built $(date -u +'%Y-%m-%d %H:%M UTC'). Not a stable release."
+            echo
+            echo "Read by the core app's Settings > Updates screen. The commit above is the build's identity."
+            echo '`SHA256SUMS` covers the APK. The APK is signed with the repository development key.'
+          } > release-notes.md
+
+      - name: Move tag
+        if: steps.stale.outputs.superseded != 'true'
+        run: |
+          git tag -f latest
+          git push origin latest --force
+
+      - name: Publish release
+        if: steps.stale.outputs.superseded != 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: latest
+          name: "Latest build"
+          body_path: release-notes.md
+          files: ${{ steps.assets.outputs.dir }}/*
+          prerelease: true
+          make_latest: false
+
+      - name: Vacuum stale release assets
+        # "latest" keeps exactly the current set: whatever this run did not upload goes.
+        if: steps.stale.outputs.superseded != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSETS_DIR: ${{ steps.assets.outputs.dir }}
+        run: |
+          set -euo pipefail
+          mapfile -t expected < <(basename -a "$ASSETS_DIR"/*)
+          gh release view latest --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' |
+            while IFS= read -r name; do
+              keep=0
+              for f in "${expected[@]}"; do
+                [ "$name" = "$f" ] && keep=1 && break
+              done
+              if [ "$keep" -eq 0 ]; then
+                echo "Deleting stale asset: $name"
+                gh release delete-asset latest "$name" --repo "$GITHUB_REPOSITORY" -y
+              fi
+            done
+          # Fail loudly if the release does not carry the full set.
+          gh release view latest --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | sort > "$RUNNER_TEMP/actual"
+          printf '%s\n' "${expected[@]}" | sort > "$RUNNER_TEMP/expected"
+          diff "$RUNNER_TEMP/expected" "$RUNNER_TEMP/actual"
