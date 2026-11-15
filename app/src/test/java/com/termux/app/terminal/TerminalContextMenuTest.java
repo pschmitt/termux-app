@@ -110,6 +110,7 @@ public class TerminalContextMenuTest {
 
         assertLeadingIcon(share);
         assertLeadingIcon(session);
+        ImageView rowShare = share.findViewById(R.id.context_dual_icon);
         ImageView selectedText = share.findViewById(R.id.context_dual_first);
         ImageView transcript = share.findViewById(R.id.context_dual_second);
         Assert.assertEquals(activity.getString(R.string.action_share_selected_text),
@@ -118,6 +119,11 @@ public class TerminalContextMenuTest {
             transcript.getContentDescription().toString());
         Assert.assertNotNull(selectedText.getDrawable());
         Assert.assertNotNull(transcript.getDrawable());
+        Assert.assertNotNull(rowShare.getDrawable());
+        Assert.assertNotSame(rowShare.getDrawable().getConstantState(),
+            selectedText.getDrawable().getConstantState());
+        Assert.assertNotSame(selectedText.getDrawable().getConstantState(),
+            transcript.getDrawable().getConstantState());
     }
 
     private static void assertLeadingIcon(View row) {

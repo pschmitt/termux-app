@@ -52,8 +52,8 @@ public final class TerminalContextMenu {
         sheet.addItem(SELECT_URL, R.string.action_select_url, R.drawable.ui_ic_link);
         if (state.hasSelectedText) {
             sheet.addDualAction(R.string.ui_menu_share, R.drawable.ui_ic_share,
-                SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_select_text, true,
-                SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share, true);
+                SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_selected_text, true,
+                SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_transcript, true);
         } else {
             sheet.addItem(SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share);
         }
