@@ -1,6 +1,7 @@
 package com.termux.app.fragments.settings;
 
 import android.app.Activity;
+
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -300,6 +301,7 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
             app.setSummary(appSummary(context, target, state));
             app.setEnabled(target.isUpdatable());
             updateAppIcon(context, app, target, state.phase != UpdateState.Phase.NOT_INSTALLED);
+            if (app instanceof UpdateAppPreference) ((UpdateAppPreference) app).setUpdateState(state);
         }
     }
 

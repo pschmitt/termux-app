@@ -39,37 +39,37 @@
         app:key="updates_apps"
         app:title="@string/termux_update_apps_title">
 
-        <Preference
+        <com.termux.app.fragments.settings.UpdateAppPreference
             android:layout="@layout/ui_preference_row_app"
             app:key="update_app_core"
             app:title="@string/termux_update_app_core" />
 
-        <Preference
+        <com.termux.app.fragments.settings.UpdateAppPreference
             android:layout="@layout/ui_preference_row_app"
             app:key="update_app_api"
             app:title="@string/termux_update_app_api" />
 
-        <Preference
+        <com.termux.app.fragments.settings.UpdateAppPreference
             android:layout="@layout/ui_preference_row_app"
             app:key="update_app_tasker"
             app:title="@string/termux_update_app_tasker" />
 
-        <Preference
+        <com.termux.app.fragments.settings.UpdateAppPreference
             android:layout="@layout/ui_preference_row_app"
             app:key="update_app_float"
             app:title="@string/termux_update_app_float" />
 
-        <Preference
+        <com.termux.app.fragments.settings.UpdateAppPreference
             android:layout="@layout/ui_preference_row_app"
             app:key="update_app_boot"
             app:title="@string/termux_update_app_boot" />
 
-        <Preference
+        <com.termux.app.fragments.settings.UpdateAppPreference
             android:layout="@layout/ui_preference_row_app"
             app:key="update_app_styling"
             app:title="@string/termux_update_app_styling" />
 
-        <Preference
+        <com.termux.app.fragments.settings.UpdateAppPreference
             android:layout="@layout/ui_preference_row_app"
             app:key="update_app_widget"
             app:title="@string/termux_update_app_widget" />
