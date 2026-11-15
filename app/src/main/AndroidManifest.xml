@@ -19,6 +19,17 @@
         android:label="@string/permission_run_command_label"
         android:protectionLevel="dangerous" />
 
+    <!-- Tasker requests this upstream permission name for Locale plug-in broadcasts. TermuxPP
+         declares it for standalone use; do not install alongside stock Termux, which declares
+         the same permission under a different signing identity. Command execution remains gated
+         by the fork-specific permission below on RunCommandService. -->
+    <permission
+        android:name="com.termux.permission.RUN_COMMAND"
+        android:description="@string/permission_run_command_description"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/permission_run_command_label"
+        android:protectionLevel="dangerous" />
+
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
