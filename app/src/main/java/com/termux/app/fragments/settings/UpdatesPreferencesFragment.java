@@ -368,7 +368,16 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
 
     @NonNull
     private String installedSummary(@NonNull Context context, @NonNull UpdateTarget target) {
-        if (target.versionedApkPrefix != null) return getString(R.string.termux_update_addon_installed);
+        if (target.versionedApkPrefix != null) {
+            try {
+                String versionName = context.getPackageManager().getPackageInfo(target.packageName, 0).versionName;
+                return versionName == null || versionName.isEmpty()
+                        ? getString(R.string.termux_update_addon_installed_unknown)
+                        : getString(R.string.termux_update_addon_installed, versionName);
+            } catch (PackageManager.NameNotFoundException | RuntimeException e) {
+                return getString(R.string.termux_update_addon_installed_unknown);
+            }
+        }
         InstalledBuild build = target == UpdateTarget.CORE
                 ? InstalledBuild.parse(BuildConfig.GIT_REVISION)
                 : ApkInspector.declaredBuild(context, target);

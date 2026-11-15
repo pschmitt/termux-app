@@ -390,17 +390,17 @@ public final class TermuxConstants {
     public static final String TERMUX_BOOT_FDROID_PACKAGE_URL = FDROID_PACKAGES_BASE_URL + "/" + TERMUX_BOOT_PACKAGE_NAME; // Default: "https://f-droid.org/en/packages/com.termux.boot"
 
 
-    /** Termux:Float app name */
-    public static final String TERMUX_FLOAT_APP_NAME = "Termux:Float"; // Default: "Termux:Float"
-    /** Termux:Float app package name */
+    /** TermuxPP:Float app name */
+    public static final String TERMUX_FLOAT_APP_NAME = "TermuxPP:Float"; // Default: "Termux:Float"
+    /** TermuxPP:Float app package name */
     public static final String TERMUX_FLOAT_PACKAGE_NAME = TERMUX_PACKAGE_NAME + ".window"; // Default: "com.termux.window"
-    /** Termux:Float GitHub repo name */
-    public static final String TERMUX_FLOAT_GITHUB_REPO_NAME = "termux-float"; // Default: "termux-float"
-    /** Termux:Float GitHub repo url */
-    public static final String TERMUX_FLOAT_GITHUB_REPO_URL = TERMUX_GITHUB_ORGANIZATION_URL + "/" + TERMUX_FLOAT_GITHUB_REPO_NAME; // Default: "https://github.com/termux/termux-float"
-    /** Termux:Float GitHub issues repo url */
+    /** TermuxPP:Float GitHub repo name */
+    public static final String TERMUX_FLOAT_GITHUB_REPO_NAME = "termuxpp-float"; // Default: "termux-float"
+    /** TermuxPP:Float GitHub repo url */
+    public static final String TERMUX_FLOAT_GITHUB_REPO_URL = "https://github.com/pschmitt/termuxpp-float"; // Default: "https://github.com/termux/termux-float"
+    /** TermuxPP:Float GitHub issues repo url */
     public static final String TERMUX_FLOAT_GITHUB_ISSUES_REPO_URL = TERMUX_FLOAT_GITHUB_REPO_URL + "/issues"; // Default: "https://github.com/termux/termux-float/issues"
-    /** Termux:Float F-Droid package url */
+    /** TermuxPP:Float F-Droid package url */
     public static final String TERMUX_FLOAT_FDROID_PACKAGE_URL = FDROID_PACKAGES_BASE_URL + "/" + TERMUX_FLOAT_PACKAGE_NAME; // Default: "https://f-droid.org/en/packages/com.termux.window"
 
 

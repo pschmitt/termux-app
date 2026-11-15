@@ -25,7 +25,8 @@ import java.util.regex.Pattern;
  * <li>Identical or behind: up to date (the install is at or past {@code latest}; nothing is ever
  * offered that would go backwards).</li>
  * <li>Diverged, or HTTP 404 (GitHub does not know the installed commit, a local build that was
- * never pushed), or an install without a clean commit identity: not eligible.</li>
+ * never pushed): not eligible. Companions without a clean commit identity can reinstall from their
+ * fixed fork release without a comparison; core builds remain commit-gated.</li>
  * <li>Any other error: the check failed.</li>
  * </ul>
  * Version names and codes play no part in the decision; they only feed the install guard.
@@ -130,7 +131,14 @@ public final class UpdateChecker {
                 if (!firstInstall) return new Result(Kind.NOT_ELIGIBLE, null, null);
                 return checkVersionedRelease(target);
             }
-            if ((!installed.isComparable() || installed.commit == null) && !firstInstall) {
+            // Companions built outside the rolling release workflow may not embed a clean commit.
+            // Permit a user-initiated reinstall from this target's fixed fork release anyway; the
+            // APK and checksum are still selected and verified by the normal trusted download path.
+            // Core stays commit-gated because its variant-specific rolling release must not replace
+            // an unrecognized package lineage.
+            boolean unknownCompanionBuild = target != UpdateTarget.CORE
+                    && (!installed.isComparable() || installed.commit == null);
+            if ((!installed.isComparable() || installed.commit == null) && !firstInstall && !unknownCompanionBuild) {
                 return new Result(Kind.NOT_ELIGIBLE, null, null);
             }
             if (target.hasVariants() && (variant == null || !VARIANT.matcher(variant).matches())) {
@@ -140,7 +148,7 @@ public final class UpdateChecker {
             switch (channel) {
                 case LATEST:
                 default:
-                    return checkLatest(target, installed.commit, variant, supportedAbis);
+                    return checkLatest(target, unknownCompanionBuild ? null : installed.commit, variant, supportedAbis);
             }
         } catch (UpdateNetwork.HttpStatusException e) {
             if (target.versionedApkPrefix != null && e.code == HTTP_NOT_FOUND) {

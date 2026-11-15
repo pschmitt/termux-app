@@ -365,13 +365,20 @@ public class UpdateCheckerTest {
     }
 
     @Test
-    public void dirtyOrUnknownCompanionBuildsAreNotEligibleAndTouchNothing() throws Exception {
-        FakeNetwork network = companionNetwork("ahead", "termux-api-app_debug.apk", "700", "SHA256SUMS", "100");
-        for (String meta : new String[] {null, "", "unknown", "git-unknown", "git-" + INSTALLED + "-dirty", INSTALLED}) {
+    public void unknownCompanionBuildsCanReinstallFromFixedLatestRelease() throws Exception {
+        String[] metas = {null, "", "unknown", "git-unknown", "git-" + INSTALLED + "-dirty", INSTALLED};
+        for (String meta : metas) {
+            FakeNetwork network = companionNetwork("ahead", "termux-api-app_debug.apk", "700", "SHA256SUMS", "100");
             UpdateChecker.Result result = checkCompanion(network, UpdateTarget.API, InstalledBuild.parseMetaData(meta));
-            assertEquals(meta, UpdateChecker.Kind.NOT_ELIGIBLE, result.kind);
+            assertEquals(meta, UpdateChecker.Kind.AVAILABLE, result.kind);
+            assertEquals("termux-api-app_debug.apk", result.offer.apk.name);
+            assertEquals(Collections.singletonList(API + "/releases/tags/latest"), network.requests);
         }
-        assertTrue(network.requests.isEmpty());
+
+        FakeNetwork core = network("ahead");
+        UpdateChecker.Result coreResult = check(core, null, "arm64-v8a");
+        assertEquals(UpdateChecker.Kind.NOT_ELIGIBLE, coreResult.kind);
+        assertTrue(core.requests.isEmpty());
     }
 
     @Test

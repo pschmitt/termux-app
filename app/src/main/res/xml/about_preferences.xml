@@ -1,0 +1,24 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <Preference
+        app:key="report_issue"
+        app:icon="@drawable/ui_ic_bug"
+        app:title="@string/action_report_issue"
+        app:summary="@string/ui_report_issue_summary"
+        app:layout="@layout/ui_preference_about_banner"
+        app:persistent="false" />
+
+    <PreferenceCategory
+        app:key="about_information_category"
+        app:title="@string/about_information_title">
+
+        <Preference
+            app:key="about_information"
+            app:icon="@drawable/ui_ic_info"
+            app:title="@string/about_information_action_title"
+            app:summary="@string/about_information_summary"
+            app:persistent="false" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

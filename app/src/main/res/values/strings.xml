@@ -77,6 +77,7 @@
     <string name="action_autofill_password">Autofill password</string>
 
     <string name="action_reset_terminal">Reset</string>
+    <string name="action_kill_process_accessibility">Kill session</string>
     <string name="msg_terminal_reset">Terminal reset</string>
 
     <string name="action_kill_process">Kill process (%d)</string>
@@ -206,31 +207,44 @@
 
 
     <!-- Termux:API App Preferences -->
-    <string name="termux_api_preferences_title">&TERMUX_API_APP_NAME;</string>
-    <string name="termux_api_preferences_summary">Preferences for &TERMUX_API_APP_NAME; app</string>
+    <string name="termux_api_preferences_title">TermuxPP:API</string>
+    <string name="termux_api_preferences_summary">Settings for TermuxPP:API</string>
 
 
 
     <!-- Termux:Float App Preferences -->
-    <string name="termux_float_preferences_title">&TERMUX_FLOAT_APP_NAME;</string>
-    <string name="termux_float_preferences_summary">Preferences for &TERMUX_FLOAT_APP_NAME; app</string>
+    <string name="termux_float_preferences_title">TermuxPP:Float</string>
+    <string name="termux_float_preferences_summary">Settings for TermuxPP:Float</string>
 
 
 
     <!-- Termux:Tasker App Preferences -->
-    <string name="termux_tasker_preferences_title">&TERMUX_TASKER_APP_NAME;</string>
-    <string name="termux_tasker_preferences_summary">Preferences for &TERMUX_TASKER_APP_NAME; app</string>
+    <string name="termux_tasker_preferences_title">TermuxPP:Tasker</string>
+    <string name="termux_tasker_preferences_summary">Settings for TermuxPP:Tasker</string>
 
 
 
     <!-- Termux:Widget App Preferences -->
-    <string name="termux_widget_preferences_title">&TERMUX_WIDGET_APP_NAME;</string>
-    <string name="termux_widget_preferences_summary">Preferences for &TERMUX_WIDGET_APP_NAME; app</string>
+    <string name="termux_widget_preferences_title">TermuxPP:Widget</string>
+    <string name="termux_widget_preferences_summary">Settings for TermuxPP:Widget</string>
 
 
+
+    <!-- Companion Apps -->
+    <string name="companion_apps_title">Companion apps</string>
+    <string name="companion_apps_summary">Settings for apps that work with TermuxPP</string>
+    <string name="companion_apps_category_title">TermuxPP companions</string>
+    <string name="companion_apps_category_summary">Only TermuxPP-compatible builds can connect to this installation.</string>
+    <string name="termux_boot_title">TermuxPP:Boot</string>
+    <string name="termux_boot_summary">Run scripts when the device starts</string>
+    <string name="termux_styling_title">TermuxPP:Styling</string>
+    <string name="termux_styling_summary">Change terminal colors and fonts</string>
 
     <!-- About Preference -->
     <string name="about_preference_title">About</string>
+    <string name="about_information_title">About this app</string>
+    <string name="about_information_summary">Version, device details and project links</string>
+    <string name="about_information_action_title">View app and device details</string>
 
     <!-- Donate Preference -->
     <string name="donate_preference_title">Donate</string>

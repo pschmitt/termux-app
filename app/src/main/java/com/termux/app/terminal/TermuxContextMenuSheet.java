@@ -65,11 +65,13 @@ public class TermuxContextMenuSheet {
     /** One label with two independently clickable icon buttons, like Autofill username / password. */
     private static final class DualEntry {
         final CharSequence label;
+        @DrawableRes final int icon;
         final Action first;
         final Action second;
 
-        DualEntry(CharSequence label, Action first, Action second) {
+        DualEntry(CharSequence label, int icon, Action first, Action second) {
             this.label = label;
+            this.icon = icon;
             this.first = first;
             this.second = second;
         }
@@ -79,11 +81,13 @@ public class TermuxContextMenuSheet {
         final int id;
         final CharSequence description;
         @DrawableRes final int icon;
+        final boolean enabled;
 
-        Action(int id, CharSequence description, int icon) {
+        Action(int id, CharSequence description, int icon, boolean enabled) {
             this.id = id;
             this.description = description;
             this.icon = icon;
+            this.enabled = enabled;
         }
     }
 
@@ -133,9 +137,30 @@ public class TermuxContextMenuSheet {
     public TermuxContextMenuSheet addDualAction(@StringRes int label,
                                                 int firstId, @StringRes int firstDescription, @DrawableRes int firstIcon,
                                                 int secondId, @StringRes int secondDescription, @DrawableRes int secondIcon) {
-        mRows.add(new DualEntry(mActivity.getString(label),
-            new Action(firstId, mActivity.getString(firstDescription), firstIcon),
-            new Action(secondId, mActivity.getString(secondDescription), secondIcon)));
+        return addDualAction(label, 0,
+            firstId, firstDescription, firstIcon, true,
+            secondId, secondDescription, secondIcon, true);
+    }
+
+    /** Add one row with independently labelled and enabled icon buttons. */
+    public TermuxContextMenuSheet addDualAction(@StringRes int label,
+                                                int firstId, @StringRes int firstDescription, @DrawableRes int firstIcon,
+                                                boolean firstEnabled,
+                                                int secondId, @StringRes int secondDescription, @DrawableRes int secondIcon,
+                                                boolean secondEnabled) {
+        return addDualAction(label, 0, firstId, firstDescription, firstIcon, firstEnabled,
+            secondId, secondDescription, secondIcon, secondEnabled);
+    }
+
+    /** Add one row with a leading icon and independently labelled and enabled icon buttons. */
+    public TermuxContextMenuSheet addDualAction(@StringRes int label, @DrawableRes int rowIcon,
+                                                int firstId, @StringRes int firstDescription, @DrawableRes int firstIcon,
+                                                boolean firstEnabled,
+                                                int secondId, @StringRes int secondDescription, @DrawableRes int secondIcon,
+                                                boolean secondEnabled) {
+        mRows.add(new DualEntry(mActivity.getString(label), rowIcon,
+            new Action(firstId, mActivity.getString(firstDescription), firstIcon, firstEnabled),
+            new Action(secondId, mActivity.getString(secondDescription), secondIcon, secondEnabled)));
         return this;
     }
 
@@ -304,6 +329,14 @@ public class TermuxContextMenuSheet {
     private View createDualItem(ViewGroup parent, BottomSheetDialog dialog, DualEntry entry, int[] chosen) {
         View view = LayoutInflater.from(dialog.getContext()).inflate(R.layout.ui_context_sheet_dual_item, parent, false);
         ((TextView) view.findViewById(R.id.context_dual_label)).setText(entry.label);
+        ImageView rowIcon = view.findViewById(R.id.context_dual_icon);
+        if (entry.icon == 0) {
+            rowIcon.setVisibility(View.GONE);
+        } else {
+            rowIcon.setImageResource(entry.icon);
+            rowIcon.setImageTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(dialog.getContext(), R.color.ui_on_surface_variant)));
+        }
         bindDualAction(dialog, view.findViewById(R.id.context_dual_first), entry.first, chosen);
         bindDualAction(dialog, view.findViewById(R.id.context_dual_second), entry.second, chosen);
         return view;
@@ -312,10 +345,16 @@ public class TermuxContextMenuSheet {
     private static void bindDualAction(BottomSheetDialog dialog, ImageView button, Action action, int[] chosen) {
         button.setImageResource(action.icon);
         button.setContentDescription(action.description);
-        button.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(dialog.getContext(), R.color.ui_on_surface_variant)));
-        button.setOnClickListener(v -> {
-            chosen[0] = action.id;
-            dialog.dismiss();
-        });
+        button.setEnabled(action.enabled);
+        button.setClickable(action.enabled);
+        button.setFocusable(action.enabled);
+        int tintRes = action.enabled ? R.color.ui_on_surface_variant : R.color.ui_outline;
+        button.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(dialog.getContext(), tintRes)));
+        if (action.enabled) {
+            button.setOnClickListener(v -> {
+                chosen[0] = action.id;
+                dialog.dismiss();
+            });
+        }
     }
 }

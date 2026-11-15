@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A label with two independent icon buttons (Autofill username, Autofill password). The row itself
+<!-- A label with two independent icon buttons (for example, Autofill username and password). The row itself
      is not clickable, so the label is never an ambiguous action. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -9,6 +9,15 @@
     android:orientation="horizontal"
     android:paddingStart="28dp"
     android:paddingEnd="20dp">
+
+    <ImageView
+        android:id="@+id/context_dual_icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginEnd="16dp"
+        android:contentDescription="@null"
+        android:importantForAccessibility="no"
+        android:scaleType="center" />
 
     <TextView
         android:id="@+id/context_dual_label"

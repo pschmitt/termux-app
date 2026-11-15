@@ -51,18 +51,22 @@ public final class TerminalContextMenu {
                                                        @NonNull Resources resources, @NonNull State state) {
         sheet.addGroup(R.string.ui_menu_group_text)
             .addItem(SELECT_URL, R.string.action_select_url, R.drawable.ui_ic_link);
-        if (state.hasSelectedText)
-            sheet.addItem(SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_share);
-        sheet.addItem(SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share);
+        if (state.hasSelectedText) {
+            sheet.addDualAction(R.string.ui_menu_share,
+                SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_share,
+                SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share);
+        } else {
+            sheet.addItem(SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share);
+        }
         if (state.autoFillEnabled) {
-            sheet.addDualAction(R.string.ui_menu_autofill,
-                AUTOFILL_USERNAME, R.string.action_autofill_username, R.drawable.ui_ic_person,
-                AUTOFILL_PASSWORD, R.string.action_autofill_password, R.drawable.ui_ic_lock);
+            sheet.addDualAction(R.string.ui_menu_autofill, R.drawable.ui_ic_bolt,
+                AUTOFILL_USERNAME, R.string.action_autofill_username, R.drawable.ui_ic_person, true,
+                AUTOFILL_PASSWORD, R.string.action_autofill_password, R.drawable.ui_ic_lock, true);
         }
         sheet.addGroup(R.string.ui_menu_group_session)
-            .addItem(RESET_TERMINAL, R.string.action_reset_terminal, R.drawable.ui_ic_refresh)
-            .addItem(KILL_PROCESS, resources.getString(R.string.action_kill_process, state.sessionPid),
-                R.drawable.ui_ic_power, state.sessionRunning, true)
+            .addDualAction(R.string.ui_menu_session_controls,
+                RESET_TERMINAL, R.string.action_reset_terminal, R.drawable.ui_ic_refresh, true,
+                KILL_PROCESS, R.string.action_kill_process_accessibility, R.drawable.ui_ic_power, state.sessionRunning)
             .addToggle(TOGGLE_KEEP_SCREEN_ON, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_lightbulb,
                 state.keepScreenOn)
             .addGroup(R.string.ui_menu_group_app)

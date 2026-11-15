@@ -8,6 +8,7 @@ import androidx.preference.PreferenceFragmentCompat;
 
 import com.termux.R;
 import com.termux.app.TermuxActivity;
+import com.termux.app.fragments.settings.AboutPreferencesFragment;
 import com.termux.app.terminal.ReportIssueRequest;
 
 import org.junit.Assert;
@@ -27,30 +28,30 @@ public class SettingsReportIssueTest {
     }
 
     @Test
-    public void reportIssueIsInSettingsOnceNextToAbout() {
+    public void reportIssueIsProminentAtTopOfAboutPage() {
         SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
-        PreferenceFragmentCompat fragment = rootFragment(activity);
+        PreferenceFragmentCompat root = rootFragment(activity);
 
-        Preference reportIssue = fragment.findPreference("report_issue");
+        Assert.assertNull(root.findPreference("report_issue"));
+        Assert.assertNotNull("Updates is still there", root.findPreference("updates"));
+        Assert.assertNotNull(root.findPreference("about"));
+
+        AboutPreferencesFragment about = new AboutPreferencesFragment();
+        activity.getSupportFragmentManager().beginTransaction().replace(R.id.settings, about).commitNow();
+        Preference reportIssue = about.findPreference("report_issue");
         Assert.assertNotNull(reportIssue);
         Assert.assertTrue(reportIssue.isVisible());
         Assert.assertEquals(activity.getString(R.string.action_report_issue), reportIssue.getTitle().toString());
-        Assert.assertNotNull("Updates is still there", fragment.findPreference("updates"));
-        Assert.assertNotNull(fragment.findPreference("about"));
-
-        int found = 0;
-        for (int i = 0; i < fragment.getPreferenceScreen().getPreferenceCount(); i++) {
-            CharSequence title = fragment.getPreferenceScreen().getPreference(i).getTitle();
-            if (title != null && title.toString().equals(activity.getString(R.string.action_report_issue))) found++;
-        }
-        Assert.assertEquals("No duplicate entries", 1, found);
+        Assert.assertSame(reportIssue, about.getPreferenceScreen().getPreference(0));
     }
 
     @Test
     public void clickingReportIssueAsksTheTerminalToRunTheExistingFlow() {
         ReportIssueRequest.consume();
         SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
-        Preference reportIssue = rootFragment(activity).findPreference("report_issue");
+        AboutPreferencesFragment about = new AboutPreferencesFragment();
+        activity.getSupportFragmentManager().beginTransaction().replace(R.id.settings, about).commitNow();
+        Preference reportIssue = about.findPreference("report_issue");
         Assert.assertNotNull(reportIssue);
 
         Assert.assertTrue(reportIssue.getOnPreferenceClickListener().onPreferenceClick(reportIssue));

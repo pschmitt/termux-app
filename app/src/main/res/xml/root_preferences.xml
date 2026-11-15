@@ -8,36 +8,11 @@
         app:fragment="com.termux.app.fragments.settings.TermuxPreferencesFragment"/>
 
     <Preference
-        app:key="termux_api"
+        app:key="companion_apps"
         app:icon="@drawable/ui_ic_extension"
-        app:title="@string/termux_api_preferences_title"
-        app:summary="@string/termux_api_preferences_summary"
-        app:isPreferenceVisible="false"
-        app:fragment="com.termux.app.fragments.settings.TermuxAPIPreferencesFragment"/>
-
-    <Preference
-        app:key="termux_float"
-        app:icon="@drawable/ui_ic_float"
-        app:title="@string/termux_float_preferences_title"
-        app:summary="@string/termux_float_preferences_summary"
-        app:isPreferenceVisible="false"
-        app:fragment="com.termux.app.fragments.settings.TermuxFloatPreferencesFragment"/>
-
-    <Preference
-        app:key="termux_tasker"
-        app:icon="@drawable/ui_ic_bolt"
-        app:title="@string/termux_tasker_preferences_title"
-        app:summary="@string/termux_tasker_preferences_summary"
-        app:isPreferenceVisible="false"
-        app:fragment="com.termux.app.fragments.settings.TermuxTaskerPreferencesFragment"/>
-
-    <Preference
-        app:key="termux_widget"
-        app:icon="@drawable/ui_ic_widgets"
-        app:title="@string/termux_widget_preferences_title"
-        app:summary="@string/termux_widget_preferences_summary"
-        app:isPreferenceVisible="false"
-        app:fragment="com.termux.app.fragments.settings.TermuxWidgetPreferencesFragment"/>
+        app:title="@string/companion_apps_title"
+        app:summary="@string/companion_apps_summary"
+        app:fragment="com.termux.app.fragments.settings.CompanionAppsPreferencesFragment"/>
 
     <Preference
         app:key="updates"
@@ -47,17 +22,10 @@
         app:fragment="com.termux.app.fragments.settings.UpdatesPreferencesFragment"/>
 
     <Preference
-        app:key="report_issue"
-        app:icon="@drawable/ui_ic_bug"
-        app:title="@string/action_report_issue"
-        app:summary="@string/ui_report_issue_summary"
-        app:persistent="false"/>
-
-    <Preference
         app:key="about"
         app:icon="@drawable/ui_ic_info"
         app:title="@string/about_preference_title"
-        app:persistent="false"/>
+        app:fragment="com.termux.app.fragments.settings.AboutPreferencesFragment" />
     <!-- app:layout="@layout/preference_markdown_text" -->
 
     <Preference

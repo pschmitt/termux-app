@@ -83,6 +83,14 @@ public class TerminalContextMenuTest {
                 TerminalContextMenu.RESET_TERMINAL, TerminalContextMenu.KILL_PROCESS,
                 TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON, TerminalContextMenu.SETTINGS),
             sheetIds(activity(), minimal()));
+
+        Activity activity = activity();
+        List<Integer> allIds = sheetIds(activity, everything());
+        Assert.assertEquals(1, allIds.indexOf(TerminalContextMenu.SHARE_TRANSCRIPT)
+            - allIds.indexOf(TerminalContextMenu.SHARE_SELECTED_TEXT));
+        Assert.assertEquals(1, allIds.indexOf(TerminalContextMenu.KILL_PROCESS)
+            - allIds.indexOf(TerminalContextMenu.RESET_TERMINAL));
+        Assert.assertEquals(activity.getString(R.string.action_kill_process_accessibility), "Kill session");
     }
 
     @Test

@@ -11,6 +11,8 @@
     <string name="ui_menu_group_app">App</string>
     <string name="ui_menu_title">Terminal</string>
     <string name="ui_menu_autofill">Autofill</string>
+    <string name="ui_menu_share">Share</string>
+    <string name="ui_menu_session_controls">Session controls</string>
     <!-- Settings -->
     <string name="ui_report_issue_summary">Report a problem with a transcript of the current terminal session. You review the report before anything is shared.</string>
 </resources>
