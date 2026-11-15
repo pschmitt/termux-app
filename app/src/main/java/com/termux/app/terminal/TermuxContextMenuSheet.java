@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Terminal context menu presented as a grouped Material bottom sheet.
+ * Terminal context menu presented as a Material bottom sheet.
  * <p>
  * Items keep the ids of the system context menu entries they replace. A chosen action is delivered
  * to the {@link Listener} only after the sheet is dismissed, which matches the order of the system
@@ -99,16 +99,10 @@ public class TermuxContextMenuSheet {
     static final int TOP_GAP_DP = 48;
 
     private final Activity mActivity;
-    // Either a group title (String/CharSequence), an Entry or a DualEntry.
     private final List<Object> mRows = new ArrayList<>();
 
     public TermuxContextMenuSheet(@NonNull Activity activity) {
         mActivity = activity;
-    }
-
-    public TermuxContextMenuSheet addGroup(@StringRes int title) {
-        mRows.add(mActivity.getString(title));
-        return this;
     }
 
     public TermuxContextMenuSheet addItem(int id, CharSequence title, @DrawableRes int icon) {
@@ -226,11 +220,6 @@ public class TermuxContextMenuSheet {
                 container.addView(createItem(container, dialog, (Entry) row, chosen));
             } else if (row instanceof DualEntry) {
                 container.addView(createDualItem(container, dialog, (DualEntry) row, chosen));
-            } else {
-                TextView header = (TextView) LayoutInflater.from(dialog.getContext())
-                    .inflate(R.layout.ui_context_sheet_group, container, false);
-                header.setText((CharSequence) row);
-                container.addView(header);
             }
         }
 

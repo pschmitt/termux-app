@@ -46,15 +46,14 @@ public final class TerminalContextMenu {
 
     private TerminalContextMenu() {}
 
-    /** Add the grouped entries of the bottom sheet. */
+    /** Add the entries of the bottom sheet. */
     public static TermuxContextMenuSheet populateSheet(@NonNull TermuxContextMenuSheet sheet,
                                                        @NonNull Resources resources, @NonNull State state) {
-        sheet.addGroup(R.string.ui_menu_group_text)
-            .addItem(SELECT_URL, R.string.action_select_url, R.drawable.ui_ic_link);
+        sheet.addItem(SELECT_URL, R.string.action_select_url, R.drawable.ui_ic_link);
         if (state.hasSelectedText) {
-            sheet.addDualAction(R.string.ui_menu_share,
-                SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_select_text,
-                SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share);
+            sheet.addDualAction(R.string.ui_menu_share, R.drawable.ui_ic_share,
+                SHARE_SELECTED_TEXT, R.string.action_share_selected_text, R.drawable.ui_ic_select_text, true,
+                SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share, true);
         } else {
             sheet.addItem(SHARE_TRANSCRIPT, R.string.action_share_transcript, R.drawable.ui_ic_share);
         }
@@ -63,13 +62,11 @@ public final class TerminalContextMenu {
                 AUTOFILL_USERNAME, R.string.action_autofill_username, R.drawable.ui_ic_person, true,
                 AUTOFILL_PASSWORD, R.string.action_autofill_password, R.drawable.ui_ic_lock, true);
         }
-        sheet.addGroup(R.string.ui_menu_group_session)
-            .addDualAction(R.string.ui_menu_session_controls,
+        sheet.addDualAction(R.string.ui_menu_session_controls, R.drawable.ui_ic_terminal,
                 RESET_TERMINAL, R.string.action_reset_terminal, R.drawable.ui_ic_refresh, true,
                 KILL_PROCESS, R.string.action_kill_process_accessibility, R.drawable.ui_ic_delete, state.sessionRunning)
             .addToggle(TOGGLE_KEEP_SCREEN_ON, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_lightbulb,
                 state.keepScreenOn)
-            .addGroup(R.string.ui_menu_group_app)
             .addItem(SETTINGS, R.string.action_open_settings, R.drawable.ui_ic_settings);
         return sheet;
     }

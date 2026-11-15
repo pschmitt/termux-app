@@ -33,13 +33,17 @@ public class TermuxContextMenuSheetTest {
 
     private static TermuxContextMenuSheet sheet(Activity activity) {
         return new TermuxContextMenuSheet(activity)
-            .addGroup(R.string.ui_menu_group_text)
             .addDualAction(R.string.ui_menu_autofill, R.drawable.ui_ic_bolt,
                 USERNAME, R.string.action_autofill_username, R.drawable.ui_ic_person, true,
                 PASSWORD, R.string.action_autofill_password, R.drawable.ui_ic_lock, true)
-            .addDualAction(R.string.ui_menu_session_controls,
+            .addDualAction(R.string.ui_menu_share, R.drawable.ui_ic_share,
+                TerminalContextMenu.SHARE_SELECTED_TEXT, R.string.action_share_selected_text,
+                R.drawable.ui_ic_select_text, true,
+                TerminalContextMenu.SHARE_TRANSCRIPT, R.string.action_share_transcript,
+                R.drawable.ui_ic_share, true)
+            .addDualAction(R.string.ui_menu_session_controls, R.drawable.ui_ic_terminal,
                 RESET, R.string.action_reset_terminal, R.drawable.ui_ic_refresh, true,
-                KILL, R.string.action_kill_process_accessibility, R.drawable.ui_ic_power, false)
+                KILL, R.string.action_kill_process_accessibility, R.drawable.ui_ic_delete, false)
             .addItem(OTHER, R.string.action_select_url, R.drawable.ui_ic_link);
     }
 
@@ -80,11 +84,33 @@ public class TermuxContextMenuSheetTest {
         ImageView second = row.findViewById(R.id.context_dual_second);
         Assert.assertEquals(activity.getString(R.string.action_reset_terminal), first.getContentDescription().toString());
         Assert.assertEquals(activity.getString(R.string.action_kill_process_accessibility), second.getContentDescription().toString());
+        ImageView leading = row.findViewById(R.id.context_dual_icon);
+        Assert.assertEquals(View.VISIBLE, leading.getVisibility());
+        Assert.assertNotNull(leading.getDrawable());
         Assert.assertTrue(first.isEnabled());
         Assert.assertTrue(first.isClickable());
         Assert.assertFalse(second.isEnabled());
         Assert.assertFalse(second.isFocusable());
         Assert.assertFalse(row.isClickable());
+    }
+
+    @Test
+    public void shareRowHasItsOwnLeadingIconAndDistinctAccessibleActions() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = sheet(activity).show(id -> { });
+        View row = dualRow(dialog, activity, R.string.ui_menu_share);
+        ImageView leading = row.findViewById(R.id.context_dual_icon);
+        ImageView selectedText = row.findViewById(R.id.context_dual_first);
+        ImageView transcript = row.findViewById(R.id.context_dual_second);
+
+        Assert.assertEquals(View.VISIBLE, leading.getVisibility());
+        Assert.assertNotNull(leading.getDrawable());
+        Assert.assertEquals(activity.getString(R.string.action_share_selected_text),
+            selectedText.getContentDescription().toString());
+        Assert.assertEquals(activity.getString(R.string.action_share_transcript),
+            transcript.getContentDescription().toString());
+        Assert.assertNotNull(selectedText.getDrawable());
+        Assert.assertNotNull(transcript.getDrawable());
     }
 
     @Test
@@ -197,9 +223,11 @@ public class TermuxContextMenuSheetTest {
         Assert.assertFalse(root.getChildAt(0) instanceof android.widget.TextView);
         Assert.assertTrue(root.getChildAt(1) instanceof androidx.core.widget.NestedScrollView);
 
-        // The group labels stay, and the old heading text is not drawn anywhere.
+        // Neither section labels nor a visible title are rendered in the menu.
         Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_title)));
-        Assert.assertTrue(containsVisibleText(root, activity.getString(R.string.ui_menu_group_text)));
+        Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_group_text)));
+        Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_group_session)));
+        Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_group_app)));
     }
 
     @Test

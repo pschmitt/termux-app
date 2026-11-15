@@ -2,6 +2,11 @@ package com.termux.app.terminal;
 
 import android.app.Activity;
 import android.view.Menu;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import com.termux.R;
 
@@ -93,6 +98,53 @@ public class TerminalContextMenuTest {
         Assert.assertEquals(activity.getString(R.string.action_kill_process_accessibility), "Kill session");
         Assert.assertEquals("Kill session", activity.getString(R.string.action_kill_session));
         Assert.assertTrue(activity.getString(R.string.msg_confirm_kill_process).contains("process will stop"));
+    }
+
+    @Test
+    public void shareAndSessionRowsHaveLeadingIconsAndAccessibleActions() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
+            new TermuxContextMenuSheet(activity), activity.getResources(), everything()).show(id -> { });
+        View share = dualRow(dialog, activity, R.string.ui_menu_share);
+        View session = dualRow(dialog, activity, R.string.ui_menu_session_controls);
+
+        assertLeadingIcon(share);
+        assertLeadingIcon(session);
+        ImageView selectedText = share.findViewById(R.id.context_dual_first);
+        ImageView transcript = share.findViewById(R.id.context_dual_second);
+        Assert.assertEquals(activity.getString(R.string.action_share_selected_text),
+            selectedText.getContentDescription().toString());
+        Assert.assertEquals(activity.getString(R.string.action_share_transcript),
+            transcript.getContentDescription().toString());
+        Assert.assertNotNull(selectedText.getDrawable());
+        Assert.assertNotNull(transcript.getDrawable());
+    }
+
+    private static void assertLeadingIcon(View row) {
+        ImageView leading = row.findViewById(R.id.context_dual_icon);
+        Assert.assertNotNull(leading);
+        Assert.assertEquals(View.VISIBLE, leading.getVisibility());
+        Assert.assertNotNull(leading.getDrawable());
+        Assert.assertNull(leading.getContentDescription());
+    }
+
+    private static View dualRow(BottomSheetDialog dialog, Activity activity, int labelId) {
+        String label = activity.getString(labelId);
+        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
+            if (view instanceof TextView && label.contentEquals(((TextView) view).getText()))
+                return (View) view.getParent();
+        }
+        throw new AssertionError("Missing dual-action row: " + label);
+    }
+
+    private static List<View> allViews(View root) {
+        List<View> out = new ArrayList<>();
+        out.add(root);
+        if (root instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) root;
+            for (int i = 0; i < group.getChildCount(); i++) out.addAll(allViews(group.getChildAt(i)));
+        }
+        return out;
     }
 
     @Test
