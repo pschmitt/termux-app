@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A large choice of a choice sheet (Share, Autofill): an icon, a label, a detail line and a preview of
+     what the choice acts on. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/context_tile"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:background="@drawable/ui_sheet_tile_bg"
+    android:clickable="true"
+    android:focusable="true"
+    android:minHeight="148dp"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <ImageView
+        android:id="@+id/context_tile_icon"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:background="@drawable/ui_sheet_card_icon_bg"
+        android:importantForAccessibility="no"
+        android:scaleType="center" />
+
+    <TextView
+        android:id="@+id/context_tile_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="1"
+        android:textAppearance="@style/TextAppearance.TermuxPP.SheetItem" />
+
+    <TextView
+        android:id="@+id/context_tile_detail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="@style/TextAppearance.TermuxPP.Body"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/context_card_preview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/ui_sheet_card_preview_bg"
+        android:fontFamily="monospace"
+        android:importantForAccessibility="no"
+        android:maxLines="3"
+        android:paddingStart="10dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="8dp"
+        android:textColor="@color/ui_on_surface"
+        android:textSize="11sp"
+        android:visibility="gone" />
+</LinearLayout>

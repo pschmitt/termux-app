@@ -77,22 +77,20 @@ public class TerminalContextMenuTest {
     @Test
     public void sheetKeepsTheOtherActionsInOrder() {
         Assert.assertEquals(Arrays.asList(
-                TerminalContextMenu.SELECT_URL, TerminalContextMenu.SHARE_SELECTED_TEXT,
-                TerminalContextMenu.SHARE_TRANSCRIPT, TerminalContextMenu.AUTOFILL_USERNAME,
-                TerminalContextMenu.AUTOFILL_PASSWORD, TerminalContextMenu.RESET_TERMINAL,
-                TerminalContextMenu.KILL_PROCESS, TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON,
-                TerminalContextMenu.SETTINGS),
+                TerminalContextMenu.SELECT_URL, TerminalContextMenu.SHARE_MENU,
+                TerminalContextMenu.AUTOFILL_MENU, TerminalContextMenu.RESET_TERMINAL,
+                TerminalContextMenu.KILL_PROCESS, TerminalContextMenu.KILL_PROCESS_NOW,
+                TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON, TerminalContextMenu.SETTINGS),
             sheetIds(activity(), everything()));
         Assert.assertEquals(Arrays.asList(
                 TerminalContextMenu.SELECT_URL, TerminalContextMenu.SHARE_TRANSCRIPT,
                 TerminalContextMenu.RESET_TERMINAL, TerminalContextMenu.KILL_PROCESS,
-                TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON, TerminalContextMenu.SETTINGS),
+                TerminalContextMenu.KILL_PROCESS_NOW, TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON,
+                TerminalContextMenu.SETTINGS),
             sheetIds(activity(), minimal()));
 
         Activity activity = activity();
         List<Integer> allIds = sheetIds(activity, everything());
-        Assert.assertEquals(1, allIds.indexOf(TerminalContextMenu.SHARE_TRANSCRIPT)
-            - allIds.indexOf(TerminalContextMenu.SHARE_SELECTED_TEXT));
         Assert.assertEquals(1, allIds.indexOf(TerminalContextMenu.KILL_PROCESS)
             - allIds.indexOf(TerminalContextMenu.RESET_TERMINAL));
         Assert.assertEquals(activity.getString(R.string.action_kill_process_accessibility), "Kill session");
@@ -131,10 +129,89 @@ public class TerminalContextMenuTest {
             if (view.getId() == R.id.context_tile_title) titles.add(((TextView) view).getText().toString());
             if (view.getId() == R.id.context_tile_detail) details.add(((TextView) view).getText().toString());
         }
-        Assert.assertEquals(Arrays.asList("Open URL", "Share", "Share", "Username", "Password", "Reset", "Kill zsh"),
-            titles);
-        Assert.assertEquals(Arrays.asList("2 found", "selected text", "transcript", "autofill", "autofill",
+        Assert.assertEquals(Arrays.asList("Open URL", "Share", "Autofill", "Reset", "Kill zsh"), titles);
+        Assert.assertEquals(Arrays.asList("2 found", "selection or all", "user or password",
             "terminal state", "hold to kill now"), details);
+    }
+
+    @Test
+    public void withoutASelectionShareIsTheTranscript() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
+            new TermuxContextMenuSheet(activity), activity.getResources(), minimal()).show(id -> { });
+        List<String> details = new ArrayList<>();
+        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
+            if (view.getId() == R.id.context_tile_detail) details.add(((TextView) view).getText().toString());
+        }
+        Assert.assertTrue(details.contains("transcript"));
+        Assert.assertFalse(sheetIds(activity, minimal()).contains(TerminalContextMenu.SHARE_SELECTED_TEXT));
+        Assert.assertFalse(sheetIds(activity, minimal()).contains(TerminalContextMenu.SHARE_MENU));
+    }
+
+    private static List<Integer> choiceIds(Activity activity, int menuId, TerminalContextMenu.State state) {
+        TermuxContextMenuSheet sheet = TerminalContextMenu.populateChoiceSheet(menuId,
+            new TermuxContextMenuSheet(activity), activity.getResources(), state, "hello", "a\nb\n");
+        return sheet == null ? new ArrayList<>() : sheet.getItemIds();
+    }
+
+    private static List<String> texts(BottomSheetDialog dialog, int viewId) {
+        List<String> out = new ArrayList<>();
+        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
+            if (view.getId() == viewId && view.getVisibility() == View.VISIBLE)
+                out.add(((TextView) view).getText().toString());
+        }
+        return out;
+    }
+
+    @Test
+    public void shareSheetPreviewsTheSelectionAndTheTranscript() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = TerminalContextMenu.populateChoiceSheet(TerminalContextMenu.SHARE_MENU,
+            new TermuxContextMenuSheet(activity), activity.getResources(), session(null, true, 1, 1),
+            "\n6806d1b0 Normalize  \nline two\nthree\nfour", "$ git log\nfirst\nsecond\n~ $ \n\n").show(id -> { });
+
+        View header = dialog.findViewById(R.id.context_sheet_header);
+        Assert.assertEquals("Share", ((TextView) header.findViewById(R.id.context_header_title)).getText().toString());
+        Assert.assertEquals("zsh", ((TextView) header.findViewById(R.id.context_header_subtitle)).getText().toString());
+        Assert.assertEquals(View.GONE, header.findViewById(R.id.context_header_action).getVisibility());
+
+        Assert.assertEquals(Arrays.asList("Selected text", "Transcript"), texts(dialog, R.id.context_tile_title));
+        Assert.assertEquals(Arrays.asList("41 characters", "4 lines"), texts(dialog, R.id.context_tile_detail));
+        Assert.assertEquals(Arrays.asList("6806d1b0 Normalize\nline two\nthree", "first\nsecond\n~ $"),
+            texts(dialog, R.id.context_card_preview));
+        Assert.assertEquals(Arrays.asList(TerminalContextMenu.SHARE_SELECTED_TEXT, TerminalContextMenu.SHARE_TRANSCRIPT),
+            choiceIds(activity, TerminalContextMenu.SHARE_MENU, session(null, true, 1, 1)));
+    }
+
+    @Test
+    public void autofillSheetOffersUsernameAndPassword() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = TerminalContextMenu.populateChoiceSheet(TerminalContextMenu.AUTOFILL_MENU,
+            new TermuxContextMenuSheet(activity), activity.getResources(), session("build", true, 1, 1),
+            null, null).show(id -> { });
+        Assert.assertEquals(Arrays.asList("Username", "Password"), texts(dialog, R.id.context_tile_title));
+        Assert.assertEquals(Arrays.asList("login: ▌", "password: ••••••••"), texts(dialog, R.id.context_card_preview));
+        Assert.assertEquals(Arrays.asList(TerminalContextMenu.AUTOFILL_USERNAME, TerminalContextMenu.AUTOFILL_PASSWORD),
+            choiceIds(activity, TerminalContextMenu.AUTOFILL_MENU, everything()));
+        Assert.assertNull(TerminalContextMenu.populateChoiceSheet(TerminalContextMenu.SETTINGS,
+            new TermuxContextMenuSheet(activity), activity.getResources(), everything(), null, null));
+    }
+
+    @Test
+    public void previewLinesSkipBlankEdgesAndTrailingSpaces() {
+        Assert.assertNull(TerminalContextMenu.firstLines(null, 3));
+        Assert.assertNull(TerminalContextMenu.firstLines(" \n\n", 3));
+        Assert.assertEquals(" a\nb", TerminalContextMenu.firstLines("\n a  \nb\nc", 2));
+        Assert.assertNull(TerminalContextMenu.lastLines("\n \n", 2));
+        Assert.assertEquals("a\nc", TerminalContextMenu.lastLines("a\n\nc\n\n", 2));
+        Assert.assertEquals("https://github.co…",
+            TerminalContextMenu.firstLines("https://github.com/pschmitt/termux-app", 3));
+        Assert.assertEquals(TerminalContextMenu.PREVIEW_COLUMNS,
+            TerminalContextMenu.previewLine("https://github.com/pschmitt/termux-app").length());
+        Assert.assertEquals("b\nc", TerminalContextMenu.lastLines("a\nb\nc \n\n", 2));
+        Assert.assertEquals(3, TerminalContextMenu.countLines("a\n\nc\n \n"));
+        Assert.assertEquals(0, TerminalContextMenu.countLines(""));
+        Assert.assertEquals(-1, TerminalContextMenu.countLines(null));
     }
 
     @Test
@@ -180,10 +257,14 @@ public class TerminalContextMenuTest {
     public void fallbackMenuOffersTheSameActionsAsTheSheet() {
         Activity activity = activity();
         for (TerminalContextMenu.State state : Arrays.asList(everything(), minimal())) {
-            List<Integer> sheet = sheetIds(activity, state);
-            List<Integer> menu = menuIds(activity, state);
-            Assert.assertEquals(sheet.size(), menu.size());
-            Assert.assertTrue(menu.containsAll(sheet));
+            // The sheet reaches some actions through a sheet of choices; killing without asking is only
+            // offered by holding the kill tile.
+            java.util.Set<Integer> sheet = new java.util.HashSet<>(sheetIds(activity, state));
+            for (int menuId : new int[]{TerminalContextMenu.SHARE_MENU, TerminalContextMenu.AUTOFILL_MENU}) {
+                if (sheet.remove(menuId)) sheet.addAll(choiceIds(activity, menuId, state));
+            }
+            sheet.remove(TerminalContextMenu.KILL_PROCESS_NOW);
+            Assert.assertEquals(new java.util.HashSet<>(menuIds(activity, state)), sheet);
         }
     }
 

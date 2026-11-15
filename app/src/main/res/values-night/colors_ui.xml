@@ -13,6 +13,7 @@
     <color name="ui_divider">#2E2937</color>
     <color name="ui_danger">#F2B8B5</color>
     <color name="ui_danger_container">#3C2A2C</color>
+    <color name="ui_danger_icon_container">#5C1D1E</color>
     <color name="ui_ripple">#33D8B4FE</color>
     <color name="ui_scrim">#99000000</color>
 </resources>

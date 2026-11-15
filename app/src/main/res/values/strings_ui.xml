@@ -18,10 +18,26 @@
     </plurals>
     <string name="ui_menu_urls_none">none found</string>
     <string name="ui_menu_share_transcript_detail">transcript</string>
-    <string name="ui_menu_share_selection_detail">selected text</string>
+    <string name="ui_menu_share_choice_detail">selection or all</string>
+    <string name="ui_menu_share_selection">Selected text</string>
+    <plurals name="ui_menu_share_selection_chars">
+        <item quantity="one">%d character</item>
+        <item quantity="other">%d characters</item>
+    </plurals>
+    <string name="ui_menu_share_transcript">Transcript</string>
+    <string name="ui_menu_share_transcript_whole">the whole session</string>
+    <plurals name="ui_menu_share_transcript_lines">
+        <item quantity="one">%d line</item>
+        <item quantity="other">%d lines</item>
+    </plurals>
+    <string name="ui_menu_autofill">Autofill</string>
+    <string name="ui_menu_autofill_detail">user or password</string>
     <string name="ui_menu_username">Username</string>
     <string name="ui_menu_password">Password</string>
-    <string name="ui_menu_autofill_detail">autofill</string>
+    <string name="ui_menu_autofill_username_detail">fills the login</string>
+    <string name="ui_menu_autofill_password_detail">fills the secret</string>
+    <string name="ui_menu_autofill_username_preview">login: ▌</string>
+    <string name="ui_menu_autofill_password_preview">password: ••••••••</string>
     <string name="ui_menu_reset_detail">terminal state</string>
     <string name="ui_menu_kill">Kill %1$s</string>
     <string name="ui_menu_kill_detail">hold to kill now</string>

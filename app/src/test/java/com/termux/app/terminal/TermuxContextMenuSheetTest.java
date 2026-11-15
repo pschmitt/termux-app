@@ -30,6 +30,7 @@ public class TermuxContextMenuSheetTest {
     private static final int KILL = 4;
     private static final int KILL_NOW = 12;
     private static final int SETTINGS = 8;
+    private static final int SHARE = 1;
     private static final int OTHER = 99;
 
     private static Activity activity() {
@@ -40,14 +41,14 @@ public class TermuxContextMenuSheetTest {
 
     private static TermuxContextMenuSheet sheet(Activity activity, boolean killEnabled) {
         return new TermuxContextMenuSheet(activity)
-            .setHeader("zsh", "~/devel · pid 4182", SETTINGS, "Settings", R.drawable.ui_ic_settings)
-            .addTile(USERNAME, "Username", "autofill", R.drawable.ui_ic_person)
-            .addTile(PASSWORD, "Password", "autofill", R.drawable.ui_ic_lock)
-            .addTile(RESET, "Reset", null, R.drawable.ui_ic_refresh)
-            .addDangerTile(KILL, "Kill zsh", "hold to kill now", R.drawable.ui_ic_delete, killEnabled,
+            .setHeader("zsh", "~/devel · pid 4182", SETTINGS, "Settings", R.drawable.ui_ic_menu_settings)
+            .addTile(PASSWORD, "Autofill", "username or password", R.drawable.ui_ic_menu_key)
+            .addTile(SHARE, "Share", "transcript", R.drawable.ui_ic_menu_share)
+            .addTile(RESET, "Reset", null, R.drawable.ui_ic_menu_reset)
+            .addDangerTile(KILL, "Kill zsh", "hold to kill now", R.drawable.ui_ic_menu_power, killEnabled,
                 KILL_NOW, "Kill now")
-            .addTile(TerminalContextMenu.SELECT_URL, "Open URL", "2 found", R.drawable.ui_ic_link)
-            .addItem(OTHER, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_lightbulb);
+            .addTile(TerminalContextMenu.SELECT_URL, "Open URL", "2 found", R.drawable.ui_ic_menu_link)
+            .addItem(OTHER, R.string.action_toggle_keep_screen_on, R.drawable.ui_ic_menu_sun);
     }
 
     private static TermuxContextMenuSheet sheet(Activity activity) {
@@ -56,8 +57,11 @@ public class TermuxContextMenuSheetTest {
 
     private static View tile(BottomSheetDialog dialog, String title) {
         for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
-            if (view.getId() == R.id.context_tile_title && title.contentEquals(((TextView) view).getText()))
-                return (View) view.getParent().getParent();
+            if (view.getId() == R.id.context_tile_title && title.contentEquals(((TextView) view).getText())) {
+                View tile = view;
+                while (tile.getId() != R.id.context_tile) tile = (View) tile.getParent();
+                return tile;
+            }
         }
         throw new AssertionError("Missing tile: " + title);
     }
@@ -75,8 +79,8 @@ public class TermuxContextMenuSheetTest {
     @Test
     public void tilesChooseTheirOwnIds() {
         Activity activity = activity();
-        Assert.assertEquals(USERNAME, clickTile(activity, "Username", false));
-        Assert.assertEquals(PASSWORD, clickTile(activity, "Password", false));
+        Assert.assertEquals(PASSWORD, clickTile(activity, "Autofill", false));
+        Assert.assertEquals(SHARE, clickTile(activity, "Share", false));
         Assert.assertEquals(RESET, clickTile(activity, "Reset", false));
         Assert.assertEquals(KILL, clickTile(activity, "Kill zsh", false));
     }
@@ -98,6 +102,51 @@ public class TermuxContextMenuSheetTest {
     }
 
     @Test
+    public void cardsShowAPreviewAndChooseTheirId() {
+        Activity activity = activity();
+        int[] chosen = {Integer.MIN_VALUE};
+        BottomSheetDialog dialog = new TermuxContextMenuSheet(activity)
+            .setHeader(R.drawable.ui_ic_menu_key, "Autofill", "zsh")
+            .addCard(USERNAME, "Username", "from your password manager", R.drawable.ui_ic_menu_user, "login: ▌")
+            .addCard(PASSWORD, "Password", null, R.drawable.ui_ic_menu_lock, null)
+            .show(id -> chosen[0] = id);
+
+        View username = tile(dialog, "Username");
+        TextView preview = username.findViewById(R.id.context_card_preview);
+        Assert.assertEquals(View.VISIBLE, preview.getVisibility());
+        Assert.assertEquals("login: ▌", preview.getText().toString());
+        Assert.assertEquals(View.GONE, tile(dialog, "Password").findViewById(R.id.context_card_preview).getVisibility());
+        Assert.assertSame(username.getParent(), tile(dialog, "Password").getParent());
+        Assert.assertEquals(View.GONE, dialog.findViewById(R.id.context_header_action).getVisibility());
+        Assert.assertEquals(java.util.Arrays.asList(USERNAME, PASSWORD),
+            new TermuxContextMenuSheet(activity).setHeader(R.drawable.ui_ic_menu_key, "Autofill", "zsh")
+                .addCard(USERNAME, "Username", null, R.drawable.ui_ic_menu_user, null)
+                .addCard(PASSWORD, "Password", null, R.drawable.ui_ic_menu_lock, null).getItemIds());
+
+        // A row of cards is as tall as its cards, not as its gap (cards once collapsed to a 1px row).
+        ViewGroup row = (ViewGroup) username.getParent();
+        row.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        float density = activity.getResources().getDisplayMetrics().density;
+        Assert.assertTrue(row.getMeasuredHeight() >= Math.round(148 * density));
+        Assert.assertTrue(username.getMeasuredHeight() >= Math.round(148 * density));
+
+        Assert.assertTrue(username.performClick());
+        ShadowLooper.idleMainLooper();
+        Assert.assertEquals(USERNAME, chosen[0]);
+    }
+
+    @Test
+    public void tilesWithoutALongPressIgnoreHolding() {
+        Activity activity = activity();
+        int[] chosen = {Integer.MIN_VALUE};
+        BottomSheetDialog dialog = sheet(activity).show(id -> chosen[0] = id);
+        tile(dialog, "Share").performLongClick();
+        ShadowLooper.idleMainLooper();
+        Assert.assertEquals(Integer.MIN_VALUE, chosen[0]);
+    }
+
+    @Test
     public void disabledKillTileChoosesNothing() {
         Activity activity = activity();
         int[] chosen = {Integer.MIN_VALUE};
@@ -114,17 +163,17 @@ public class TermuxContextMenuSheetTest {
     public void tilesAreLaidOutTwoPerRowAndKeepTheTouchTarget() {
         Activity activity = activity();
         BottomSheetDialog dialog = sheet(activity).show(id -> { });
-        ViewGroup first = (ViewGroup) tile(dialog, "Username").getParent();
-        Assert.assertSame(first, tile(dialog, "Password").getParent());
+        ViewGroup first = (ViewGroup) tile(dialog, "Autofill").getParent();
+        Assert.assertSame(first, tile(dialog, "Share").getParent());
         Assert.assertNotSame(first, tile(dialog, "Reset").getParent());
 
-        // The fifth tile is alone in its row, and only takes half of it.
+        // The fifth tile is alone in its row and spans it.
         ViewGroup last = (ViewGroup) tile(dialog, "Open URL").getParent();
-        Assert.assertEquals(3, last.getChildCount());
-        Assert.assertEquals(1f, ((LinearLayout.LayoutParams) last.getChildAt(2).getLayoutParams()).weight, 0f);
+        Assert.assertEquals(1, last.getChildCount());
+        Assert.assertEquals(1f, ((LinearLayout.LayoutParams) last.getChildAt(0).getLayoutParams()).weight, 0f);
 
         float density = activity.getResources().getDisplayMetrics().density;
-        Assert.assertTrue(tile(dialog, "Username").getMinimumHeight() >= Math.round(48 * density));
+        Assert.assertTrue(tile(dialog, "Autofill").getMinimumHeight() >= Math.round(48 * density));
     }
 
     @Test
@@ -156,8 +205,8 @@ public class TermuxContextMenuSheetTest {
     }
 
     @Test
-    public void headerActionIsListedLast() {
-        Assert.assertEquals(java.util.Arrays.asList(USERNAME, PASSWORD, RESET, KILL,
+    public void longPressesFollowTheirTileAndTheHeaderActionIsListedLast() {
+        Assert.assertEquals(java.util.Arrays.asList(PASSWORD, SHARE, RESET, KILL, KILL_NOW,
                 TerminalContextMenu.SELECT_URL, OTHER, SETTINGS),
             sheet(activity()).getItemIds());
     }
@@ -166,7 +215,7 @@ public class TermuxContextMenuSheetTest {
     public void withoutAHeaderNothingIsShownAboveTheList() {
         Activity activity = activity();
         BottomSheetDialog dialog = new TermuxContextMenuSheet(activity)
-            .addItem(OTHER, R.string.action_select_url, R.drawable.ui_ic_link).show(id -> { });
+            .addItem(OTHER, R.string.action_select_url, R.drawable.ui_ic_menu_link).show(id -> { });
         Assert.assertEquals(View.GONE, dialog.findViewById(R.id.context_sheet_header).getVisibility());
     }
 

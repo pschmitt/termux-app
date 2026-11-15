@@ -67,13 +67,17 @@ public class TermuxContextMenuSheet {
 
     /** The session the actions act on, with one icon action (Settings) at its end. */
     private static final class Header {
+        @DrawableRes final int icon;
         final CharSequence title;
         final CharSequence detail;
+        /** The id of the icon action at the end, or -1 for none. */
         final int actionId;
-        final CharSequence actionDescription;
+        @Nullable final CharSequence actionDescription;
         @DrawableRes final int actionIcon;
 
-        Header(CharSequence title, CharSequence detail, int actionId, CharSequence actionDescription, int actionIcon) {
+        Header(int icon, CharSequence title, CharSequence detail, int actionId,
+               @Nullable CharSequence actionDescription, int actionIcon) {
+            this.icon = icon;
             this.title = title;
             this.detail = detail;
             this.actionId = actionId;
@@ -93,9 +97,20 @@ public class TermuxContextMenuSheet {
         /** The id chosen by a long press, or -1 for none. */
         final int longPressId;
         @Nullable final CharSequence longPressLabel;
+        /** A large card of a choice sheet instead of a compact tile. */
+        final boolean card;
+        /** What a card acts on, shown in a small terminal-like box, or null for none. */
+        @Nullable final CharSequence preview;
 
         Tile(int id, CharSequence title, @Nullable CharSequence detail, int icon, boolean enabled, boolean danger,
              int longPressId, @Nullable CharSequence longPressLabel) {
+            this(id, title, detail, icon, enabled, danger, longPressId, longPressLabel, false, null);
+        }
+
+        Tile(int id, CharSequence title, @Nullable CharSequence detail, int icon, boolean enabled, boolean danger,
+             int longPressId, @Nullable CharSequence longPressLabel, boolean card, @Nullable CharSequence preview) {
+            this.card = card;
+            this.preview = preview;
             this.id = id;
             this.title = title;
             this.detail = detail;
@@ -119,6 +134,8 @@ public class TermuxContextMenuSheet {
     private final Activity mActivity;
     private final List<Object> mRows = new ArrayList<>();
     @Nullable private Header mHeader;
+    /** The number of lines of the longest card preview. */
+    private int mPreviewLines = 1;
 
     public TermuxContextMenuSheet(@NonNull Activity activity) {
         mActivity = activity;
@@ -146,14 +163,30 @@ public class TermuxContextMenuSheet {
     /** Show which session the actions act on, with one icon action at the end of the header. */
     public TermuxContextMenuSheet setHeader(CharSequence title, CharSequence detail,
                                             int actionId, CharSequence actionDescription, @DrawableRes int actionIcon) {
-        mHeader = new Header(title, detail, actionId, actionDescription, actionIcon);
+        mHeader = new Header(R.drawable.ui_ic_menu_terminal, title, detail, actionId, actionDescription, actionIcon);
         return this;
     }
 
-    /** Add a labelled action to the grid. Consecutive tiles are laid out two per row. */
+    /** Show a header with its own icon and no action, as the title of a sheet of choices. */
+    public TermuxContextMenuSheet setHeader(@DrawableRes int icon, CharSequence title, CharSequence detail) {
+        mHeader = new Header(icon, title, detail, -1, null, 0);
+        return this;
+    }
+
+    /** Add a labelled action to the grid. Consecutive tiles are laid out two per row; a lone last one spans it. */
     public TermuxContextMenuSheet addTile(int id, CharSequence title, @Nullable CharSequence detail,
                                           @DrawableRes int icon) {
         mRows.add(new Tile(id, title, detail, icon, true, false, -1, null));
+        return this;
+    }
+
+    /**
+     * Add a large card to the grid, for a sheet of a few choices: a big icon, the label, a detail line
+     * and a preview of what the choice acts on.
+     */
+    public TermuxContextMenuSheet addCard(int id, CharSequence title, @Nullable CharSequence detail,
+                                          @DrawableRes int icon, @Nullable CharSequence preview) {
+        mRows.add(new Tile(id, title, detail, icon, true, false, -1, null, true, preview));
         return this;
     }
 
@@ -165,15 +198,19 @@ public class TermuxContextMenuSheet {
         return this;
     }
 
-    /** The ids of all items and buttons that the sheet offers (not long presses), in order. */
+    /** The ids of all items, buttons and long presses that the sheet offers, in order. */
     List<Integer> getItemIds() {
         List<Integer> ids = new ArrayList<>();
         for (Object row : mRows) {
-            if (row instanceof Entry) ids.add(((Entry) row).id);
-            else if (row instanceof Tile) ids.add(((Tile) row).id);
+            if (row instanceof Entry) {
+                ids.add(((Entry) row).id);
+            } else if (row instanceof Tile) {
+                ids.add(((Tile) row).id);
+                if (((Tile) row).longPressId >= 0) ids.add(((Tile) row).longPressId);
+            }
         }
         // The header action is drawn first but listed last, like Settings at the end of a menu.
-        if (mHeader != null) ids.add(mHeader.actionId);
+        if (mHeader != null && mHeader.actionId >= 0) ids.add(mHeader.actionId);
         return ids;
     }
 
@@ -220,6 +257,10 @@ public class TermuxContextMenuSheet {
         View content = LayoutInflater.from(dialog.getContext()).inflate(R.layout.ui_context_sheet, null, false);
         LinearLayout container = content.findViewById(R.id.context_sheet_items);
 
+        for (Object row : mRows) {
+            if (row instanceof Tile && ((Tile) row).preview != null)
+                mPreviewLines = Math.max(mPreviewLines, ((Tile) row).preview.toString().split("\n", -1).length);
+        }
         if (mHeader != null) bindHeader(content.findViewById(R.id.context_sheet_header), dialog, mHeader, chosen);
 
         LinearLayout tileRow = null;
@@ -233,12 +274,10 @@ public class TermuxContextMenuSheet {
                 }
                 tileRow.addView(createTile(tileRow, dialog, (Tile) row, chosen));
             } else if (row instanceof Entry) {
-                completeTileRow(tileRow);
                 tileRow = null;
                 container.addView(createItem(container, dialog, (Entry) row, chosen));
             }
         }
-        completeTileRow(tileRow);
 
         dialog.setContentView(content);
         // No visible heading, but screen readers still announce what this window is.
@@ -334,8 +373,10 @@ public class TermuxContextMenuSheet {
 
     private void bindHeader(View view, BottomSheetDialog dialog, Header header, int[] chosen) {
         view.setVisibility(View.VISIBLE);
+        ((ImageView) view.findViewById(R.id.context_header_icon)).setImageResource(header.icon);
         ((TextView) view.findViewById(R.id.context_header_title)).setText(header.title);
         ((TextView) view.findViewById(R.id.context_header_subtitle)).setText(header.detail);
+        if (header.actionId < 0) return;
         ImageButton action = view.findViewById(R.id.context_header_action);
         action.setVisibility(View.VISIBLE);
         action.setImageResource(header.actionIcon);
@@ -351,6 +392,8 @@ public class TermuxContextMenuSheet {
     private LinearLayout createTileRow(ViewGroup parent) {
         LinearLayout row = new LinearLayout(parent.getContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
+        // Cards of one row share the height of the tallest, whatever their text baselines.
+        row.setBaselineAligned(false);
         int gutter = parent.getResources().getDimensionPixelSize(R.dimen.ui_gutter);
         int gap = Math.round(TILE_GAP_DP * parent.getResources().getDisplayMetrics().density);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -367,18 +410,9 @@ public class TermuxContextMenuSheet {
         return gap;
     }
 
-    /** Keep a lone last tile at half the width. */
-    private void completeTileRow(@Nullable LinearLayout row) {
-        if (row == null || row.getChildCount() != 1) return;
-        row.addView(createTileGap(row));
-        View filler = new View(row.getContext());
-        filler.setLayoutParams(new LinearLayout.LayoutParams(0, 1, 1f));
-        filler.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        row.addView(filler);
-    }
-
     private View createTile(ViewGroup parent, BottomSheetDialog dialog, Tile tile, int[] chosen) {
-        View view = LayoutInflater.from(dialog.getContext()).inflate(R.layout.ui_context_sheet_tile, parent, false);
+        View view = LayoutInflater.from(dialog.getContext()).inflate(
+            tile.card ? R.layout.ui_context_sheet_card : R.layout.ui_context_sheet_tile, parent, false);
         ImageView icon = view.findViewById(R.id.context_tile_icon);
         TextView title = view.findViewById(R.id.context_tile_title);
         TextView detail = view.findViewById(R.id.context_tile_detail);
@@ -390,10 +424,22 @@ public class TermuxContextMenuSheet {
             detail.setVisibility(View.VISIBLE);
         }
 
-        int colorRes = !tile.enabled ? R.color.ui_outline : (tile.danger ? R.color.ui_danger : R.color.ui_on_surface_variant);
+        if (tile.card && !TextUtils.isEmpty(tile.preview)) {
+            TextView preview = view.findViewById(R.id.context_card_preview);
+            preview.setText(tile.preview);
+            // Like a terminal that does not wrap: the lines come cut to length, anything longer is clipped.
+            preview.setHorizontallyScrolling(true);
+            // Previews of one sheet are as tall as the longest, so that its cards line up.
+            preview.setMinLines(mPreviewLines);
+            preview.setVisibility(View.VISIBLE);
+        }
+
+        // The icon sits on a tonal badge; text keeps the colors of the theme unless the tile is destructive.
+        int colorRes = !tile.enabled ? R.color.ui_outline : (tile.danger ? R.color.ui_danger : R.color.ui_on_container);
         int color = ContextCompat.getColor(dialog.getContext(), colorRes);
         icon.setImageTintList(ColorStateList.valueOf(color));
         if (tile.danger) {
+            icon.setBackgroundResource(R.drawable.ui_sheet_tile_icon_danger_bg);
             view.setBackgroundResource(R.drawable.ui_sheet_tile_danger_bg);
             title.setTextColor(color);
             detail.setTextColor(color);

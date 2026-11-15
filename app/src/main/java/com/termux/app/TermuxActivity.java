@@ -694,12 +694,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         TerminalSession currentSession = getCurrentSession();
         if (currentSession == null || isFinishing() || isDestroyed()) return false;
 
-        TermuxContextMenuSheet sheet = TerminalContextMenu.populateSheet(new TermuxContextMenuSheet(this),
-            getResources(), getContextSheetState(currentSession));
+        TerminalContextMenu.State state = getContextSheetState(currentSession);
+        return showContextSheet(TerminalContextMenu.populateSheet(new TermuxContextMenuSheet(this), getResources(), state),
+            state);
+    }
 
+    /**
+     * Show a sheet of the terminal menu. A tile that opens a sheet of choices (Share, Autofill) shows that sheet
+     * once this one is gone, and the stored selected text is only released when the last sheet closes.
+     */
+    private boolean showContextSheet(@NonNull TermuxContextMenuSheet sheet, @NonNull TerminalContextMenu.State state) {
         try {
             mContextSheetDialog = sheet.show(chosenItemId -> {
                 mContextSheetDialog = null;
+                if (chosenItemId == TerminalContextMenu.SHARE_MENU || chosenItemId == TerminalContextMenu.AUTOFILL_MENU) {
+                    TermuxContextMenuSheet choices = TerminalContextMenu.populateChoiceSheet(chosenItemId,
+                        new TermuxContextMenuSheet(this), getResources(), state,
+                        mTerminalView.getStoredSelectedText(), getCurrentTranscript());
+                    if (choices != null && !isFinishing() && !isDestroyed() && showContextSheet(choices, state)) return;
+                }
                 // Same order as the system menu: run the chosen action, then release the stored selected text.
                 if (chosenItemId >= 0) handleContextMenuAction(chosenItemId);
                 mTerminalView.onContextMenuClosed(null);
@@ -709,6 +722,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             Logger.logStackTraceWithMessage(LOG_TAG, "Failed to show context menu sheet", e);
             return false;
         }
+    }
+
+    /** The transcript of the current session, or null if there is none. */
+    @Nullable
+    private String getCurrentTranscript() {
+        TerminalSession session = getCurrentSession();
+        if (session == null || session.getEmulator() == null) return null;
+        return session.getEmulator().getScreen().getTranscriptText();
     }
 
     @Override
@@ -741,6 +762,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return true;
             case TerminalContextMenu.KILL_PROCESS:
                 showKillSessionDialog(session);
+                return true;
+            // Only reached if the sheet of choices could not be shown: do the most common choice.
+            case TerminalContextMenu.SHARE_MENU:
+                mTermuxTerminalViewClient.shareSelectedText();
+                return true;
+            case TerminalContextMenu.AUTOFILL_MENU:
+                mTerminalView.requestAutoFillPassword();
                 return true;
             case TerminalContextMenu.KILL_PROCESS_NOW:
                 if (session != null) session.finishIfRunning();
