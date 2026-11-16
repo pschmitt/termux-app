@@ -119,19 +119,23 @@
           cp termux-float/app/build/outputs/apk/debug/*.apk "$float/"
         '';
       });
+      companionApk =
+        name: source:
+        pkgs.runCommand "termuxpp-${name}-debug-apk-${apk.version}" { } ''
+          mkdir -p "$out"
+          cp ${source}/*.apk "$out/"
+        '';
     in
     {
       packages.${system} = {
         default = apk;
         inherit apk;
-        inherit (apk)
-          api
-          tasker
-          boot
-          styling
-          widget
-          float
-          ;
+        api = companionApk "api" apk.api;
+        tasker = companionApk "tasker" apk.tasker;
+        boot = companionApk "boot" apk.boot;
+        styling = companionApk "styling" apk.styling;
+        widget = companionApk "widget" apk.widget;
+        float = companionApk "float" apk.float;
       };
       apps.${system}.update-deps = {
         type = "app";
