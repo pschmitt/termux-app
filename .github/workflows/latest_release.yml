@@ -2,8 +2,8 @@
 # (Settings > Updates) reads. See docs/en/self-update.md.
 #
 # - The release is a prerelease named "Latest build"; its tag is moved to the built commit.
-# - Assets: the core debug APKs (universal plus one per ABI), all six companion debug APKs,
-#   and SHA256SUMS over them.
+# - Assets: debuggable and non-debuggable core APKs (universal plus one per ABI),
+#   both variants of all six companions, and SHA256SUMS over them.
 # - The release body names the full 40-digit commit; the updater compares that commit with the
 #   installed one, so the body must keep it.
 # - Never cancelled midway and serial per ref: a half-uploaded release would offer a partial set.
@@ -21,13 +21,18 @@ permissions:
 
 jobs:
   build:
-    name: Debug APKs
+    name: APKs (${{ matrix.build_type }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [debug, release]
     concurrency:
-      group: latest-release-build-${{ github.ref }}
+      group: latest-release-build-${{ github.ref }}-${{ matrix.build_type }}
       cancel-in-progress: true
     env:
       TERMUX_PACKAGE_VARIANT: apt-android-7
+      BUILD_TYPE: ${{ matrix.build_type }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -52,47 +57,57 @@ jobs:
           api_version_regex='\s+versionName "([^"]+)"$'
           api_version="$(grep -m 1 -E "$api_version_regex" ./termux-api/app/build.gradle | sed -r "s/$api_version_regex/\1/")"
           export TERMUX_API_APP__BUILD__APP_VERSION_NAME="$api_version+${GITHUB_SHA:0:7}"
-          export TERMUX_API_APP__BUILD__APK_VERSION_TAG="debug"
+          export TERMUX_API_APP__BUILD__APK_VERSION_TAG="$BUILD_TYPE"
 
           tasker_version_regex='\s+versionName "([^"]+)"$'
           tasker_version="$(grep -m 1 -E "$tasker_version_regex" ./termux-tasker/app/build.gradle | sed -r "s/$tasker_version_regex/\1/")"
           export TERMUX_TASKER_APP__BUILD__APP_VERSION_NAME="$tasker_version+${GITHUB_SHA:0:7}"
-          export TERMUX_TASKER_APP__BUILD__APK_VERSION_TAG="debug"
+          export TERMUX_TASKER_APP__BUILD__APK_VERSION_TAG="$BUILD_TYPE"
 
           float_version_regex='\s+versionName "([^"]+)"$'
           float_version="$(grep -m 1 -E "$float_version_regex" ./termux-float/app/build.gradle | sed -r "s/$float_version_regex/\1/")"
           export TERMUX_FLOAT_APP__BUILD__APP_VERSION_NAME="$float_version+${GITHUB_SHA:0:7}"
-          export TERMUX_FLOAT_APP__BUILD__APK_VERSION_TAG="debug"
+          export TERMUX_FLOAT_APP__BUILD__APK_VERSION_TAG="$BUILD_TYPE"
 
           boot_version_regex='\s+versionName "([^"]+)"$'
           boot_version="$(grep -m 1 -E "$boot_version_regex" ./termux-boot/app/build.gradle | sed -r "s/$boot_version_regex/\1/")"
           export TERMUX_BOOT_APP_BUILD__APP_VERSION_NAME="$boot_version+${GITHUB_SHA:0:7}"
-          export TERMUX_BOOT_APP_BUILD__APK_VERSION_TAG="debug"
+          export TERMUX_BOOT_APP_BUILD__APK_VERSION_TAG="$BUILD_TYPE"
 
           styling_version_regex='\s+versionName "([^"]+)"$'
           styling_version="$(grep -m 1 -E "$styling_version_regex" ./termux-styling/app/build.gradle | sed -r "s/$styling_version_regex/\1/")"
           export TERMUX_STYLING_APP_BUILD__APP_VERSION_NAME="$styling_version+${GITHUB_SHA:0:7}"
-          export TERMUX_STYLING_APP_BUILD__APK_VERSION_TAG="debug"
+          export TERMUX_STYLING_APP_BUILD__APK_VERSION_TAG="$BUILD_TYPE"
 
           widget_version_regex='\s+versionName "([^"]+)"$'
           widget_version="$(grep -m 1 -E "$widget_version_regex" ./termux-widget/app/build.gradle | sed -r "s/$widget_version_regex/\1/")"
           export TERMUX_WIDGET_APP__BUILD__APP_VERSION_NAME="$widget_version+${GITHUB_SHA:0:7}"
-          export TERMUX_WIDGET_APP__BUILD__APK_VERSION_TAG="debug"
+          export TERMUX_WIDGET_APP__BUILD__APK_VERSION_TAG="$BUILD_TYPE"
 
-          ./gradlew :app:assembleDebug :termux-api:assembleDebug :termux-tasker:assembleDebug \
-            :termux-float:assembleDebug :termux-boot:assembleDebug :termux-styling:assembleDebug \
-            :termux-widget:assembleDebug
+          # Both variants retain the existing public development signing identity.
+          cat > "$RUNNER_TEMP/development-signing.gradle" <<'GRADLE'
+          allprojects {
+              plugins.withId('com.android.application') {
+                  android.buildTypes.release.signingConfig = android.signingConfigs.debug
+              }
+          }
+          GRADLE
+          task="assemble${BUILD_TYPE^}"
+          ./gradlew --init-script "$RUNNER_TEMP/development-signing.gradle" \
+            ":app:$task" ":termux-api:$task" ":termux-tasker:$task" \
+            ":termux-float:$task" ":termux-boot:$task" ":termux-styling:$task" \
+            ":termux-widget:$task"
 
       - name: Collect the APKs
         shell: bash
         run: |
           set -Eeuo pipefail
-          apk_dir=./app/build/outputs/apk/debug
+          apk_dir=./app/build/outputs/apk/$BUILD_TYPE
           out="$RUNNER_TEMP/apks"
           mkdir -p "$out"
           for abi in universal arm64-v8a armeabi-v7a x86_64 x86
           do
-            apk="termux-app_${TERMUX_PACKAGE_VARIANT}-debug_${abi}.apk"
+            apk="termux-app_${TERMUX_PACKAGE_VARIANT}-${BUILD_TYPE}_${abi}.apk"
             test -f "$apk_dir/$apk" || {
               echo "Missing $apk. Found:" >&2
               ls "$apk_dir" >&2
@@ -103,21 +118,33 @@ jobs:
           for app in api tasker float boot styling widget
           do
             module="termux-$app"
-            apk="termux-$app-app_debug.apk"
-            path="./$module/app/build/outputs/apk/debug/$apk"
+            apk="termux-$app-app_${BUILD_TYPE}.apk"
+            path="./$module/app/build/outputs/apk/$BUILD_TYPE/$apk"
             test -f "$path" || {
               echo "Missing $path. Found:" >&2
-              ls "./$module/app/build/outputs/apk/debug" >&2
+              ls "./$module/app/build/outputs/apk/$BUILD_TYPE" >&2
               exit 1
             }
             cp "$path" "$out/"
+          done
+          analyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          signer="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          expected=false
+          if [[ "$BUILD_TYPE" == debug ]]
+          then
+            expected=true
+          fi
+          for apk in "$out"/*.apk
+          do
+            "$signer" verify "$apk"
+            [[ "$("$analyzer" manifest debuggable "$apk")" == "$expected" ]]
           done
           ls -la "$out"
 
       - name: Upload the APKs
         uses: actions/upload-artifact@v7
         with:
-          name: latest-apks
+          name: latest-apks-${{ matrix.build_type }}
           path: ${{ runner.temp }}/apks/*
           if-no-files-found: error
           retention-days: 7
@@ -154,7 +181,8 @@ jobs:
         if: steps.stale.outputs.superseded != 'true'
         uses: actions/download-artifact@v8
         with:
-          name: latest-apks
+          pattern: latest-apks-*
+          merge-multiple: true
           path: ${{ runner.temp }}/downloaded
 
       - name: Assemble the assets and checksums
@@ -165,11 +193,11 @@ jobs:
           dir="$RUNNER_TEMP/assets"
           mkdir -p "$dir"
           cp "$RUNNER_TEMP"/downloaded/*.apk "$dir/"
-          # Five core variants plus fixed APKs for all six companion apps.
+          # Each build type contributes five core APKs and six companions.
           shopt -s nullglob
           apks=("$dir"/*.apk)
           shopt -u nullglob
-          [[ "${#apks[@]}" -eq 11 ]]
+          [[ "${#apks[@]}" -eq 22 ]]
           (cd "$dir" && sha256sum -- *.apk > SHA256SUMS)
           cat "$dir/SHA256SUMS"
           echo "dir=$dir" >> "$GITHUB_OUTPUT"
@@ -178,7 +206,7 @@ jobs:
         if: steps.stale.outputs.superseded != 'true'
         run: |
           {
-            echo "Automated debug build of the latest main ($GITHUB_SHA), built $(date -u +'%Y-%m-%d %H:%M UTC'). Not a stable release."
+            echo "Automated debuggable and non-debuggable builds of the latest main ($GITHUB_SHA), built $(date -u +'%Y-%m-%d %H:%M UTC'). Not a stable release."
             echo
             echo "Read by the in-app updater (Settings > Updates). The commit above is the build's identity."
             echo "Assets include TermuxPP, API, Tasker, Float, Boot, Styling and Widget APKs."
