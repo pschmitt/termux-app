@@ -12,7 +12,6 @@
     <color name="ui_outline">#7B7385</color>
     <color name="ui_divider">#E3DCEB</color>
     <color name="ui_danger">#B3261E</color>
-    <color name="ui_danger_container">#FCE8E6</color>
     <color name="ui_danger_icon_container">#F9DEDC</color>
     <!-- A toggle tile that is on, such as Keep screen on. -->
     <color name="ui_active_container">#FFF3D1</color>

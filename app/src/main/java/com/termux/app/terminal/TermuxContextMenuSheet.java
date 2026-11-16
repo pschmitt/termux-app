@@ -455,16 +455,14 @@ public class TermuxContextMenuSheet {
             preview.setVisibility(View.VISIBLE);
         }
 
-        // The icon sits on a tonal badge; text keeps the colors of the theme unless the tile is destructive.
+        // The icon sits on a tonal badge; a destructive tile only marks its icon red, the tile and text stay normal.
         int colorRes = !tile.enabled ? R.color.ui_outline : (tile.danger ? R.color.ui_danger : R.color.ui_on_container);
         int color = ContextCompat.getColor(dialog.getContext(), colorRes);
         icon.setImageTintList(ColorStateList.valueOf(color));
-        if (tile.danger) {
+        if (tile.danger && tile.enabled) {
             icon.setBackgroundResource(R.drawable.ui_sheet_tile_icon_danger_bg);
-            view.setBackgroundResource(R.drawable.ui_sheet_tile_danger_bg);
-            title.setTextColor(color);
-            detail.setTextColor(color);
-        } else if (!tile.enabled) {
+        }
+        if (!tile.enabled) {
             title.setTextColor(color);
         } else if (Boolean.TRUE.equals(tile.checked)) {
             icon.setBackgroundResource(R.drawable.ui_sheet_tile_icon_on_bg);
