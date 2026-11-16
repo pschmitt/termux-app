@@ -49,6 +49,7 @@ jobs:
           APK_BASENAME_PREFIX="termux-app_$APK_VERSION_TAG"
 
           echo "Building APKs for 'APK_VERSION_TAG' release"
+          export TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS=1
           export TERMUX_APK_VERSION_TAG="$APK_VERSION_TAG" # Used by app/build.gradle
           export TERMUX_PACKAGE_VARIANT="${{ env.PACKAGE_VARIANT }}" # Used by app/build.gradle
           cat > "$RUNNER_TEMP/development-signing.gradle" <<'GRADLE'

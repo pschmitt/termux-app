@@ -32,6 +32,7 @@ jobs:
       cancel-in-progress: true
     env:
       TERMUX_PACKAGE_VARIANT: apt-android-7
+      TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS: "1"
       BUILD_TYPE: ${{ matrix.build_type }}
     steps:
       - name: Checkout
