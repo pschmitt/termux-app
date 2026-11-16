@@ -116,6 +116,60 @@ public class PropertyDialogsTest {
         activity.getSupportFragmentManager().executePendingTransactions();
     }
 
+    @Test public void everyChoiceDialogShowsOptionsAndHelpAndDispatchesTheSelectedValue() {
+        SettingsActivity activity = activity();
+        PropertiesPreferencesFragment parent = new PropertiesPreferencesFragment();
+        activity.getSupportFragmentManager().beginTransaction().replace(R.id.settings, parent).commitNow();
+        int tested = 0;
+        for (String key : dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST) {
+            androidx.preference.Preference preference = parent.findPreference(key);
+            if (!(preference instanceof androidx.preference.ListPreference)) continue;
+            androidx.preference.ListPreference choice = (androidx.preference.ListPreference) preference;
+            java.util.concurrent.atomic.AtomicReference<String> selected = new java.util.concurrent.atomic.AtomicReference<>();
+            choice.setOnPreferenceChangeListener((p, value) -> { selected.set(value.toString()); return false; });
+            parent.onDisplayPreferenceDialog(choice);
+            activity.getSupportFragmentManager().executePendingTransactions();
+            DialogFragment fragment = (DialogFragment) activity.getSupportFragmentManager().findFragmentByTag("property_choice");
+            assertNotNull(key, fragment);
+            AlertDialog dialog = (AlertDialog) fragment.requireDialog();
+            android.widget.ListView list = dialog.getListView();
+            assertNotNull(key, list);
+            assertNotNull(key + " choices must be attached, not displaced by help", list.getParent());
+            assertEquals(key, View.VISIBLE, list.getVisibility());
+            assertEquals(key, choice.getEntries().length, list.getAdapter().getCount());
+            assertNotNull(key + " help", view(dialog.getWindow().getDecorView(), android.widget.TextView.class,
+                choice.getDialogMessage().toString()));
+            int index = choice.getEntryValues().length - 1;
+            list.performItemClick(null, index, list.getAdapter().getItemId(index));
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            activity.getSupportFragmentManager().executePendingTransactions();
+            assertEquals(key, choice.getEntryValues()[index].toString(), selected.get());
+            tested++;
+        }
+        assertTrue("Boolean and enum dialogs must both be covered", tested > 10);
+    }
+
+    @Test public void choiceDialogSurvivesRecreationAndCancelDoesNotSave() {
+        org.robolectric.android.controller.ActivityController<SettingsActivity> controller =
+            Robolectric.buildActivity(SettingsActivity.class).setup();
+        PropertiesPreferencesFragment parent = new PropertiesPreferencesFragment();
+        controller.get().getSupportFragmentManager().beginTransaction().replace(R.id.settings, parent).commitNow();
+        parent.onDisplayPreferenceDialog(parent.findPreference("fullscreen"));
+        controller.get().getSupportFragmentManager().executePendingTransactions();
+        controller.recreate();
+        DialogFragment fragment = (DialogFragment) controller.get().getSupportFragmentManager().findFragmentByTag("property_choice");
+        assertNotNull(fragment);
+        PropertiesPreferencesFragment restored = (PropertiesPreferencesFragment) fragment.getTargetFragment();
+        java.util.concurrent.atomic.AtomicBoolean changed = new java.util.concurrent.atomic.AtomicBoolean();
+        restored.findPreference("fullscreen").setOnPreferenceChangeListener((p, value) -> { changed.set(true); return false; });
+        AlertDialog dialog = (AlertDialog) fragment.requireDialog();
+        assertNotNull(dialog.getListView().getParent());
+        assertEquals(3, dialog.getListView().getAdapter().getCount());
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        controller.get().getSupportFragmentManager().executePendingTransactions();
+        assertFalse(changed.get());
+    }
+
     @Test public void numericDialogValidatesWithoutClosingAndDefaultIsOnlyADraft() {
         SettingsActivity activity = activity();
         PropertiesPreferencesFragment parent = new PropertiesPreferencesFragment();

@@ -131,6 +131,8 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
     @Override public void onDisplayPreferenceDialog(Preference preference) {
         if (preference instanceof EditTextPreference) {
             PropertyTextDialog.show(this, (EditTextPreference) preference);
+        } else if (preference instanceof ListPreference) {
+            PropertyChoiceDialog.show(this, (ListPreference) preference);
         } else {
             super.onDisplayPreferenceDialog(preference);
         }
