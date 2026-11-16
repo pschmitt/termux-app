@@ -129,8 +129,12 @@ public class TerminalContextMenuTest {
         int gutter = activity.getResources().getDimensionPixelSize(R.dimen.ui_gutter);
         Assert.assertEquals(gutter, stripParams.leftMargin);
         Assert.assertEquals(gutter, stripParams.rightMargin);
+        float density = activity.getResources().getDisplayMetrics().density;
+        View shortcutIcon = dialog.findViewById(R.id.context_shortcut_icon);
+        Assert.assertEquals((int) (32 * density), shortcutIcon.getLayoutParams().height);
+        Assert.assertEquals((int) (4 * density), strip.getPaddingTop());
         // Reset is folded away behind More actions, so it is not shown yet.
-        Assert.assertEquals(Arrays.asList("Keep screen on", "More actions", "Settings", "Kill zsh"),
+        Assert.assertEquals(Arrays.asList("More actions", "Settings", "Kill zsh"),
             texts(dialog, R.id.context_row_title));
         Assert.assertEquals(Arrays.asList("hold to kill now"), texts(dialog, R.id.context_row_detail));
         // No tile of the old grid is left in the main menu.
@@ -210,7 +214,7 @@ public class TerminalContextMenuTest {
             // The order down the sheet: strip, setting group, Settings, Kill.
             android.view.ViewGroup items = dialog.findViewById(R.id.context_sheet_items);
             Assert.assertEquals(4, items.getChildCount());
-            Assert.assertSame(keepRow.getParent(), items.getChildAt(1));
+            Assert.assertSame(dialog.findViewById(R.id.context_row_expander).getParent(), items.getChildAt(1));
             Assert.assertSame(settingsRow.getParent(), items.getChildAt(2));
             Assert.assertSame(killRow.getParent(), items.getChildAt(3));
         }
@@ -262,6 +266,11 @@ public class TerminalContextMenuTest {
                 null, "zsh", "~", 1, 1, 0);
             BottomSheetDialog dialog = mainSheet(activity, state);
             View row = rowTitled(dialog, "Keep screen on");
+            Assert.assertEquals(keepOn, row.isShown());
+            if (!keepOn) {
+                dialog.findViewById(R.id.context_row_expander).performClick();
+                Assert.assertTrue(row.isShown());
+            }
             TextView pill = row.findViewById(R.id.context_row_state);
             Assert.assertEquals(View.VISIBLE, pill.getVisibility());
             Assert.assertEquals(keepOn ? "On" : "Off", pill.getText().toString());
@@ -279,6 +288,7 @@ public class TerminalContextMenuTest {
     @Test
     public void onlyTheKeepScreenOnRowHasAPill() {
         BottomSheetDialog dialog = mainSheet(activity(), everything());
+        dialog.findViewById(R.id.context_row_expander).performClick();
         List<String> pills = texts(dialog, R.id.context_row_state);
         Assert.assertEquals(1, pills.size());
     }

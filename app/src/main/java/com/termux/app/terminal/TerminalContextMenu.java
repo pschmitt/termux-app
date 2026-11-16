@@ -123,7 +123,7 @@ public final class TerminalContextMenu {
             resources.getString(R.string.ui_menu_share), null, R.drawable.ui_ic_menu_share);
 
         sheet.addStateRow(TOGGLE_KEEP_SCREEN_ON, resources.getString(R.string.action_toggle_keep_screen_on),
-            R.drawable.ui_ic_menu_sun, state.keepScreenOn);
+            R.drawable.ui_ic_menu_sun, state.keepScreenOn, !state.keepScreenOn);
         sheet.addSecondaryRow(RESET_TERMINAL, resources.getString(R.string.action_reset_terminal),
             resources.getString(R.string.ui_menu_reset_detail), R.drawable.ui_ic_menu_reset);
 
