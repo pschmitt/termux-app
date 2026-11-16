@@ -35,7 +35,7 @@ public class TermuxTaskerMainActivity extends AppCompatActivity {
         TextView pluginInfo = findViewById(R.id.textview_plugin_info);
         pluginInfo.setText(getString(R.string.plugin_info,
                 "https://github.com/pschmitt/termuxpp",
-                "https://github.com/pschmitt/termux-tasker",
+                TermuxConstants.TERMUX_TASKER_GITHUB_REPO_URL,
                 "https://github.com/termux/termux-app",
                 "https://github.com/termux/termux-tasker"));
     }

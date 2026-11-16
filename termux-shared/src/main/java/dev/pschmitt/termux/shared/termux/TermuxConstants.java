@@ -425,9 +425,9 @@ public final class TermuxConstants {
     /** Termux:Tasker GitHub repo name */
     public static final String TERMUX_TASKER_GITHUB_REPO_NAME = "termux-tasker"; // Default: "termux-tasker"
     /** Termux:Tasker GitHub repo url */
-    public static final String TERMUX_TASKER_GITHUB_REPO_URL = TERMUX_GITHUB_ORGANIZATION_URL + "/" + TERMUX_TASKER_GITHUB_REPO_NAME; // Default: "https://github.com/termux/termux-tasker"
+    public static final String TERMUX_TASKER_GITHUB_REPO_URL = "https://github.com/pschmitt/termuxpp/tree/main/termux-tasker"; // Default: "https://github.com/termux/termux-tasker"
     /** Termux:Tasker GitHub issues repo url */
-    public static final String TERMUX_TASKER_GITHUB_ISSUES_REPO_URL = TERMUX_TASKER_GITHUB_REPO_URL + "/issues"; // Default: "https://github.com/termux/termux-tasker/issues"
+    public static final String TERMUX_TASKER_GITHUB_ISSUES_REPO_URL = "https://github.com/pschmitt/termuxpp/issues"; // Default: "https://github.com/termux/termux-tasker/issues"
     /** Termux:Tasker F-Droid package url */
     public static final String TERMUX_TASKER_FDROID_PACKAGE_URL = FDROID_PACKAGES_BASE_URL + "/" + TERMUX_TASKER_PACKAGE_NAME; // Default: "https://f-droid.org/en/packages/com.termux.tasker"
 
