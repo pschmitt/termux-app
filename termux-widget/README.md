@@ -25,7 +25,7 @@ A [Termux] plugin app to run scripts in Termux with launcher shortcuts and widge
 
 Latest version is `v0.15.0`.
 
-Install the TermuxPP core app from [pschmitt/termuxpp-app](https://github.com/pschmitt/termuxpp-app) before proceeding.
+Install the TermuxPP core app from [pschmitt/termuxpp](https://github.com/pschmitt/termuxpp) before proceeding.
 
 ### F-Droid
 
@@ -246,4 +246,4 @@ Check [Forking](https://github.com/termux/termux-app#Forking) section of `termux
 [Acode editor]: https://github.com/deadlyjack/code-editor
 [Turbo Editor]: https://github.com/vmihalachi/turbo-editor
 [`root`]: https://topjohnwu.github.io/Magisk/tools.html#su
-[RUN_COMMAND Intent]: https://github.com/pschmitt/termuxpp-app/blob/main/app/src/main/java/com/termux/app/RunCommandService.java
+[RUN_COMMAND Intent]: https://github.com/pschmitt/termuxpp/blob/main/app/src/main/java/com/termux/app/RunCommandService.java

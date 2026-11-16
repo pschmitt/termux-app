@@ -40,11 +40,11 @@ public class UpdateTrustTest {
     @Test
     public void assetUrlIsBuiltFromConstants() {
         String url = UpdateTrust.assetUrl(UpdateTarget.CORE, "SHA256SUMS");
-        assertEquals("https://github.com/pschmitt/termuxpp-app/releases/download/latest/SHA256SUMS", url);
+        assertEquals("https://github.com/pschmitt/termuxpp/releases/download/latest/SHA256SUMS", url);
         assertTrue(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, url));
-        assertEquals("https://github.com/pschmitt/termuxpp-api/releases/download/latest/termux-api-app_debug.apk",
+        assertEquals("https://github.com/pschmitt/termuxpp/releases/download/latest/termux-api-app_debug.apk",
                 UpdateTrust.assetUrl(UpdateTarget.API, "termux-api-app_debug.apk"));
-        assertEquals("https://github.com/pschmitt/termuxpp-tasker/releases/download/latest/SHA256SUMS",
+        assertEquals("https://github.com/pschmitt/termuxpp/releases/download/latest/SHA256SUMS",
                 UpdateTrust.assetUrl(UpdateTarget.TASKER, "SHA256SUMS"));
     }
 
@@ -58,14 +58,16 @@ public class UpdateTrustTest {
             String own = UpdateTrust.assetUrl(target, tag, name);
             assertTrue(UpdateTrust.isTrustedAssetUrl(target, tag, own));
             for (UpdateTarget other : UpdateTarget.values()) {
-                if (other != target) assertFalse(UpdateTrust.isTrustedAssetUrl(other, tag, own));
+                if (other != target && !target.repository.equals(other.repository)) {
+                    assertFalse(UpdateTrust.isTrustedAssetUrl(other, tag, own));
+                }
             }
         }
-        // Prefix confusion: termux-app is a prefix of no other repository path segment.
+        // Prefix confusion: the canonical repository is not a prefix of another path segment.
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE,
-                "https://github.com/pschmitt/termuxpp-app-evil/releases/download/latest/x.apk"));
+                "https://github.com/pschmitt/termuxpp-evil/releases/download/latest/x.apk"));
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.API,
-                "https://github.com/pschmitt/termuxpp-api-evil/releases/download/latest/x.apk"));
+                "https://github.com/pschmitt/termuxpp-api/releases/download/latest/x.apk"));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -75,19 +77,21 @@ public class UpdateTrustTest {
 
     @Test
     public void trustedAssetUrls() {
-        String base = "https://github.com/pschmitt/termuxpp-app/releases/download/latest/";
+        String base = "https://github.com/pschmitt/termuxpp/releases/download/latest/";
         assertTrue(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, base + "x.apk"));
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, null));
-        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "http://github.com/pschmitt/termuxpp-app/releases/download/latest/x.apk"));
-        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://evil.example/pschmitt/termuxpp-app/releases/download/latest/x.apk"));
-        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://github.com.evil.example/pschmitt/termuxpp-app/releases/download/latest/x.apk"));
-        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://user@github.com/pschmitt/termuxpp-app/releases/download/latest/x.apk"));
-        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://github.com:8443/pschmitt/termuxpp-app/releases/download/latest/x.apk"));
+        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "http://github.com/pschmitt/termuxpp/releases/download/latest/x.apk"));
+        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://evil.example/pschmitt/termuxpp/releases/download/latest/x.apk"));
+        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://github.com.evil.example/pschmitt/termuxpp/releases/download/latest/x.apk"));
+        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://user@github.com/pschmitt/termuxpp/releases/download/latest/x.apk"));
+        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://github.com:8443/pschmitt/termuxpp/releases/download/latest/x.apk"));
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, base + "x.apk?token=1"));
+        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE,
+                "https://github.com/pschmitt/termuxpp-app/releases/download/latest/x.apk"));
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, base + "x.apk#frag"));
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, base + "../../../../other/repo/x.apk"));
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://github.com/other/repo/releases/download/latest/x.apk"));
-        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://github.com/pschmitt/termuxpp-app/releases/download/v1/x.apk"));
+        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "https://github.com/pschmitt/termuxpp/releases/download/v1/x.apk"));
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, base + "sub/x.apk"));
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, "not a url"));
     }

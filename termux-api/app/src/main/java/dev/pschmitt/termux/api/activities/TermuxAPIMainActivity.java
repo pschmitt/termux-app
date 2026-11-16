@@ -56,7 +56,7 @@ public class TermuxAPIMainActivity extends AppCompatActivity {
 
         TextView pluginInfo = findViewById(R.id.textview_plugin_info);
         pluginInfo.setText(getString(R.string.plugin_info,
-                "https://github.com/pschmitt/termuxpp-app",
+                "https://github.com/pschmitt/termuxpp",
                 "https://github.com/pschmitt/termux-api",
                 TermuxConstants.TERMUX_API_APT_PACKAGE_NAME,
                 "https://github.com/pschmitt/termux-api-package",

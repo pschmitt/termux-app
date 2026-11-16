@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
 public class TermuxWidgetMainActivity extends AppCompatActivity {
 
     public static final String LOG_TAG = "TermuxWidgetMainActivity";
-    public static final String TERMUXPP_APP_GITHUB_REPO_URL = "https://github.com/pschmitt/termuxpp-app";
+    public static final String TERMUXPP_APP_GITHUB_REPO_URL = "https://github.com/pschmitt/termuxpp";
     public static final String TERMUXPP_WIDGET_GITHUB_REPO_URL = "https://github.com/pschmitt/termuxpp-widget";
 
     /** Canonical dynamic shortcut directory under ~/.config/termuxpp. */

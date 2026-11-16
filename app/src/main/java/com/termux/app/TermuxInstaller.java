@@ -282,8 +282,8 @@ final class TermuxInstaller {
         values.put("CONFIG_DIR_NAME", TermuxConstants.TERMUX_CONFIG_TERMUXPP_DIR_PATH.substring(TermuxConstants.TERMUX_HOME_DIR_PATH.length() + 1));
         // The motd of the termux-tools package: this app and its documentation, not the upstream site.
         values.put("PRODUCT_NAME", "TermuxPP");
-        values.put("REPO_URL", "https://github.com/pschmitt/termuxpp-app");
-        values.put("DOCS_URL", "https://github.com/pschmitt/termuxpp-app/tree/main/docs/en");
+        values.put("REPO_URL", "https://github.com/pschmitt/termuxpp");
+        values.put("DOCS_URL", "https://github.com/pschmitt/termuxpp/tree/main/docs/en");
         values.put("UPSTREAM_PACKAGES_ISSUES_URL", "https://github.com/termux/termux-packages/issues");
         values.put("FORK_ONLY", "fork");
         return values;

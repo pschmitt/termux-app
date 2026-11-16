@@ -77,5 +77,5 @@ Continue with the [Termux package management guide][package-management].
 The core is [GPL-3.0-only](LICENSE.md). See the linked library licenses for
 third-party code and license exceptions.
 
-[core-releases]: https://github.com/pschmitt/termuxpp-app/releases
+[core-releases]: https://github.com/pschmitt/termuxpp/releases
 [package-management]: https://github.com/termux/termux-packages/wiki/Package-Management

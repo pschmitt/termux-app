@@ -360,9 +360,9 @@ public class UpdateCheckerTest {
                 assertTrue(network.requests.isEmpty());
             }
         }
-        assertEquals("pschmitt/termuxpp-app", UpdateTarget.CORE.repository);
-        assertEquals("pschmitt/termuxpp-api", UpdateTarget.API.repository);
-        assertEquals("pschmitt/termuxpp-tasker", UpdateTarget.TASKER.repository);
+        assertEquals("pschmitt/termuxpp", UpdateTarget.CORE.repository);
+        assertEquals("pschmitt/termuxpp", UpdateTarget.API.repository);
+        assertEquals("pschmitt/termuxpp", UpdateTarget.TASKER.repository);
     }
 
     @Test

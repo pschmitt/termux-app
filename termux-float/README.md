@@ -22,7 +22,7 @@ A TermuxPP companion app to show the terminal in a floating terminal window.
 
 This fork currently tracks Termux:Float `v0.17.0`.
 
-Install [TermuxPP](https://github.com/pschmitt/termuxpp-app) first, then install a matching TermuxPP:Float build from this repository's [GitHub Actions](https://github.com/pschmitt/termuxpp-float/actions). Both apps must use the same signing certificate. Stock Termux:Float and F-Droid builds are not compatible with this fork.
+Install [TermuxPP](https://github.com/pschmitt/termuxpp) first, then install a matching TermuxPP:Float build from this repository's [GitHub Actions](https://github.com/pschmitt/termuxpp-float/actions). Both apps must use the same signing certificate. Stock Termux:Float and F-Droid builds are not compatible with this fork.
 
 Action artifacts are produced for commits and pull requests and can be downloaded from each workflow run. They are debuggable and are only compatible with builds signed by the same certificate. Releases, when published, will attach APKs under their assets.
 
@@ -58,14 +58,14 @@ Once log levels have been set, you can run the `logcat` command in `Termux` or `
 
 ## For Maintainers and Contributors
 
-Check [For Maintainers and Contributors](https://github.com/pschmitt/termuxpp-app#for-maintainers-and-contributors) in the TermuxPP core README.
+Check [For Maintainers and Contributors](https://github.com/pschmitt/termuxpp#for-maintainers-and-contributors) in the TermuxPP core README.
 ##
 
 
 
 ## Forking
 
-Check [Forking](https://github.com/pschmitt/termuxpp-app#forking) in the TermuxPP core README for details.
+Check [Forking](https://github.com/pschmitt/termuxpp#forking) in the TermuxPP core README for details.
 ##
 
 

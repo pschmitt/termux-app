@@ -28,13 +28,12 @@ data and saved Tasker profiles are untouched: nothing is cleared or downgraded.
 
 ## Channel and what "newer" means
 
-There is one channel, **Latest**. Each app has its own rolling prerelease named `latest`:
-[pschmitt/termuxpp-app](https://github.com/pschmitt/termuxpp-app/releases/tag/latest),
-[pschmitt/termuxpp-api](https://github.com/pschmitt/termuxpp-api/releases/tag/latest) and
-[pschmitt/termuxpp-tasker](https://github.com/pschmitt/termuxpp-tasker/releases/tag/latest), each
-republished by its `.github/workflows/latest_release.yml` on every push to `main`. The body names
-the full commit of the build, and the release carries `SHA256SUMS`. The companion APKs are published
-under the fixed names `termux-api-app_debug.apk` and `termux-tasker-app_debug.apk`.
+There is one channel, **Latest**. The core app and both companions share the rolling `latest`
+prerelease in the [TermuxPP monorepo](https://github.com/pschmitt/termuxpp/releases/tag/latest).
+Its `.github/workflows/latest_release.yml` builds all three apps from the same `main` commit and
+publishes one release containing the core APK variants, `termux-api-app_debug.apk`,
+`termux-tasker-app_debug.apk`, and a `SHA256SUMS` file covering every APK. The release body names
+the full commit of the build.
 
 The version name and version code never change between these builds, so they cannot order them.
 The updater compares commits instead: the installed app's own commit against the release commit,
@@ -56,10 +55,10 @@ made from a dirty tree is not, by design.
 
 ## What is checked before anything is installed
 
-- The apps and repositories are a fixed allowlist in `UpdateTarget`: TermuxPP
-  (`pschmitt/termuxpp-app`), Termux:API (`pschmitt/termuxpp-api`) and Termux:Tasker
-  (`pschmitt/termuxpp-tasker`). Nothing in a release or in an installed app can add a target or
-  change which repository or package a target means; one target can never install another's APK.
+- The apps and repository are a fixed allowlist in `UpdateTarget`: TermuxPP, Termux:API, and
+  Termux:Tasker all use `pschmitt/termuxpp`, with distinct fixed package IDs and APK filenames.
+  Nothing in a release or in an installed app can add a target or change which repository or package
+  a target means; one target can never install another's APK.
 - Metadata comes only from `api.github.com` and files only from the fixed release download URL of
   the target's repository, over HTTPS. Redirects are followed by hand and each hop must stay on `github.com`
   or `*.githubusercontent.com`, https and the default port. Metadata, `SHA256SUMS` and the APK are
