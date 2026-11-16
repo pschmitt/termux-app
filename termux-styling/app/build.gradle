@@ -16,7 +16,8 @@ android {
         minSdk project.properties.minSdkVersion.toInteger()
         targetSdk project.properties.targetSdkVersion.toInteger()
         versionCode 1000
-        versionName "0.32.1"
+        versionName "0.32.2"
+        manifestPlaceholders.TERMUX_GIT_REVISION = "git-" + gitRevision()
 
         if (appVersionName) versionName = appVersionName
         validateVersionName(versionName)
@@ -57,6 +58,29 @@ android {
             outputFileName = new File("termux-styling-app_" +
                     (apkVersionTag ? apkVersionTag : "v" + versionName + "+" + variant.buildType.name) + ".apk")
         }
+    }
+}
+
+def gitRevision() {
+    def given = System.getenv("TERMUX_GIT_REVISION") ?: project.findProperty("gitRevision")
+    if (given) {
+        given = given.toString().trim()
+        if (!java.util.regex.Pattern.matches("[0-9a-f]{7,40}(-dirty)?", given))
+            throw new GradleException("TERMUX_GIT_REVISION is not '<hex commit>[-dirty]': " + given)
+        return given
+    }
+    try {
+        def run = { List<String> args ->
+            def process = new ProcessBuilder(["git"] + args).directory(rootDir).redirectErrorStream(false).start()
+            def output = process.inputStream.text.trim()
+            if (process.waitFor() != 0) throw new IOException("git " + args)
+            return output
+        }
+        def head = run(["rev-parse", "HEAD"])
+        if (!java.util.regex.Pattern.matches("[0-9a-f]{40}", head)) return "unknown"
+        return run(["status", "--porcelain", "--untracked-files=no"]).isEmpty() ? head : head + "-dirty"
+    } catch (Exception ignored) {
+        return "unknown"
     }
 }
 

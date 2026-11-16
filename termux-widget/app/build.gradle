@@ -18,6 +18,7 @@ android {
         validateVersionName(versionName)
 
         manifestPlaceholders.TERMUX_PACKAGE_NAME = "dev.pschmitt.termux"
+        manifestPlaceholders.TERMUX_GIT_REVISION = "git-" + gitRevision()
         manifestPlaceholders.TERMUX_APP_NAME = "TermuxPP"
         manifestPlaceholders.TERMUX_WIDGET_APP_NAME = "TermuxPP:Widget"
     }
@@ -61,6 +62,29 @@ android {
     packagingOptions {
         // Remove terminal-emulator JNI libs added via termux-shared dependency
         exclude 'lib/*/libtermux.so'
+    }
+}
+
+def gitRevision() {
+    def given = System.getenv("TERMUX_GIT_REVISION") ?: project.findProperty("gitRevision")
+    if (given) {
+        given = given.toString().trim()
+        if (!java.util.regex.Pattern.matches("[0-9a-f]{7,40}(-dirty)?", given))
+            throw new GradleException("TERMUX_GIT_REVISION is not '<hex commit>[-dirty]': " + given)
+        return given
+    }
+    try {
+        def run = { List<String> args ->
+            def process = new ProcessBuilder(["git"] + args).directory(rootDir).redirectErrorStream(false).start()
+            def output = process.inputStream.text.trim()
+            if (process.waitFor() != 0) throw new IOException("git " + args)
+            return output
+        }
+        def head = run(["rev-parse", "HEAD"])
+        if (!java.util.regex.Pattern.matches("[0-9a-f]{40}", head)) return "unknown"
+        return run(["status", "--porcelain", "--untracked-files=no"]).isEmpty() ? head : head + "-dirty"
+    } catch (Exception ignored) {
+        return "unknown"
     }
 }
 

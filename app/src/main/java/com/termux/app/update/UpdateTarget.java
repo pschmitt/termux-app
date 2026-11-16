@@ -12,19 +12,18 @@ import java.util.Locale;
  * release source can be installed. Repository, package and asset names are constants here; nothing
  * a release or network response can add a target or change what an existing one points at.
  *
- * <p>Core and the API/Tasker companions use a rolling {@code latest} prerelease and commit
- * comparison. Add-ons use the newest stable tagged fork release and a versioned APK asset. The
- * package identities and release conventions are constants here, not supplied by the network.
+ * <p>All targets use the monorepo's rolling {@code latest} prerelease and commit comparison.
+ * Package identities and fixed APK asset names are constants here, not supplied by the network.
  */
 public enum UpdateTarget {
 
     CORE("core", "pschmitt/termuxpp", "dev.pschmitt.termux", null, null),
     API("api", "pschmitt/termuxpp", "dev.pschmitt.termux.api", "termux-api-app_debug.apk", null),
     TASKER("tasker", "pschmitt/termuxpp", "dev.pschmitt.termux.tasker", "termux-tasker-app_debug.apk", null),
-    FLOAT("float", "pschmitt/termuxpp-float", "dev.pschmitt.termux.window", null, "termux-float-app_"),
-    BOOT("boot", "pschmitt/termuxpp-boot", "dev.pschmitt.termux.boot", null, "termux-boot-app_"),
-    STYLING("styling", "pschmitt/termuxpp-styling", "dev.pschmitt.termux.styling", null, "termux-styling-app_"),
-    WIDGET("widget", "pschmitt/termuxpp-widget", "dev.pschmitt.termux.widget", null, "termux-widget-app_");
+    FLOAT("float", "pschmitt/termuxpp", "dev.pschmitt.termux.window", "termux-float-app_debug.apk", null),
+    BOOT("boot", "pschmitt/termuxpp", "dev.pschmitt.termux.boot", "termux-boot-app_debug.apk", null),
+    STYLING("styling", "pschmitt/termuxpp", "dev.pschmitt.termux.styling", "termux-styling-app_debug.apk", null),
+    WIDGET("widget", "pschmitt/termuxpp", "dev.pschmitt.termux.widget", "termux-widget-app_debug.apk", null);
 
     /** The rolling prerelease every target follows. */
     public static final String LATEST_TAG = "latest";
@@ -48,7 +47,7 @@ public enum UpdateTarget {
     public final String repository;
     /** Android application id the installed and the downloaded app must have. */
     public final String packageName;
-    /** Fixed APK asset name for commit-based companions; null for core and versioned add-ons. */
+    /** Fixed APK asset name for each companion; null for core, which has variant-specific assets. */
     @Nullable private final String fixedApkName;
     @Nullable public final String versionedApkPrefix;
 
@@ -76,7 +75,7 @@ public enum UpdateTarget {
         return "https://api.github.com/repos/" + repository;
     }
 
-    /** The API endpoint used by this target's manually maintained release channel. */
+    /** The API endpoint used by this target's release channel. */
     @NonNull
     public String releaseApiUrl() {
         return apiBaseUrl() + (versionedApkPrefix == null

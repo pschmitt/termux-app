@@ -17,6 +17,9 @@
         android:theme="@style/Theme.BaseActivity.DayNight.DarkActionBar"
         tools:ignore="GoogleAppIndexingWarning">
 
+        <meta-data
+            android:name="dev.pschmitt.termux.GIT_REVISION"
+            android:value="${TERMUX_GIT_REVISION}" />
         <receiver
             android:name=".TermuxWidgetProvider"
             android:exported="false"

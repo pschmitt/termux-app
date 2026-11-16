@@ -2,7 +2,7 @@
 # (Settings > Updates) reads. See docs/en/self-update.md.
 #
 # - The release is a prerelease named "Latest build"; its tag is moved to the built commit.
-# - Assets: the core debug APKs (universal plus one per ABI), API and Tasker debug APKs,
+# - Assets: the core debug APKs (universal plus one per ABI), all six companion debug APKs,
 #   and SHA256SUMS over them.
 # - The release body names the full 40-digit commit; the updater compares that commit with the
 #   installed one, so the body must keep it.
@@ -59,7 +59,29 @@ jobs:
           export TERMUX_TASKER_APP__BUILD__APP_VERSION_NAME="$tasker_version+${GITHUB_SHA:0:7}"
           export TERMUX_TASKER_APP__BUILD__APK_VERSION_TAG="debug"
 
-          ./gradlew :app:assembleDebug :termux-api:assembleDebug :termux-tasker:assembleDebug
+          float_version_regex='\s+versionName "([^"]+)"$'
+          float_version="$(grep -m 1 -E "$float_version_regex" ./termux-float/app/build.gradle | sed -r "s/$float_version_regex/\1/")"
+          export TERMUX_FLOAT_APP__BUILD__APP_VERSION_NAME="$float_version+${GITHUB_SHA:0:7}"
+          export TERMUX_FLOAT_APP__BUILD__APK_VERSION_TAG="debug"
+
+          boot_version_regex='\s+versionName "([^"]+)"$'
+          boot_version="$(grep -m 1 -E "$boot_version_regex" ./termux-boot/app/build.gradle | sed -r "s/$boot_version_regex/\1/")"
+          export TERMUX_BOOT_APP_BUILD__APP_VERSION_NAME="$boot_version+${GITHUB_SHA:0:7}"
+          export TERMUX_BOOT_APP_BUILD__APK_VERSION_TAG="debug"
+
+          styling_version_regex='\s+versionName "([^"]+)"$'
+          styling_version="$(grep -m 1 -E "$styling_version_regex" ./termux-styling/app/build.gradle | sed -r "s/$styling_version_regex/\1/")"
+          export TERMUX_STYLING_APP_BUILD__APP_VERSION_NAME="$styling_version+${GITHUB_SHA:0:7}"
+          export TERMUX_STYLING_APP_BUILD__APK_VERSION_TAG="debug"
+
+          widget_version_regex='\s+versionName "([^"]+)"$'
+          widget_version="$(grep -m 1 -E "$widget_version_regex" ./termux-widget/app/build.gradle | sed -r "s/$widget_version_regex/\1/")"
+          export TERMUX_WIDGET_APP__BUILD__APP_VERSION_NAME="$widget_version+${GITHUB_SHA:0:7}"
+          export TERMUX_WIDGET_APP__BUILD__APK_VERSION_TAG="debug"
+
+          ./gradlew :app:assembleDebug :termux-api:assembleDebug :termux-tasker:assembleDebug \
+            :termux-float:assembleDebug :termux-boot:assembleDebug :termux-styling:assembleDebug \
+            :termux-widget:assembleDebug
 
       - name: Collect the APKs
         shell: bash
@@ -78,9 +100,10 @@ jobs:
             }
             cp "$apk_dir/$apk" "$out/"
           done
-          for apk in termux-api-app_debug.apk termux-tasker-app_debug.apk
+          for app in api tasker float boot styling widget
           do
-            module="${apk%%-app_*}"
+            module="termux-$app"
+            apk="termux-$app-app_debug.apk"
             path="./$module/app/build/outputs/apk/debug/$apk"
             test -f "$path" || {
               echo "Missing $path. Found:" >&2
@@ -142,8 +165,11 @@ jobs:
           dir="$RUNNER_TEMP/assets"
           mkdir -p "$dir"
           cp "$RUNNER_TEMP"/downloaded/*.apk "$dir/"
-          # Five core variants plus fixed API and Tasker companion APKs.
-          [ "$(ls -1 "$dir" | wc -l)" -eq 7 ]
+          # Five core variants plus fixed APKs for all six companion apps.
+          shopt -s nullglob
+          apks=("$dir"/*.apk)
+          shopt -u nullglob
+          [[ "${#apks[@]}" -eq 11 ]]
           (cd "$dir" && sha256sum -- *.apk > SHA256SUMS)
           cat "$dir/SHA256SUMS"
           echo "dir=$dir" >> "$GITHUB_OUTPUT"
@@ -155,7 +181,8 @@ jobs:
             echo "Automated debug build of the latest main ($GITHUB_SHA), built $(date -u +'%Y-%m-%d %H:%M UTC'). Not a stable release."
             echo
             echo "Read by the in-app updater (Settings > Updates). The commit above is the build's identity."
-            echo '`SHA256SUMS` covers the APKs. These APKs are signed with the repository development key.'
+            echo "Assets include TermuxPP, API, Tasker, Float, Boot, Styling and Widget APKs."
+            echo "\`SHA256SUMS\` covers the APKs. These APKs are signed with the repository development key."
           } > release-notes.md
 
       - name: Move tag
