@@ -29,6 +29,15 @@
       gradle = pkgs.gradle_8;
       java = pkgs.jdk17_headless;
       bootstrapVersion = "2026.02.12-r1%2Bapt.android-7";
+      gradleTasks = [
+        ":app:assembleDebug"
+        ":termux-api:assembleDebug"
+        ":termux-tasker:assembleDebug"
+        ":termux-boot:assembleDebug"
+        ":termux-styling:assembleDebug"
+        ":termux-widget:assembleDebug"
+        ":termux-float:assembleDebug"
+      ];
       bootstraps = {
         aarch64 = pkgs.fetchurl {
           url = "https://github.com/termux/termux-packages/releases/download/bootstrap-${bootstrapVersion}/bootstrap-aarch64.zip";
@@ -50,6 +59,15 @@
       apk = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
         pname = "termuxpp-debug-apk";
         version = "0.118.0";
+        outputs = [
+          "out"
+          "api"
+          "tasker"
+          "boot"
+          "styling"
+          "widget"
+          "float"
+        ];
         src = ./.;
         nativeBuildInputs = [
           gradle
@@ -73,8 +91,8 @@
           data = ./nix/deps.json;
           bwrapFlags = "--dir /bin --symlink ${pkgs.bash}/bin/bash /bin/sh";
         };
-        gradleBuildTask = ":app:assembleDebug";
-        gradleUpdateTask = ":app:assembleDebug";
+        gradleBuildTask = pkgs.lib.concatStringsSep " " gradleTasks;
+        gradleUpdateTask = pkgs.lib.concatStringsSep " " gradleTasks;
         preGradleUpdate = ''
           gradleFlagsArray+=(--write-verification-metadata sha256)
         '';
@@ -91,8 +109,14 @@
           install -Dm644 ${bootstraps.x86_64} app/src/main/cpp/bootstrap-x86_64.zip
         '';
         installPhase = ''
-          mkdir -p "$out"
+          mkdir -p "$out" "$api" "$tasker" "$boot" "$styling" "$widget" "$float"
           cp app/build/outputs/apk/debug/termux-app_apt-android-7-debug_universal.apk "$out/termuxpp-debug.apk"
+          cp termux-api/app/build/outputs/apk/debug/*.apk "$api/"
+          cp termux-tasker/app/build/outputs/apk/debug/*.apk "$tasker/"
+          cp termux-boot/app/build/outputs/apk/debug/*.apk "$boot/"
+          cp termux-styling/app/build/outputs/apk/debug/*.apk "$styling/"
+          cp termux-widget/app/build/outputs/apk/debug/*.apk "$widget/"
+          cp termux-float/app/build/outputs/apk/debug/*.apk "$float/"
         '';
       });
     in
@@ -100,6 +124,14 @@
       packages.${system} = {
         default = apk;
         inherit apk;
+        inherit (apk)
+          api
+          tasker
+          boot
+          styling
+          widget
+          float
+          ;
       };
       apps.${system}.update-deps = {
         type = "app";
