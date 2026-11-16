@@ -321,7 +321,14 @@ public class TermuxContextMenuSheet {
     public TermuxContextMenuSheet addDangerRow(int id, CharSequence title, @Nullable CharSequence detail,
                                                @DrawableRes int icon, boolean enabled,
                                                int longPressId, CharSequence longPressLabel) {
-        mRows.add(new Action(Placement.ROW, id, title, detail, icon, enabled, true, longPressId, longPressLabel, null));
+        return addDangerRow(id, title, detail, icon, enabled, longPressId, longPressLabel, false);
+    }
+
+    public TermuxContextMenuSheet addDangerRow(int id, CharSequence title, @Nullable CharSequence detail,
+                                               @DrawableRes int icon, boolean enabled,
+                                               int longPressId, CharSequence longPressLabel, boolean secondary) {
+        mRows.add(new Action(secondary ? Placement.SECONDARY : Placement.ROW,
+            id, title, detail, icon, enabled, true, longPressId, longPressLabel, null));
         return this;
     }
 

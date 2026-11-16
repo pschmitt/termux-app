@@ -105,8 +105,7 @@ public final class TerminalContextMenu {
 
     /**
      * Add the entries of the bottom sheet, in the grouped presentation: a session header, a strip of the frequent
-     * actions, a group with the Keep screen on setting and the folded-away Reset, Settings on its own, and the
-     * destructive Kill set apart at the end.
+     * actions, expandable secondary actions, and Settings at the bottom. Keep screen on stays visible while active.
      */
     public static TermuxContextMenuSheet populateSheet(@NonNull TermuxContextMenuSheet sheet,
                                                        @NonNull Resources resources, @NonNull State state) {
@@ -127,16 +126,14 @@ public final class TerminalContextMenu {
         sheet.addSecondaryRow(RESET_TERMINAL, resources.getString(R.string.action_reset_terminal),
             resources.getString(R.string.ui_menu_reset_detail), R.drawable.ui_ic_menu_reset);
 
-        sheet.addGroupBreak();
-        sheet.addRow(SETTINGS, resources.getString(R.string.action_open_settings), null, R.drawable.ui_ic_menu_settings);
-
         String killTarget = TextUtils.isEmpty(state.processName)
             ? resources.getString(R.string.ui_menu_kill_session_target) : state.processName;
-        sheet.addGroupBreak();
         sheet.addDangerRow(KILL_PROCESS, resources.getString(R.string.ui_menu_kill, killTarget),
             resources.getString(state.sessionRunning ? R.string.ui_menu_kill_detail : R.string.ui_menu_not_running),
             R.drawable.ui_ic_menu_power, state.sessionRunning,
-            KILL_PROCESS_NOW, resources.getString(R.string.ui_menu_kill_now));
+            KILL_PROCESS_NOW, resources.getString(R.string.ui_menu_kill_now), true);
+        sheet.addGroupBreak();
+        sheet.addRow(SETTINGS, resources.getString(R.string.action_open_settings), null, R.drawable.ui_ic_menu_settings);
         return sheet;
     }
 

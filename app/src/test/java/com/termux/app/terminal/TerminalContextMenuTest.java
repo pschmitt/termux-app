@@ -80,14 +80,14 @@ public class TerminalContextMenuTest {
         Assert.assertEquals(Arrays.asList(
                 TerminalContextMenu.AUTOFILL_MENU, TerminalContextMenu.SELECT_URL,
                 TerminalContextMenu.SHARE_MENU, TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON,
-                TerminalContextMenu.RESET_TERMINAL, TerminalContextMenu.SETTINGS,
-                TerminalContextMenu.KILL_PROCESS, TerminalContextMenu.KILL_PROCESS_NOW),
+                TerminalContextMenu.RESET_TERMINAL, TerminalContextMenu.KILL_PROCESS,
+                TerminalContextMenu.KILL_PROCESS_NOW, TerminalContextMenu.SETTINGS),
             sheetIds(activity(), everything()));
         Assert.assertEquals(Arrays.asList(
                 TerminalContextMenu.SELECT_URL, TerminalContextMenu.SHARE_TRANSCRIPT,
                 TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON, TerminalContextMenu.RESET_TERMINAL,
-                TerminalContextMenu.SETTINGS, TerminalContextMenu.KILL_PROCESS,
-                TerminalContextMenu.KILL_PROCESS_NOW),
+                TerminalContextMenu.KILL_PROCESS, TerminalContextMenu.KILL_PROCESS_NOW,
+                TerminalContextMenu.SETTINGS),
             sheetIds(activity(), minimal()));
     }
 
@@ -134,9 +134,9 @@ public class TerminalContextMenuTest {
         Assert.assertEquals((int) (32 * density), shortcutIcon.getLayoutParams().height);
         Assert.assertEquals((int) (4 * density), strip.getPaddingTop());
         // Reset is folded away behind More actions, so it is not shown yet.
-        Assert.assertEquals(Arrays.asList("More actions", "Settings", "Kill zsh"),
+        Assert.assertEquals(Arrays.asList("More actions", "Settings"),
             texts(dialog, R.id.context_row_title));
-        Assert.assertEquals(Arrays.asList("hold to kill now"), texts(dialog, R.id.context_row_detail));
+        Assert.assertTrue(texts(dialog, R.id.context_row_detail).isEmpty());
         // No tile of the old grid is left in the main menu.
         Assert.assertTrue(texts(dialog, R.id.context_tile_title).isEmpty());
         // Header keeps the session; Settings is a row now, not a header icon.
@@ -200,7 +200,7 @@ public class TerminalContextMenuTest {
     }
 
     @Test
-    public void settingsAndKillAreSetApartInGroupsOfTheirOwn() {
+    public void killIsFoldedWithSecondaryActionsAndSettingsIsLast() {
         Activity activity = activity();
         for (TerminalContextMenu.State state : Arrays.asList(session(null, true, 1, 1), minimal())) {
             BottomSheetDialog dialog = mainSheet(activity, state);
@@ -209,14 +209,15 @@ public class TerminalContextMenuTest {
             View settingsRow = rowTitled(dialog, "Settings");
             View keepRow = rowTitled(dialog, "Keep screen on");
             Assert.assertNotSame(killRow.getParent(), settingsRow.getParent());
-            Assert.assertNotSame(killRow.getParent(), keepRow.getParent());
+            Assert.assertSame(killRow.getParent(), keepRow.getParent());
             Assert.assertNotSame(settingsRow.getParent(), keepRow.getParent());
-            // The order down the sheet: strip, setting group, Settings, Kill.
+            Assert.assertFalse(killRow.isShown());
             android.view.ViewGroup items = dialog.findViewById(R.id.context_sheet_items);
-            Assert.assertEquals(4, items.getChildCount());
+            Assert.assertEquals(3, items.getChildCount());
             Assert.assertSame(dialog.findViewById(R.id.context_row_expander).getParent(), items.getChildAt(1));
             Assert.assertSame(settingsRow.getParent(), items.getChildAt(2));
-            Assert.assertSame(killRow.getParent(), items.getChildAt(3));
+            dialog.findViewById(R.id.context_row_expander).performClick();
+            Assert.assertTrue(killRow.isShown());
         }
     }
 
@@ -387,6 +388,22 @@ public class TerminalContextMenuTest {
         Assert.assertFalse(row.performClick());
         Assert.assertFalse(row.performLongClick());
         Assert.assertEquals("not running", ((TextView) row.findViewById(R.id.context_row_detail)).getText().toString());
+    }
+
+    @Test
+    public void foldedKillPreservesTapAndLongPressDispatch() {
+        for (boolean hold : new boolean[] {false, true}) {
+            Activity activity = activity();
+            List<Integer> chosen = new ArrayList<>();
+            BottomSheetDialog dialog = TerminalContextMenu.populateSheet(new TermuxContextMenuSheet(activity),
+                activity.getResources(), session(null, true, 1, 1)).show(chosen::add);
+            dialog.findViewById(R.id.context_row_expander).performClick();
+            View kill = rowTitled(dialog, "Kill zsh");
+            Assert.assertTrue(hold ? kill.performLongClick() : kill.performClick());
+            org.robolectric.shadows.ShadowLooper.idleMainLooper();
+            Assert.assertEquals(Arrays.asList(hold ? TerminalContextMenu.KILL_PROCESS_NOW
+                : TerminalContextMenu.KILL_PROCESS), chosen);
+        }
     }
 
     @Test
