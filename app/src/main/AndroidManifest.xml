@@ -25,6 +25,7 @@
          by the fork-specific permission below on RunCommandService. -->
     <permission
         android:name="com.termux.permission.RUN_COMMAND"
+        tools:ignore="UniquePermission"
         android:description="@string/permission_run_command_description"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/permission_run_command_label"
