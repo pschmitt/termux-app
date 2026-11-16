@@ -32,6 +32,38 @@ source-code change. Recheck both implementations when updating this page.
 - TermuxAm caller identity and helper packaging: [`termux-am/TERMUXPP.md`](../../termux-am/TERMUXPP.md) and [`scripts/package-helpers.py`](../../scripts/package-helpers.py).
 - Upstream identity reference: [`termux/termux-app` app build](https://github.com/termux/termux-app/blob/master/app/build.gradle) and [manifest](https://github.com/termux/termux-app/blob/master/app/src/main/AndroidManifest.xml).
 
+## Properties settings and configuration filename
+
+TermuxPP adds **Settings > TermuxPP > Properties**, with controls for every supported
+app property: boolean choices, enumerated choices (including gesture and volume-key
+actions), and text dialogs for numeric values, extra-key layouts, colors, paths and
+key sequences. These controls edit the properties file itself, not a competing
+Android preference store. Clear a text field or select **App default** to remove
+an override. Values use the existing properties syntax and runtime validation;
+settings such as transcript size may require a new session or an app restart.
+
+The canonical file is **`~/.config/termuxpp/termuxpp.properties`**. Reads use the
+first existing file in this order, without merging:
+
+1. `~/.config/termuxpp/termuxpp.properties`
+2. `~/.config/termuxpp/termux.properties` (previous fork filename)
+3. `~/.config/termux/termux.properties`
+4. `~/.termux/termux.properties`
+
+On the first GUI change, the selected legacy file is copied into the canonical
+file before applying the change. The legacy original is retained. Comments and
+unknown properties are preserved; updates use an atomic write. Once the canonical
+file exists, it takes precedence even when an override is reset. Shell edits and
+`termux-reload-settings` continue to work. The adapted first-run profile script
+creates the new canonical filename only when none of the supported files exists.
+
+This is an intentional fork difference. Upstream retains its `termux.properties`
+filename and legacy configuration locations. Sources: [upstream constants](https://github.com/termux/termux-app/blob/master/termux-shared/src/main/java/com/termux/shared/termux/TermuxConstants.java),
+[fork constants](../../termux-shared/src/main/java/dev/pschmitt/termux/shared/termux/TermuxConstants.java),
+[properties GUI](../../app/src/main/java/com/termux/app/fragments/settings/termux/PropertiesPreferencesFragment.java),
+[file editor](../../app/src/main/java/com/termux/app/settings/TermuxPropertiesEditor.java),
+and [helper adaptation rules](../../app/src/main/resources/termuxpp/helper-rewrites.tsv).
+
 ## Scope
 
 A matching signing certificate and shared UID are required for TermuxPP's core

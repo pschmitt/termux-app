@@ -123,7 +123,7 @@ public class RealBootstrapExtractionTest {
                 "etc/profile.d/init-termux-properties.sh").toPath()), StandardCharsets.ISO_8859_1);
             Assert.assertTrue(arch, init.contains("/files/home/.config/termuxpp\n"));
             Assert.assertFalse(arch, init.contains("/files/home/.termux\n"));
-            Assert.assertTrue(arch, init.contains("/home/.config/termuxpp/\n"));
+            Assert.assertTrue(arch, init.contains("/home/.config/termuxpp/termuxpp.properties\n"));
         }
 
         if (original.containsKey("etc/motd")) {

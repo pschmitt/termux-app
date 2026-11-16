@@ -1,0 +1,161 @@
+package com.termux.app.fragments.settings.termux;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Toast;
+
+import androidx.annotation.Keep;
+import androidx.preference.DialogPreference;
+import androidx.preference.EditTextPreference;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceScreen;
+
+import com.termux.R;
+import com.termux.app.settings.TermuxPropertiesEditor;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+
+@Keep
+public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
+    private TermuxPropertiesEditor editor;
+
+    @Override
+    public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+        editor = new TermuxPropertiesEditor();
+        PreferenceScreen screen = getPreferenceManager().createPreferenceScreen(requireContext());
+        setPreferenceScreen(screen);
+        Preference explanation = new Preference(requireContext());
+        explanation.setTitle(R.string.properties_title);
+        explanation.setSummary(R.string.properties_explanation);
+        explanation.setSelectable(false);
+        screen.addPreference(explanation);
+        Properties values;
+        try {
+            values = editor.read();
+        } catch (IOException | IllegalArgumentException e) {
+            explanation.setSummary(R.string.properties_read_error);
+            return;
+        }
+        Map<Integer, PreferenceCategory> categories = new LinkedHashMap<>();
+        for (int title : new int[]{R.string.properties_appearance, R.string.properties_keyboard,
+                R.string.properties_gestures, R.string.properties_advanced}) {
+            PreferenceCategory category = new PreferenceCategory(requireContext());
+            category.setTitle(title);
+            screen.addPreference(category);
+            categories.put(title, category);
+        }
+        ArrayList<String> keys = new ArrayList<>(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST);
+        Collections.sort(keys);
+        for (String key : keys) {
+            DialogPreference preference;
+            boolean defaultTrue = TermuxPropertyConstants.TERMUX_DEFAULT_TRUE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST.contains(key);
+            boolean isBoolean = defaultTrue || TermuxPropertyConstants.TERMUX_DEFAULT_FALSE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST.contains(key);
+            Set<String> options = choices(key);
+            if (isBoolean || !options.isEmpty()) {
+                ListPreference choice = new ListPreference(requireContext());
+                choice.setPersistent(false);
+                ArrayList<String> entries = new ArrayList<>();
+                ArrayList<String> entryValues = new ArrayList<>();
+                String current = values.getProperty(key, "");
+                entries.add(isBoolean ? getString(R.string.properties_default_boolean,
+                    getString(defaultTrue ? R.string.properties_enabled : R.string.properties_disabled))
+                    : getString(R.string.properties_default));
+                entryValues.add("");
+                if (isBoolean) {
+                    entries.add(getString(R.string.properties_enabled));
+                    entries.add(getString(R.string.properties_disabled));
+                    entryValues.add("true");
+                    entryValues.add("false");
+                } else {
+                    entries.addAll(options);
+                    entryValues.addAll(options);
+                }
+                if (!entryValues.contains(current)) {
+                    entries.add(current);
+                    entryValues.add(current);
+                }
+                choice.setEntries(entries.toArray(new String[0]));
+                choice.setEntryValues(entryValues.toArray(new String[0]));
+                choice.setValue(current);
+                choice.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+                if (key.equals(TermuxConstants.PROP_ALLOW_EXTERNAL_APPS)) {
+                    choice.setDialogMessage(R.string.properties_external_apps_warning);
+                }
+                preference = choice;
+            } else {
+                EditTextPreference text = new EditTextPreference(requireContext());
+                text.setPersistent(false);
+                text.setText(values.getProperty(key, ""));
+                text.setDialogMessage(getString(R.string.properties_text_help, key));
+                text.setSummaryProvider(p -> {
+                    String value = ((EditTextPreference) p).getText();
+                    return value == null || value.isEmpty() ? getString(R.string.properties_default) : value;
+                });
+                preference = text;
+            }
+            preference.setKey(key);
+            preference.setTitle(key.replace('-', ' '));
+            preference.setDialogTitle(key);
+            preference.setOnPreferenceChangeListener((p, value) -> save(key, value.toString()));
+            categories.get(categoryFor(key)).addPreference(preference);
+        }
+    }
+
+    private int categoryFor(String key) {
+        if (key.startsWith("extra-keys") || key.endsWith("-action") || key.endsWith("-keys")) return R.string.properties_gestures;
+        if (key.contains("keyboard") || key.startsWith("shortcut.") || key.equals("back-key")
+            || key.equals("volume-keys") || key.equals("ctrl-space-workaround")
+            || key.equals("enforce-char-based-input")) return R.string.properties_keyboard;
+        if (key.startsWith("terminal-") || key.equals("fullscreen") || key.equals("use-fullscreen-workaround")
+            || key.equals("night-mode") || key.equals("bell-character")) return R.string.properties_appearance;
+        return R.string.properties_advanced;
+    }
+
+    private Set<String> choices(String key) {
+        switch (key) {
+            case TermuxPropertyConstants.KEY_BELL_BEHAVIOUR: return TermuxPropertyConstants.MAP_BELL_BEHAVIOUR.keySet();
+            case TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE: return TermuxPropertyConstants.MAP_TERMINAL_CURSOR_STYLE.keySet();
+            case TermuxPropertyConstants.KEY_BACK_KEY_BEHAVIOUR: return TermuxPropertyConstants.MAP_BACK_KEY_BEHAVIOUR.keySet();
+            case TermuxPropertyConstants.KEY_NIGHT_MODE: return TermuxPropertyConstants.MAP_NIGHT_MODE.keySet();
+            case TermuxPropertyConstants.KEY_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR: return TermuxPropertyConstants.MAP_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR.keySet();
+            case TermuxPropertyConstants.KEY_VOLUME_KEYS_BEHAVIOUR: return TermuxPropertyConstants.MAP_VOLUME_KEYS_BEHAVIOUR.keySet();
+            case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION:
+            case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION:
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
+            case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION:
+            case TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION:
+                Set<String> actions = new LinkedHashSet<>();
+                if (key.startsWith("volume-")) actions.add(TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER);
+                for (TerminalGestureAction action : TerminalGestureAction.values()) actions.add(action.getValue());
+                return actions;
+            default: return Collections.emptySet();
+        }
+    }
+
+    private boolean save(String key, String value) {
+        try {
+            editor.set(key, value.isEmpty() ? null : value);
+            Intent reload = new Intent(TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY.ACTION_RELOAD_STYLE);
+            reload.setPackage(requireContext().getPackageName());
+            requireContext().sendBroadcast(reload);
+            return true;
+        } catch (IOException | IllegalArgumentException e) {
+            Toast.makeText(requireContext(), R.string.properties_save_error, Toast.LENGTH_LONG).show();
+            return false;
+        }
+    }
+}

@@ -46,6 +46,7 @@ public class TermuxConfigDirsTest {
             home + "/.config/termuxpp", home + "/.config/termux", home + "/.termux"),
             TermuxConstants.TERMUX_CONFIG_DIR_PATHS_LIST);
         assertEquals(Arrays.asList(
+            home + "/.config/termuxpp/termuxpp.properties",
             home + "/.config/termuxpp/termux.properties",
             home + "/.config/termux/termux.properties",
             home + "/.termux/termux.properties"),

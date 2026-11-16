@@ -741,7 +741,7 @@ public final class TermuxConstants {
 
 
     /** Termux app properties primary (canonical) file path */
-    public static final String TERMUX_PROPERTIES_PRIMARY_FILE_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/termux.properties"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/termux.properties"
+    public static final String TERMUX_PROPERTIES_PRIMARY_FILE_PATH = TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/termuxpp.properties"; // Default: "/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/termuxpp.properties"
     /** Termux app properties primary file */
     public static final File TERMUX_PROPERTIES_PRIMARY_FILE = new File(TERMUX_PROPERTIES_PRIMARY_FILE_PATH);
 
@@ -761,6 +761,7 @@ public final class TermuxConstants {
      * without their explicit consent. */
     public static final List<String> TERMUX_PROPERTIES_FILE_PATHS_LIST = Arrays.asList(
         TERMUX_PROPERTIES_PRIMARY_FILE_PATH,
+        TERMUX_CONFIG_TERMUXPP_DIR_PATH + "/termux.properties",
         TERMUX_PROPERTIES_SECONDARY_FILE_PATH,
         TERMUX_PROPERTIES_TERTIARY_FILE_PATH);
 

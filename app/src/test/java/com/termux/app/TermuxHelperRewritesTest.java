@@ -156,7 +156,10 @@ public class TermuxHelperRewritesTest {
                     Assert.assertTrue(stockFile("bin/login").contains(rule.stock));
                     break;
                 case RULE:
-                    Assert.assertTrue(rule.file + ": " + rule.stock, stockFile(rule.file).contains(rule.stock));
+                    String intermediate = TermuxHelperRewrites.apply(rules.subList(0, rules.indexOf(rule)), rule.file, stockFile(rule.file));
+                    String previous = previousPropertiesHelper(rule.file);
+                    Assert.assertTrue(rule.file + ": " + rule.stock,
+                        stockFile(rule.file).contains(rule.stock) || intermediate.contains(rule.stock) || previous.contains(rule.stock));
                     break;
                 case APPEND:
                     Assert.assertFalse(rule.file, stockFile(rule.file).contains(rule.stock));
@@ -171,10 +174,33 @@ public class TermuxHelperRewritesTest {
             }
         }
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.IDENTITY.ordinal()]);
-        Assert.assertEquals(26, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
+        Assert.assertEquals(30, counts[TermuxHelperRewrites.Kind.RULE.ordinal()]);
         Assert.assertEquals(1, counts[TermuxHelperRewrites.Kind.APPEND.ordinal()]);
         Assert.assertEquals(5, counts[TermuxHelperRewrites.Kind.REQUIRE.ordinal()]);
         Assert.assertEquals(12, counts[TermuxHelperRewrites.Kind.FORBID.ordinal()]);
+    }
+
+    private String previousPropertiesHelper(String file) throws IOException {
+        String home = "/data/data/dev.pschmitt.termux/files/home";
+        return stockFile(file).replace("/data/data/com.termux", "/data/data/dev.pschmitt.termux")
+            .replace("~/.termux/termux.properties", "~/.config/termuxpp/termux.properties")
+            .replace("/home/.termux/termux.properties ]; then", "/home/.termux/termux.properties ] && [ ! -e " + home + "/.config/termuxpp/termux.properties ]; then")
+            .replace("/home/.termux\n", "/home/.config/termuxpp\n")
+            .replace("/home/.termux/\n", "/home/.config/termuxpp/\n");
+    }
+
+    @Test
+    public void previousPropertiesHelpersUpgradeIdempotently() throws IOException {
+        List<TermuxHelperRewrites.Rule> rules = forkRules();
+        for (String file : new String[]{"etc/profile.d/init-termux-properties.sh", "bin/termux-reload-settings"}) {
+            String upgraded = TermuxHelperRewrites.apply(rules, file, previousPropertiesHelper(file));
+            assertContainsNewFilename(upgraded);
+            Assert.assertEquals(upgraded, TermuxHelperRewrites.apply(rules, file, upgraded));
+        }
+    }
+
+    private void assertContainsNewFilename(String text) {
+        Assert.assertTrue(text.contains("/.config/termuxpp/termuxpp.properties"));
     }
 
     @Test
@@ -313,7 +339,7 @@ public class TermuxHelperRewritesTest {
     public void reloadSettingsHelpNamesTheCanonicalConfigDir() throws IOException {
         List<TermuxHelperRewrites.Rule> rules = forkRules();
         String reload = TermuxHelperRewrites.apply(rules, "bin/termux-reload-settings", stockHelper("termux-reload-settings"));
-        Assert.assertTrue(reload.contains("~/.config/termuxpp/termux.properties"));
+        Assert.assertTrue(reload.contains("~/.config/termuxpp/termuxpp.properties"));
         Assert.assertTrue(reload.contains("~/.config/termuxpp/colors.properties"));
         Assert.assertTrue(reload.contains("~/.config/termuxpp/font.ttf"));
         Assert.assertFalse(reload.contains("~/.termux/"));
@@ -385,12 +411,13 @@ public class TermuxHelperRewritesTest {
         String adapted = TermuxHelperRewrites.apply(rules, file, stock);
         String home = "/data/data/dev.pschmitt.termux/files/home";
         // Nothing is created while the canonical file (or either stock place) exists.
+        Assert.assertTrue(adapted.contains("[ ! -e " + home + "/.config/termuxpp/termuxpp.properties ]"));
         Assert.assertTrue(adapted.contains("[ ! -e " + home + "/.config/termuxpp/termux.properties ]; then\n"));
         Assert.assertTrue(adapted.contains("[ ! -f " + home + "/.config/termux/termux.properties ]"));
         Assert.assertTrue(adapted.contains("[ ! -e " + home + "/.termux/termux.properties ]"));
         // The example is copied to the canonical dir, never to ~/.termux.
         Assert.assertTrue(adapted.contains("\tmkdir -p " + home + "/.config/termuxpp\n"));
-        Assert.assertTrue(adapted.contains(" " + home + "/.config/termuxpp/\n"));
+        Assert.assertTrue(adapted.contains(" " + home + "/.config/termuxpp/termuxpp.properties\n"));
         Assert.assertFalse(adapted.contains("/files/home/.termux\n"));
         Assert.assertFalse(adapted.contains("com.termux"));
         // The example itself still comes from the packaged examples.
@@ -481,7 +508,7 @@ public class TermuxHelperRewritesTest {
     public void strictParseAcceptsTheRealForkTableWithThirtyEightRows() throws IOException {
         String rendered = TermuxHelperRewrites.render(
             TermuxHelperRewrites.readResource(TermuxHelperRewrites.TABLE_RESOURCE), forkValues());
-        Assert.assertEquals(45, TermuxHelperRewrites.parseStrict(rendered).size());
+        Assert.assertEquals(49, TermuxHelperRewrites.parseStrict(rendered).size());
         Assert.assertEquals(TermuxHelperRewrites.parse(rendered).size(), TermuxHelperRewrites.parseStrict(rendered).size());
     }
 

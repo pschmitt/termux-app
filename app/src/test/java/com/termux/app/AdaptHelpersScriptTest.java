@@ -200,10 +200,11 @@ public class AdaptHelpersScriptTest {
     private static final String INIT_SCRIPT = "etc/profile.d/init-termux-properties.sh";
     private static final String ADAPTED_INIT = "if [ ! -f /data/data/dev.pschmitt.termux/files/home/.config/termux/termux.properties ]"
         + " && [ ! -e /data/data/dev.pschmitt.termux/files/home/.termux/termux.properties ]"
+        + " && [ ! -e /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/termuxpp.properties ]"
         + " && [ ! -e /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/termux.properties ]; then\n"
         + "\tmkdir -p /data/data/dev.pschmitt.termux/files/home/.config/termuxpp\n"
         + "\tcp /data/data/dev.pschmitt.termux/files/usr/share/examples/termux/termux.properties"
-        + " /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/\n"
+        + " /data/data/dev.pschmitt.termux/files/home/.config/termuxpp/termuxpp.properties\n"
         + "fi\n";
 
     @Test

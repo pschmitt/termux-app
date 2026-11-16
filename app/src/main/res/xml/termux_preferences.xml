@@ -1,6 +1,12 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <Preference
+        app:key="termux_properties"
+        app:title="@string/properties_title"
+        app:summary="@string/properties_summary"
+        app:fragment="com.termux.app.fragments.settings.termux.PropertiesPreferencesFragment" />
+
+    <Preference
         app:key="termux_styling"
         app:title="@string/action_style_terminal"
         app:summary="@string/termux_update_app_styling" />
