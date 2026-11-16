@@ -25,6 +25,21 @@ source-code change. Recheck both implementations when updating this page.
 | Tasker and Locale | The plug-in protocol is the stock Termux Tasker/Locale protocol. | The TermuxPP plug-in keeps the protocol action names while using its fork-specific app identity and shared UID. | Protocol compatibility is retained. Existing Tasker tasks may still need to select the TermuxPP plug-in again because Android stores the plug-in package identity. See [Tasker integration](../../termux-tasker/TERMUXPP.md). |
 | Updates | Upstream distributes its app through its own release channels. | Settings > Updates can check and install the TermuxPP core, API, and Tasker rolling `latest` builds through Shizuku, after an explicit user action. | TermuxPP-only updater and release feeds. It does not update absent apps or alter APT package updates. See [Self-update over Shizuku](self-update.md). |
 
+## Terminal More menu
+
+Upstream uses Android's context menu for terminal actions. TermuxPP uses a
+rounded bottom sheet with a compact session heading, an Open URL / Share / Autofill
+shortcut strip, and grouped icon-led rows. Open URL is disabled when the terminal
+contains no URLs. Autofill remains conditional on Android support. Keep screen on has an On/Off state pill; Reset is under **More actions**.
+Settings and Kill remain visible in separate groups. Tapping Kill retains its
+confirmation, and holding it retains the immediate-kill action. Share and
+Autofill choices retain their existing preview cards. The presentation is an
+intentional fork difference; action dispatch and authorization are unchanged.
+
+Sources: [upstream context menu](https://github.com/termux/termux-app/blob/master/app/src/main/java/com/termux/app/TermuxActivity.java),
+[`TerminalContextMenu`](../../app/src/main/java/com/termux/app/terminal/TerminalContextMenu.java),
+and [`TermuxContextMenuSheet`](../../app/src/main/java/com/termux/app/terminal/TermuxContextMenuSheet.java).
+
 ## Using the ADB shell
 
 1. In TermuxPP, open **Settings > Debugging** and enable **ADB shell access**. Access is off by default. The app generates a random 256-bit token and shows it once; copy it without sharing it.

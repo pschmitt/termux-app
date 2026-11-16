@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The grouped terminal More menu. -->
+    <dimen name="ui_menu_group_radius">20dp</dimen>
+    <dimen name="ui_menu_group_gap">8dp</dimen>
+    <dimen name="ui_menu_row_min_height">56dp</dimen>
+    <dimen name="ui_menu_shortcut_badge">48dp</dimen>
+    <dimen name="ui_menu_shortcut_min_width">88dp</dimen>
+</resources>

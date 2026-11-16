@@ -4,7 +4,10 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.res.ColorStateList;
 import android.graphics.Rect;
+import android.os.Bundle;
 import android.text.TextUtils;
+import android.transition.AutoTransition;
+import android.transition.TransitionManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +38,12 @@ import java.util.List;
 /**
  * Terminal context menu presented as a Material bottom sheet: a header naming the session, a two-column grid
  * of labelled actions, and full-width items such as toggles.
+ * <p>
+ * A sheet can instead opt into the grouped presentation of the More menu by adding its actions with
+ * {@link #addShortcut}, {@link #addRow}, {@link #addStateRow}, {@link #addSecondaryRow} and
+ * {@link #addDangerRow}: a horizontal strip of frequent actions, then groups of full-width icon rows,
+ * where the secondary rows of a group stay folded behind a "More actions" row until it is tapped.
+ * Sheets of choices keep the tile and card presentation.
  * <p>
  * Items keep the ids of the system context menu entries they replace. A chosen action is delivered
  * to the {@link Listener} only after the sheet is dismissed, which matches the order of the system
@@ -124,6 +133,47 @@ public class TermuxContextMenuSheet {
         }
     }
 
+    /** Where an {@link Action} of the grouped presentation is shown. */
+    private enum Placement {
+        /** The strip of frequent actions at the top. */
+        SHORTCUT,
+        /** A full-width row of a group. */
+        ROW,
+        /** A full-width row that stays folded behind the "More actions" row of its group. */
+        SECONDARY
+    }
+
+    /** One action of the grouped presentation. */
+    private static final class Action {
+        final Placement placement;
+        final int id;
+        final CharSequence title;
+        @Nullable final CharSequence detail;
+        @DrawableRes final int icon;
+        final boolean enabled;
+        final boolean danger;
+        /** The id chosen by a long press, or -1 for none. */
+        final int longPressId;
+        @Nullable final CharSequence longPressLabel;
+        /** The state of a setting, shown as an On or Off pill, or null if the action is not a setting. */
+        @Nullable final Boolean checked;
+
+        Action(Placement placement, int id, CharSequence title, @Nullable CharSequence detail, int icon,
+               boolean enabled, boolean danger, int longPressId, @Nullable CharSequence longPressLabel,
+               @Nullable Boolean checked) {
+            this.placement = placement;
+            this.id = id;
+            this.title = title;
+            this.detail = detail;
+            this.icon = icon;
+            this.enabled = enabled;
+            this.danger = danger;
+            this.longPressId = longPressId;
+            this.longPressLabel = longPressLabel;
+            this.checked = checked;
+        }
+    }
+
     /** The largest share of the available height that the sheet starts out with. */
     static final float MAX_HEIGHT_FRACTION = 0.65f;
     /** The sheet is never smaller than this (or the available height), so that it stays usable in landscape. */
@@ -135,9 +185,11 @@ public class TermuxContextMenuSheet {
 
     private final Activity mActivity;
     private static final Object ROW_BREAK = new Object();
+    private static final Object GROUP_BREAK = new Object();
 
     private final List<Object> mRows = new ArrayList<>();
     @Nullable private Header mHeader;
+    private boolean mSessionHeader;
     /** The number of lines of the longest card preview. */
     private int mPreviewLines = 1;
 
@@ -174,6 +226,13 @@ public class TermuxContextMenuSheet {
     /** Show a header with its own icon and no action, as the title of a sheet of choices. */
     public TermuxContextMenuSheet setHeader(@DrawableRes int icon, CharSequence title, CharSequence detail) {
         mHeader = new Header(icon, title, detail, -1, null, 0);
+        return this;
+    }
+
+    /** Show compact session context above the frequent-action strip. */
+    public TermuxContextMenuSheet setSessionHeader(CharSequence title, CharSequence detail) {
+        setHeader(R.drawable.ui_ic_menu_terminal, title, detail);
+        mSessionHeader = true;
         return this;
     }
 
@@ -217,6 +276,55 @@ public class TermuxContextMenuSheet {
         return this;
     }
 
+    /** Add a frequent action to the strip at the top of the grouped presentation. */
+    public TermuxContextMenuSheet addShortcut(int id, CharSequence title, @Nullable CharSequence detail,
+                                              @DrawableRes int icon) {
+        return addShortcut(id, title, detail, icon, true);
+    }
+
+    public TermuxContextMenuSheet addShortcut(int id, CharSequence title, @Nullable CharSequence detail,
+                                              @DrawableRes int icon, boolean enabled) {
+        mRows.add(new Action(Placement.SHORTCUT, id, title, detail, icon, enabled, false, -1, null, null));
+        return this;
+    }
+
+    /** Add a full-width row to the current group of the grouped presentation. */
+    public TermuxContextMenuSheet addRow(int id, CharSequence title, @Nullable CharSequence detail,
+                                         @DrawableRes int icon) {
+        mRows.add(new Action(Placement.ROW, id, title, detail, icon, true, false, -1, null, null));
+        return this;
+    }
+
+    /** Add a setting to the current group of the grouped presentation; a pill at its end says On or Off. */
+    public TermuxContextMenuSheet addStateRow(int id, CharSequence title, @DrawableRes int icon, boolean checked) {
+        mRows.add(new Action(Placement.ROW, id, title, null, icon, true, false, -1, null, checked));
+        return this;
+    }
+
+    /**
+     * Add a row to the current group that stays folded behind its "More actions" row until that is tapped. Only
+     * the rows of the group that are added with {@link #addRow} or {@link #addStateRow} are always shown.
+     */
+    public TermuxContextMenuSheet addSecondaryRow(int id, CharSequence title, @Nullable CharSequence detail,
+                                                  @DrawableRes int icon) {
+        mRows.add(new Action(Placement.SECONDARY, id, title, detail, icon, true, false, -1, null, null));
+        return this;
+    }
+
+    /** Add a destructive row of the grouped presentation; a long press chooses {@code longPressId} instead. */
+    public TermuxContextMenuSheet addDangerRow(int id, CharSequence title, @Nullable CharSequence detail,
+                                               @DrawableRes int icon, boolean enabled,
+                                               int longPressId, CharSequence longPressLabel) {
+        mRows.add(new Action(Placement.ROW, id, title, detail, icon, enabled, true, longPressId, longPressLabel, null));
+        return this;
+    }
+
+    /** Start a new group of the grouped presentation, so that the next rows are set apart from the last. */
+    public TermuxContextMenuSheet addGroupBreak() {
+        mRows.add(GROUP_BREAK);
+        return this;
+    }
+
     /** The ids of all items, buttons and long presses that the sheet offers, in order. */
     List<Integer> getItemIds() {
         List<Integer> ids = new ArrayList<>();
@@ -226,6 +334,9 @@ public class TermuxContextMenuSheet {
             } else if (row instanceof Tile) {
                 ids.add(((Tile) row).id);
                 if (((Tile) row).longPressId >= 0) ids.add(((Tile) row).longPressId);
+            } else if (row instanceof Action) {
+                ids.add(((Action) row).id);
+                if (((Action) row).longPressId >= 0) ids.add(((Action) row).longPressId);
             }
         }
         // The header action is drawn first but listed last, like Settings at the end of a menu.
@@ -283,7 +394,14 @@ public class TermuxContextMenuSheet {
         if (mHeader != null) bindHeader(content.findViewById(R.id.context_sheet_header), dialog, mHeader, chosen);
 
         LinearLayout tileRow = null;
+        GroupedLayout grouped = new GroupedLayout(container, dialog, chosen);
         for (Object row : mRows) {
+            if (row instanceof Action) {
+                tileRow = null;
+                grouped.add((Action) row);
+                continue;
+            }
+            grouped.finish();
             if (row instanceof Tile) {
                 if (tileRow == null || tileRow.getChildCount() >= 3) {
                     tileRow = createTileRow(container);
@@ -299,6 +417,7 @@ public class TermuxContextMenuSheet {
                 container.addView(createItem(container, dialog, (Entry) row, chosen));
             }
         }
+        grouped.finish();
 
         dialog.setContentView(content);
         // No visible heading, but screen readers still announce what this window is.
@@ -397,6 +516,21 @@ public class TermuxContextMenuSheet {
         ((ImageView) view.findViewById(R.id.context_header_icon)).setImageResource(header.icon);
         ((TextView) view.findViewById(R.id.context_header_title)).setText(header.title);
         ((TextView) view.findViewById(R.id.context_header_subtitle)).setText(header.detail);
+        if (mSessionHeader) {
+            float density = view.getResources().getDisplayMetrics().density;
+            int gutter = view.getResources().getDimensionPixelSize(R.dimen.ui_gutter);
+            view.setPaddingRelative(gutter, (int) (8 * density), gutter, (int) (12 * density));
+            ImageView icon = view.findViewById(R.id.context_header_icon);
+            icon.setBackground(null);
+            icon.getLayoutParams().width = (int) (24 * density);
+            icon.getLayoutParams().height = (int) (24 * density);
+            icon.setImageTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(dialog.getContext(), R.color.ui_on_surface_variant)));
+            TextView title = view.findViewById(R.id.context_header_title);
+            title.setTextSize(16);
+            TextView subtitle = view.findViewById(R.id.context_header_subtitle);
+            subtitle.setTextSize(11);
+        }
         if (header.actionId < 0) return;
         ImageButton action = view.findViewById(R.id.context_header_action);
         action.setVisibility(View.VISIBLE);
@@ -468,40 +602,238 @@ public class TermuxContextMenuSheet {
             icon.setBackgroundResource(R.drawable.ui_sheet_tile_icon_on_bg);
             icon.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(dialog.getContext(), R.color.ui_on_active)));
         }
-        if (tile.checked != null) {
-            final boolean checked = tile.checked;
-            ViewCompat.setAccessibilityDelegate(view, new AccessibilityDelegateCompat() {
-                @Override
-                public void onInitializeAccessibilityNodeInfo(@NonNull View host, @NonNull AccessibilityNodeInfoCompat info) {
-                    super.onInitializeAccessibilityNodeInfo(host, info);
-                    info.setClassName("android.widget.Switch");
-                    info.setCheckable(true);
-                    info.setChecked(checked);
-                }
-            });
-        }
+        if (tile.checked != null) markAsSwitch(view, tile.checked);
 
         view.setEnabled(tile.enabled);
         title.setEnabled(tile.enabled);
-        if (!tile.enabled) {
+        bindChoice(view, dialog, chosen, tile.enabled, tile.id, tile.longPressId, tile.longPressLabel);
+        return view;
+    }
+
+    /** Announce a view as a switch with the given state. */
+    private static void markAsSwitch(View view, boolean checked) {
+        ViewCompat.setAccessibilityDelegate(view, new AccessibilityDelegateCompat() {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(@NonNull View host, @NonNull AccessibilityNodeInfoCompat info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                info.setClassName("android.widget.Switch");
+                info.setCheckable(true);
+                info.setChecked(checked);
+            }
+        });
+    }
+
+    /**
+     * Make a view choose its id, and with it close the sheet. A disabled view chooses nothing, neither by a tap nor by
+     * a long press. A long press chooses {@code longPressId} instead, if there is one.
+     */
+    private static void bindChoice(View view, BottomSheetDialog dialog, int[] chosen, boolean enabled, int id,
+                                   int longPressId, @Nullable CharSequence longPressLabel) {
+        if (!enabled) {
             view.setClickable(false);
             view.setLongClickable(false);
-            return view;
+            return;
         }
-
         view.setOnClickListener(v -> {
-            chosen[0] = tile.id;
+            chosen[0] = id;
             dialog.dismiss();
         });
-        if (tile.longPressId >= 0) {
+        if (longPressId >= 0) {
             view.setOnLongClickListener(v -> {
-                chosen[0] = tile.longPressId;
+                chosen[0] = longPressId;
                 dialog.dismiss();
                 return true;
             });
             ViewCompat.replaceAccessibilityAction(view, AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK,
-                tile.longPressLabel, null);
+                longPressLabel, null);
         }
-        return view;
+    }
+
+    /** Lays out the actions of the grouped presentation: one strip of shortcuts, and groups of rows. */
+    private final class GroupedLayout {
+        private final LinearLayout mContainer;
+        private final BottomSheetDialog mDialog;
+        private final int[] mChosen;
+        private final int mGap;
+        @Nullable private LinearLayout mStrip;
+        @Nullable private LinearLayout mCard;
+        private int mCardRows;
+        private final List<Action> mSecondary = new ArrayList<>();
+
+        GroupedLayout(LinearLayout container, BottomSheetDialog dialog, int[] chosen) {
+            mContainer = container;
+            mDialog = dialog;
+            mChosen = chosen;
+            mGap = Math.round(mContainer.getResources().getDimension(R.dimen.ui_menu_group_gap));
+        }
+
+        void add(Action action) {
+            if (action.placement == Placement.SHORTCUT) {
+                finishCard();
+                if (mStrip == null) {
+                    View scroll = LayoutInflater.from(mDialog.getContext())
+                        .inflate(R.layout.ui_context_sheet_strip, mContainer, false);
+                    mContainer.addView(scroll);
+                    mStrip = scroll.findViewById(R.id.context_strip);
+                }
+                mStrip.addView(createShortcut(mStrip, action));
+                return;
+            }
+            mStrip = null;
+            if (mCard == null) {
+                mCard = (LinearLayout) LayoutInflater.from(mDialog.getContext())
+                    .inflate(R.layout.ui_context_sheet_group_card, mContainer, false);
+                // The XML clipToOutline attribute is unavailable before API 31.
+                mCard.setClipToOutline(true);
+                LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) mCard.getLayoutParams();
+                int gutter = mContainer.getResources().getDimensionPixelSize(R.dimen.ui_gutter);
+                params.setMargins(gutter, mGap, gutter, 0);
+                mContainer.addView(mCard);
+                mCardRows = 0;
+            }
+            if (action.placement == Placement.SECONDARY) {
+                mSecondary.add(action);
+            } else {
+                mCard.addView(createRow(mCard, action, mCardRows++ > 0));
+            }
+        }
+
+        /** Close the strip and the group that are being built. */
+        void finish() {
+            mStrip = null;
+            finishCard();
+        }
+
+        private void finishCard() {
+            if (mCard == null) return;
+            LinearLayout card = mCard;
+            mCard = null;
+            if (mSecondary.isEmpty()) return;
+            LinearLayout folded = new LinearLayout(card.getContext());
+            folded.setOrientation(LinearLayout.VERTICAL);
+            folded.setVisibility(View.GONE);
+            for (Action action : mSecondary) folded.addView(createRow(folded, action, true));
+            mSecondary.clear();
+            card.addView(createExpander(card, folded, mCardRows > 0));
+            card.addView(folded);
+        }
+
+        private View createShortcut(ViewGroup parent, Action action) {
+            View view = LayoutInflater.from(mDialog.getContext())
+                .inflate(R.layout.ui_context_sheet_shortcut, parent, false);
+            ImageView icon = view.findViewById(R.id.context_shortcut_icon);
+            TextView title = view.findViewById(R.id.context_shortcut_title);
+            TextView detail = view.findViewById(R.id.context_shortcut_detail);
+            icon.setImageResource(action.icon);
+            title.setText(action.title);
+            if (!TextUtils.isEmpty(action.detail)) {
+                detail.setText(action.detail);
+                detail.setVisibility(View.VISIBLE);
+            }
+            int colorRes = !action.enabled ? R.color.ui_outline : R.color.ui_on_container;
+            icon.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(mDialog.getContext(), colorRes)));
+            if (!action.enabled) {
+                title.setTextColor(ContextCompat.getColor(mDialog.getContext(), colorRes));
+                detail.setTextColor(ContextCompat.getColor(mDialog.getContext(), colorRes));
+                icon.setBackgroundResource(R.drawable.ui_sheet_pill_off);
+            }
+            view.setEnabled(action.enabled);
+            title.setEnabled(action.enabled);
+            bindChoice(view, mDialog, mChosen, action.enabled, action.id, action.longPressId, action.longPressLabel);
+            return view;
+        }
+
+        private View createRow(ViewGroup parent, Action action, boolean divider) {
+            View view = LayoutInflater.from(mDialog.getContext()).inflate(R.layout.ui_context_sheet_row, parent, false);
+            ImageView icon = view.findViewById(R.id.context_row_icon);
+            TextView title = view.findViewById(R.id.context_row_title);
+            TextView detail = view.findViewById(R.id.context_row_detail);
+            icon.setImageResource(action.icon);
+            title.setText(action.title);
+            if (!TextUtils.isEmpty(action.detail)) {
+                detail.setText(action.detail);
+                detail.setVisibility(View.VISIBLE);
+            }
+            if (divider) view.findViewById(R.id.context_row_divider).setVisibility(View.VISIBLE);
+
+            // A destructive row only marks its icon red, the text stays normal.
+            int colorRes = !action.enabled ? R.color.ui_outline : (action.danger ? R.color.ui_danger : R.color.ui_on_surface_variant);
+            icon.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(mDialog.getContext(), colorRes)));
+            if (!action.enabled) title.setTextColor(ContextCompat.getColor(mDialog.getContext(), colorRes));
+
+            if (action.checked != null) {
+                TextView state = view.findViewById(R.id.context_row_state);
+                boolean on = action.checked;
+                state.setText(on ? R.string.ui_menu_state_on : R.string.ui_menu_state_off);
+                state.setBackgroundResource(on ? R.drawable.ui_sheet_pill_on : R.drawable.ui_sheet_pill_off);
+                state.setTextColor(ContextCompat.getColor(mDialog.getContext(),
+                    on ? R.color.ui_on_active : R.color.ui_on_surface_variant));
+                state.setVisibility(View.VISIBLE);
+                markAsSwitch(view, on);
+            }
+
+            view.setEnabled(action.enabled);
+            title.setEnabled(action.enabled);
+            bindChoice(view, mDialog, mChosen, action.enabled, action.id, action.longPressId, action.longPressLabel);
+            return view;
+        }
+
+        /** The row that folds the secondary rows of a group in and out. It chooses nothing and keeps the sheet open. */
+        private View createExpander(LinearLayout card, View folded, boolean divider) {
+            View view = LayoutInflater.from(mDialog.getContext()).inflate(R.layout.ui_context_sheet_row, card, false);
+            ImageView icon = view.findViewById(R.id.context_row_icon);
+            TextView title = view.findViewById(R.id.context_row_title);
+            ImageView chevron = view.findViewById(R.id.context_row_chevron);
+            view.setId(R.id.context_row_expander);
+            icon.setImageResource(R.drawable.ui_ic_menu_more);
+            icon.setImageTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(mDialog.getContext(), R.color.ui_on_surface_variant)));
+            chevron.setImageTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(mDialog.getContext(), R.color.ui_on_surface_variant)));
+            chevron.setVisibility(View.VISIBLE);
+            if (divider) view.findViewById(R.id.context_row_divider).setVisibility(View.VISIBLE);
+
+            Runnable bind = () -> {
+                boolean expanded = folded.getVisibility() == View.VISIBLE;
+                title.setText(expanded ? R.string.ui_menu_fewer : R.string.ui_menu_more);
+                chevron.animate().rotation(expanded ? 180f : 0f).setDuration(160).start();
+                ViewCompat.setStateDescription(view, mDialog.getContext().getString(
+                    expanded ? R.string.ui_menu_state_expanded : R.string.ui_menu_state_collapsed));
+            };
+            bind.run();
+            Runnable toggle = () -> {
+                if (ViewCompat.isLaidOut(card)) {
+                    TransitionManager.beginDelayedTransition(card, new AutoTransition().setDuration(160));
+                }
+                boolean expand = folded.getVisibility() != View.VISIBLE;
+                folded.setVisibility(expand ? View.VISIBLE : View.GONE);
+                bind.run();
+                // Keep the revealed rows in view when the group is at the bottom of a scrolling list.
+                if (expand) folded.post(() ->
+                    folded.requestRectangleOnScreen(new Rect(0, 0, folded.getWidth(), folded.getHeight()), false));
+            };
+            view.setOnClickListener(v -> toggle.run());
+            ViewCompat.setAccessibilityDelegate(view, new AccessibilityDelegateCompat() {
+                @Override
+                public void onInitializeAccessibilityNodeInfo(@NonNull View host, @NonNull AccessibilityNodeInfoCompat info) {
+                    super.onInitializeAccessibilityNodeInfo(host, info);
+                    info.addAction(folded.getVisibility() == View.VISIBLE
+                        ? AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_COLLAPSE
+                        : AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_EXPAND);
+                }
+
+                @Override
+                public boolean performAccessibilityAction(@NonNull View host, int action, @Nullable Bundle args) {
+                    boolean expanded = folded.getVisibility() == View.VISIBLE;
+                    if ((action == AccessibilityNodeInfoCompat.ACTION_EXPAND && !expanded)
+                        || (action == AccessibilityNodeInfoCompat.ACTION_COLLAPSE && expanded)) {
+                        toggle.run();
+                        return true;
+                    }
+                    return super.performAccessibilityAction(host, action, args);
+                }
+            });
+            return view;
+        }
     }
 }

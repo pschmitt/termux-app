@@ -103,41 +103,43 @@ public final class TerminalContextMenu {
         return TextUtils.join(resources.getString(R.string.ui_menu_session_detail_separator), parts);
     }
 
-    /** Add the entries of the bottom sheet: a session header, a grid of labelled actions and the toggle. */
+    /**
+     * Add the entries of the bottom sheet, in the grouped presentation: a session header, a strip of the frequent
+     * actions, a group with the Keep screen on setting and the folded-away Reset, Settings on its own, and the
+     * destructive Kill set apart at the end.
+     */
     public static TermuxContextMenuSheet populateSheet(@NonNull TermuxContextMenuSheet sheet,
                                                        @NonNull Resources resources, @NonNull State state) {
-        sheet.setHeader(headerTitle(resources, state), headerDetail(resources, state),
-            SETTINGS, resources.getString(R.string.action_open_settings), R.drawable.ui_ic_menu_settings);
+        sheet.setSessionHeader(headerTitle(resources, state), headerDetail(resources, state));
 
+        // The frequent actions. Where there is a choice, the shortcut opens a sheet of its own.
         String urls = state.urlCount < 0 ? null
             : (state.urlCount == 0 ? resources.getString(R.string.ui_menu_urls_none)
             : resources.getQuantityString(R.plurals.ui_menu_urls_found, state.urlCount, state.urlCount));
-        sheet.addTile(SELECT_URL, resources.getString(R.string.ui_menu_open_url), urls, R.drawable.ui_ic_menu_link);
-        // One tile per kind of action; where there is a choice, the tile opens a sheet of its own.
-        if (state.hasSelectedText) {
-            sheet.addTile(SHARE_MENU, resources.getString(R.string.ui_menu_share),
-                resources.getString(R.string.ui_menu_share_choice_detail), R.drawable.ui_ic_menu_share);
-        } else {
-            sheet.addTile(SHARE_TRANSCRIPT, resources.getString(R.string.ui_menu_share),
-                resources.getString(R.string.ui_menu_share_transcript_detail), R.drawable.ui_ic_menu_share);
-        }
+        sheet.addShortcut(SELECT_URL, resources.getString(R.string.ui_menu_open_url), urls,
+            R.drawable.ui_ic_menu_link, state.urlCount != 0);
+        sheet.addShortcut(state.hasSelectedText ? SHARE_MENU : SHARE_TRANSCRIPT,
+            resources.getString(R.string.ui_menu_share), null, R.drawable.ui_ic_menu_share);
         if (state.autoFillEnabled) {
-            sheet.addTile(AUTOFILL_MENU, resources.getString(R.string.ui_menu_autofill),
-                resources.getString(R.string.ui_menu_autofill_detail), R.drawable.ui_ic_menu_key);
+            sheet.addShortcut(AUTOFILL_MENU, resources.getString(R.string.ui_menu_autofill), null,
+                R.drawable.ui_ic_menu_key);
         }
-        sheet.addToggleTile(TOGGLE_KEEP_SCREEN_ON, resources.getString(R.string.action_toggle_keep_screen_on),
-            R.drawable.ui_ic_menu_sun, state.keepScreenOn,
-            resources.getString(R.string.ui_menu_toggle_on), resources.getString(R.string.ui_menu_toggle_off));
+
+        sheet.addStateRow(TOGGLE_KEEP_SCREEN_ON, resources.getString(R.string.action_toggle_keep_screen_on),
+            R.drawable.ui_ic_menu_sun, state.keepScreenOn);
+        sheet.addSecondaryRow(RESET_TERMINAL, resources.getString(R.string.action_reset_terminal),
+            resources.getString(R.string.ui_menu_reset_detail), R.drawable.ui_ic_menu_reset);
+
+        sheet.addGroupBreak();
+        sheet.addRow(SETTINGS, resources.getString(R.string.action_open_settings), null, R.drawable.ui_ic_menu_settings);
+
         String killTarget = TextUtils.isEmpty(state.processName)
             ? resources.getString(R.string.ui_menu_kill_session_target) : state.processName;
-        // Kill and Reset always share the last row.
-        sheet.addRowBreak();
-        sheet.addDangerTile(KILL_PROCESS, resources.getString(R.string.ui_menu_kill, killTarget),
+        sheet.addGroupBreak();
+        sheet.addDangerRow(KILL_PROCESS, resources.getString(R.string.ui_menu_kill, killTarget),
             resources.getString(state.sessionRunning ? R.string.ui_menu_kill_detail : R.string.ui_menu_not_running),
             R.drawable.ui_ic_menu_power, state.sessionRunning,
             KILL_PROCESS_NOW, resources.getString(R.string.ui_menu_kill_now));
-        sheet.addTile(RESET_TERMINAL, resources.getString(R.string.action_reset_terminal),
-            resources.getString(R.string.ui_menu_reset_detail), R.drawable.ui_ic_menu_reset);
         return sheet;
     }
 

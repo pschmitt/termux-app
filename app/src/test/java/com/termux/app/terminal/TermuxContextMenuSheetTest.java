@@ -237,6 +237,279 @@ public class TermuxContextMenuSheetTest {
         Assert.assertEquals(OTHER, chosen[0]);
     }
 
+    private static TermuxContextMenuSheet grouped(Activity activity, boolean killEnabled, boolean keepOn) {
+        return new TermuxContextMenuSheet(activity)
+            .setHeader(R.drawable.ui_ic_menu_terminal, "zsh", "~/devel · pid 4182")
+            .addShortcut(TerminalContextMenu.SELECT_URL, "Open URL", "2 found", R.drawable.ui_ic_menu_link)
+            .addShortcut(SHARE, "Share", null, R.drawable.ui_ic_menu_share)
+            .addStateRow(OTHER, "Keep screen on", R.drawable.ui_ic_menu_sun, keepOn)
+            .addSecondaryRow(RESET, "Reset", "terminal state", R.drawable.ui_ic_menu_reset)
+            .addGroupBreak()
+            .addRow(SETTINGS, "Settings", null, R.drawable.ui_ic_menu_settings)
+            .addGroupBreak()
+            .addDangerRow(KILL, "Kill zsh", "hold to kill now", R.drawable.ui_ic_menu_power, killEnabled,
+                KILL_NOW, "Kill now");
+    }
+
+    private static View titled(BottomSheetDialog dialog, int titleId, int rootId, String title) {
+        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
+            if (view.getId() == titleId && title.contentEquals(((TextView) view).getText())) {
+                View root = view;
+                while (root.getId() != rootId) root = (View) root.getParent();
+                return root;
+            }
+        }
+        throw new AssertionError("Missing view: " + title);
+    }
+
+    private static View row(BottomSheetDialog dialog, String title) {
+        return titled(dialog, R.id.context_row_title, R.id.context_row, title);
+    }
+
+    private static View shortcut(BottomSheetDialog dialog, String title) {
+        return titled(dialog, R.id.context_shortcut_title, R.id.context_shortcut, title);
+    }
+
+    private static int choose(Activity activity, boolean shortcut, String title, boolean longPress) {
+        int[] chosen = {Integer.MIN_VALUE};
+        BottomSheetDialog dialog = grouped(activity, true, false).show(id -> chosen[0] = id);
+        if (!shortcut) {
+            // Expand first so that the folded rows can be reached the way a user would.
+            dialog.findViewById(R.id.context_row_expander).performClick();
+        }
+        View view = shortcut ? shortcut(dialog, title) : row(dialog, title);
+        Assert.assertTrue(longPress ? view.performLongClick() : view.performClick());
+        Assert.assertFalse("The sheet closes with the choice", dialog.isShowing());
+        ShadowLooper.idleMainLooper();
+        return chosen[0];
+    }
+
+    @Test
+    public void groupedActionsAreListedInOrderWithLongPressesAndNoHeaderAction() {
+        Assert.assertEquals(java.util.Arrays.asList(TerminalContextMenu.SELECT_URL, SHARE, OTHER, RESET, SETTINGS,
+                KILL, KILL_NOW),
+            grouped(activity(), true, false).getItemIds());
+    }
+
+    @Test
+    public void groupedShortcutsRowsAndSettingsChooseTheirOwnIds() {
+        Activity activity = activity();
+        Assert.assertEquals(TerminalContextMenu.SELECT_URL, choose(activity, true, "Open URL", false));
+        Assert.assertEquals(SHARE, choose(activity, true, "Share", false));
+        Assert.assertEquals(OTHER, choose(activity, false, "Keep screen on", false));
+        Assert.assertEquals(RESET, choose(activity, false, "Reset", false));
+        Assert.assertEquals(SETTINGS, choose(activity, false, "Settings", false));
+        Assert.assertEquals(KILL, choose(activity, false, "Kill zsh", false));
+    }
+
+    @Test
+    public void groupedChoiceIsDeliveredOnlyAfterTheSheetIsDismissed() {
+        Activity activity = activity();
+        java.util.List<String> events = new java.util.ArrayList<>();
+        BottomSheetDialog[] holder = new BottomSheetDialog[1];
+        holder[0] = grouped(activity, true, false).show(id -> events.add("chosen " + id + " showing=" + holder[0].isShowing()));
+        row(holder[0], "Settings").performClick();
+        ShadowLooper.idleMainLooper();
+        Assert.assertEquals(java.util.Collections.singletonList("chosen " + SETTINGS + " showing=false"), events);
+    }
+
+    @Test
+    public void holdingTheGroupedKillRowChoosesKillNowAndIsLabelledForScreenReaders() {
+        Activity activity = activity();
+        Assert.assertEquals(KILL_NOW, choose(activity, false, "Kill zsh", true));
+
+        BottomSheetDialog dialog = grouped(activity, true, false).show(id -> { });
+        AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
+        ViewCompat.onInitializeAccessibilityNodeInfo(row(dialog, "Kill zsh"), info);
+        boolean labelled = false;
+        for (AccessibilityNodeInfoCompat.AccessibilityActionCompat action : info.getActionList()) {
+            if (action.getId() == AccessibilityNodeInfoCompat.ACTION_LONG_CLICK)
+                labelled = "Kill now".contentEquals(action.getLabel());
+        }
+        Assert.assertTrue(labelled);
+    }
+
+    @Test
+    public void groupedRowsWithoutALongPressIgnoreHolding() {
+        Activity activity = activity();
+        int[] chosen = {Integer.MIN_VALUE};
+        BottomSheetDialog dialog = grouped(activity, true, false).show(id -> chosen[0] = id);
+        Assert.assertFalse(row(dialog, "Settings").performLongClick());
+        Assert.assertFalse(shortcut(dialog, "Share").performLongClick());
+        ShadowLooper.idleMainLooper();
+        Assert.assertEquals(Integer.MIN_VALUE, chosen[0]);
+        Assert.assertTrue(dialog.isShowing());
+    }
+
+    @Test
+    public void disabledGroupedKillRowChoosesNothingAndLooksDisabled() {
+        Activity activity = activity();
+        int[] chosen = {Integer.MIN_VALUE};
+        BottomSheetDialog dialog = grouped(activity, false, false).show(id -> chosen[0] = id);
+        View kill = row(dialog, "Kill zsh");
+        Assert.assertFalse(kill.isEnabled());
+        Assert.assertFalse(kill.performClick());
+        Assert.assertFalse(kill.performLongClick());
+        Assert.assertFalse(kill.findViewById(R.id.context_row_title).isEnabled());
+        ShadowLooper.idleMainLooper();
+        Assert.assertEquals(Integer.MIN_VALUE, chosen[0]);
+        Assert.assertTrue(dialog.isShowing());
+    }
+
+    @Test
+    public void groupedStateRowShowsAnOnOrOffPillAndIsASwitch() {
+        Activity activity = activity();
+        for (boolean on : new boolean[]{true, false}) {
+            BottomSheetDialog dialog = grouped(activity, true, on).show(id -> { });
+            View keep = row(dialog, "Keep screen on");
+            TextView pill = keep.findViewById(R.id.context_row_state);
+            Assert.assertEquals(View.VISIBLE, pill.getVisibility());
+            Assert.assertEquals(on ? "On" : "Off", pill.getText().toString());
+            Assert.assertEquals(View.IMPORTANT_FOR_ACCESSIBILITY_NO, pill.getImportantForAccessibility());
+
+            AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
+            ViewCompat.onInitializeAccessibilityNodeInfo(keep, info);
+            Assert.assertEquals("android.widget.Switch", String.valueOf(info.getClassName()));
+            Assert.assertTrue(info.isCheckable());
+            Assert.assertEquals(on, info.isChecked());
+
+            // Plain rows carry no pill and are not switches.
+            Assert.assertEquals(View.GONE, row(dialog, "Settings").findViewById(R.id.context_row_state).getVisibility());
+            AccessibilityNodeInfoCompat plain = AccessibilityNodeInfoCompat.obtain();
+            ViewCompat.onInitializeAccessibilityNodeInfo(row(dialog, "Settings"), plain);
+            Assert.assertFalse(plain.isCheckable());
+        }
+    }
+
+    @Test
+    public void groupedSecondaryRowsAreFoldedUntilTheExplicitExpanderIsUsed() {
+        Activity activity = activity();
+        java.util.List<Integer> chosen = new java.util.ArrayList<>();
+        BottomSheetDialog dialog = grouped(activity, true, false).show(chosen::add);
+        View expander = dialog.findViewById(R.id.context_row_expander);
+        View reset = row(dialog, "Reset");
+        View folded = (View) reset.getParent();
+        TextView label = expander.findViewById(R.id.context_row_title);
+
+        Assert.assertEquals(View.GONE, folded.getVisibility());
+        Assert.assertEquals("More actions", label.getText().toString());
+        Assert.assertEquals(View.VISIBLE, expander.findViewById(R.id.context_row_chevron).getVisibility());
+        Assert.assertEquals("Collapsed", String.valueOf(ViewCompat.getStateDescription(expander)));
+        Assert.assertTrue(expander.isClickable() && expander.isFocusable());
+
+        // The expander is offered to screen readers as an expandable control.
+        AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
+        ViewCompat.onInitializeAccessibilityNodeInfo(expander, info);
+        Assert.assertTrue(hasAction(info, AccessibilityNodeInfoCompat.ACTION_EXPAND));
+        Assert.assertFalse(hasAction(info, AccessibilityNodeInfoCompat.ACTION_COLLAPSE));
+
+        Assert.assertTrue(expander.performClick());
+        Assert.assertEquals(View.VISIBLE, folded.getVisibility());
+        Assert.assertEquals("Fewer actions", label.getText().toString());
+        Assert.assertEquals("Expanded", String.valueOf(ViewCompat.getStateDescription(expander)));
+        info = AccessibilityNodeInfoCompat.obtain();
+        ViewCompat.onInitializeAccessibilityNodeInfo(expander, info);
+        Assert.assertTrue(hasAction(info, AccessibilityNodeInfoCompat.ACTION_COLLAPSE));
+
+        // Expanding is not a choice: the sheet stays and nothing is delivered.
+        ShadowLooper.idleMainLooper();
+        Assert.assertTrue(dialog.isShowing());
+        Assert.assertTrue(chosen.isEmpty());
+
+        Assert.assertTrue(expander.performClick());
+        Assert.assertEquals(View.GONE, folded.getVisibility());
+        Assert.assertEquals("More actions", label.getText().toString());
+    }
+
+    @Test
+    public void groupedExpanderCanBeDrivenByAccessibilityActions() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = grouped(activity, true, false).show(id -> { });
+        View expander = dialog.findViewById(R.id.context_row_expander);
+        View folded = (View) row(dialog, "Reset").getParent();
+
+        Assert.assertFalse("Already collapsed", ViewCompat.performAccessibilityAction(expander,
+            AccessibilityNodeInfoCompat.ACTION_COLLAPSE, null));
+        Assert.assertTrue(ViewCompat.performAccessibilityAction(expander,
+            AccessibilityNodeInfoCompat.ACTION_EXPAND, null));
+        Assert.assertEquals(View.VISIBLE, folded.getVisibility());
+        Assert.assertTrue(ViewCompat.performAccessibilityAction(expander,
+            AccessibilityNodeInfoCompat.ACTION_COLLAPSE, null));
+        Assert.assertEquals(View.GONE, folded.getVisibility());
+    }
+
+    private static boolean hasAction(AccessibilityNodeInfoCompat info, int id) {
+        for (AccessibilityNodeInfoCompat.AccessibilityActionCompat action : info.getActionList()) {
+            if (action.getId() == id) return true;
+        }
+        return false;
+    }
+
+    @Test
+    public void groupedLayoutIsAStripThenOneCardPerGroup() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = grouped(activity, true, false).show(id -> { });
+        ViewGroup items = dialog.findViewById(R.id.context_sheet_items);
+
+        // Strip, the setting group, Settings on its own, and the destructive Kill on its own.
+        Assert.assertEquals(4, items.getChildCount());
+        View strip = items.getChildAt(0);
+        Assert.assertNotNull(strip.findViewById(R.id.context_strip));
+        Assert.assertSame(shortcut(dialog, "Open URL").getParent(), shortcut(dialog, "Share").getParent());
+        Assert.assertSame(strip.findViewById(R.id.context_strip), shortcut(dialog, "Share").getParent());
+        Assert.assertSame(items.getChildAt(1), row(dialog, "Keep screen on").getParent());
+        Assert.assertSame(items.getChildAt(1), dialog.findViewById(R.id.context_row_expander).getParent());
+        Assert.assertSame(items.getChildAt(2), row(dialog, "Settings").getParent());
+        Assert.assertSame(items.getChildAt(3), row(dialog, "Kill zsh").getParent());
+
+        // Only the rows after the first of a group have a divider above them.
+        Assert.assertEquals(View.GONE, row(dialog, "Keep screen on").findViewById(R.id.context_row_divider).getVisibility());
+        Assert.assertEquals(View.VISIBLE,
+            dialog.findViewById(R.id.context_row_expander).findViewById(R.id.context_row_divider).getVisibility());
+        Assert.assertEquals(View.GONE, row(dialog, "Settings").findViewById(R.id.context_row_divider).getVisibility());
+
+        // The shortcuts share the strip and keep the touch target; the detail only shows where there is one.
+        float density = activity.getResources().getDisplayMetrics().density;
+        Assert.assertTrue(shortcut(dialog, "Share").getMinimumHeight() >= Math.round(48 * density));
+        Assert.assertEquals("2 found",
+            ((TextView) shortcut(dialog, "Open URL").findViewById(R.id.context_shortcut_detail)).getText().toString());
+        Assert.assertEquals(View.GONE,
+            shortcut(dialog, "Share").findViewById(R.id.context_shortcut_detail).getVisibility());
+
+        // Every row is at least a touch target tall.
+        View settings = row(dialog, "Settings");
+        settings.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        Assert.assertTrue(settings.getMeasuredHeight() >= Math.round(48 * density));
+    }
+
+    @Test
+    public void groupedHeaderHasNoActionAndNoSectionLabels() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = grouped(activity, true, false).show(id -> { });
+        View header = dialog.findViewById(R.id.context_sheet_header);
+        Assert.assertEquals("zsh", ((TextView) header.findViewById(R.id.context_header_title)).getText().toString());
+        Assert.assertEquals(View.GONE, header.findViewById(R.id.context_header_action).getVisibility());
+        ViewGroup root = (ViewGroup) dialog.findViewById(R.id.context_sheet_items).getParent().getParent();
+        Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_group_text)));
+        Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_group_session)));
+        Assert.assertFalse(containsVisibleText(root, activity.getString(R.string.ui_menu_group_app)));
+    }
+
+    @Test
+    public void choiceSheetsKeepTheirCardsAndAreNotGrouped() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = new TermuxContextMenuSheet(activity)
+            .setHeader(R.drawable.ui_ic_menu_key, "Autofill", "zsh")
+            .addCard(USERNAME, "Username", null, R.drawable.ui_ic_menu_user, "login: ▌")
+            .addCard(PASSWORD, "Password", null, R.drawable.ui_ic_menu_lock, null)
+            .show(id -> { });
+        ViewGroup items = dialog.findViewById(R.id.context_sheet_items);
+        Assert.assertNotNull(tile(dialog, "Username"));
+        Assert.assertTrue(allViews(items).stream().noneMatch(v -> v.getId() == R.id.context_row
+            || v.getId() == R.id.context_shortcut || v.getId() == R.id.context_row_expander));
+    }
+
     @NonNull
     private static java.util.List<View> allViews(View root) {
         java.util.List<View> out = new java.util.ArrayList<>();

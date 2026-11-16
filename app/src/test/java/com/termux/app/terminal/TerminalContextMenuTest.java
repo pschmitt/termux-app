@@ -76,26 +76,19 @@ public class TerminalContextMenuTest {
 
     @Test
     public void sheetKeepsTheOtherActionsInOrder() {
+        // Frequent actions first, then the setting and the folded Reset, Settings, and the destructive Kill last.
         Assert.assertEquals(Arrays.asList(
                 TerminalContextMenu.SELECT_URL, TerminalContextMenu.SHARE_MENU,
                 TerminalContextMenu.AUTOFILL_MENU, TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON,
-                TerminalContextMenu.KILL_PROCESS, TerminalContextMenu.KILL_PROCESS_NOW,
-                TerminalContextMenu.RESET_TERMINAL, TerminalContextMenu.SETTINGS),
+                TerminalContextMenu.RESET_TERMINAL, TerminalContextMenu.SETTINGS,
+                TerminalContextMenu.KILL_PROCESS, TerminalContextMenu.KILL_PROCESS_NOW),
             sheetIds(activity(), everything()));
         Assert.assertEquals(Arrays.asList(
                 TerminalContextMenu.SELECT_URL, TerminalContextMenu.SHARE_TRANSCRIPT,
-                TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON, TerminalContextMenu.KILL_PROCESS,
-                TerminalContextMenu.KILL_PROCESS_NOW, TerminalContextMenu.RESET_TERMINAL,
-                TerminalContextMenu.SETTINGS),
+                TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON, TerminalContextMenu.RESET_TERMINAL,
+                TerminalContextMenu.SETTINGS, TerminalContextMenu.KILL_PROCESS,
+                TerminalContextMenu.KILL_PROCESS_NOW),
             sheetIds(activity(), minimal()));
-
-        Activity activity = activity();
-        List<Integer> allIds = sheetIds(activity, everything());
-        Assert.assertEquals(2, allIds.indexOf(TerminalContextMenu.RESET_TERMINAL)
-            - allIds.indexOf(TerminalContextMenu.KILL_PROCESS));
-        Assert.assertEquals(activity.getString(R.string.action_kill_process_accessibility), "Kill session");
-        Assert.assertEquals("Kill session", activity.getString(R.string.action_kill_session));
-        Assert.assertTrue(activity.getString(R.string.msg_confirm_kill_process).contains("process will stop"));
     }
 
     private static TerminalContextMenu.State session(String name, boolean running, int number, int count) {
@@ -118,82 +111,173 @@ public class TerminalContextMenuTest {
             TerminalContextMenu.headerDetail(resources, session(null, false, 1, 1)));
     }
 
-    @Test
-    public void tilesAreLabelledWithWhatTheyDo() {
-        Activity activity = activity();
-        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
-            new TermuxContextMenuSheet(activity), activity.getResources(), session(null, true, 2, 3)).show(id -> { });
-        List<String> titles = new ArrayList<>();
-        List<String> details = new ArrayList<>();
-        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
-            if (view.getId() == R.id.context_tile_title) titles.add(((TextView) view).getText().toString());
-            if (view.getId() == R.id.context_tile_detail) details.add(((TextView) view).getText().toString());
-        }
-        Assert.assertEquals(Arrays.asList("Open URL", "Share", "Autofill", "Keep screen on", "Kill zsh", "Reset"),
-            titles);
-        Assert.assertEquals(Arrays.asList("2 found", "selection or all", "user or password",
-            "off", "hold to kill now", "terminal state"), details);
+    private static BottomSheetDialog mainSheet(Activity activity, TerminalContextMenu.State state) {
+        return TerminalContextMenu.populateSheet(
+            new TermuxContextMenuSheet(activity), activity.getResources(), state).show(id -> { });
     }
 
-    private static View tileTitled(BottomSheetDialog dialog, String title) {
+    @Test
+    public void mainSheetUsesTheGroupedPresentation() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = mainSheet(activity, session(null, true, 2, 3));
+        Assert.assertEquals(Arrays.asList("Open URL", "Share", "Autofill"), texts(dialog, R.id.context_shortcut_title));
+        // Only the URL count is a detail: Share and Autofill are named by their label.
+        Assert.assertEquals(Arrays.asList("2 found"), texts(dialog, R.id.context_shortcut_detail));
+        // Reset is folded away behind More actions, so it is not shown yet.
+        Assert.assertEquals(Arrays.asList("Keep screen on", "More actions", "Settings", "Kill zsh"),
+            texts(dialog, R.id.context_row_title));
+        Assert.assertEquals(Arrays.asList("hold to kill now"), texts(dialog, R.id.context_row_detail));
+        // No tile of the old grid is left in the main menu.
+        Assert.assertTrue(texts(dialog, R.id.context_tile_title).isEmpty());
+        // Header keeps the session; Settings is a row now, not a header icon.
+        View header = dialog.findViewById(R.id.context_sheet_header);
+        Assert.assertEquals("zsh", ((TextView) header.findViewById(R.id.context_header_title)).getText().toString());
+        Assert.assertEquals(View.GONE, header.findViewById(R.id.context_header_action).getVisibility());
+    }
+
+    @Test
+    public void openUrlIsDisabledOnlyWhenTheCountIsKnownToBeZero() {
+        for (int count : new int[] {0, 2, -1}) {
+            Activity activity = activity();
+            TerminalContextMenu.State state = new TerminalContextMenu.State(false, false, 4182, true, false,
+                null, "zsh", "~", 1, 1, count);
+            BottomSheetDialog dialog = mainSheet(activity, state);
+            View shortcut = viewTitled(dialog, R.id.context_shortcut_title, R.id.context_shortcut, "Open URL");
+            Assert.assertEquals(count != 0, shortcut.isEnabled());
+            Assert.assertEquals(count != 0, shortcut.isClickable());
+            if (count == 0) {
+                shortcut.performClick();
+                Assert.assertTrue(dialog.isShowing());
+            }
+            dialog.dismiss();
+        }
+    }
+
+    @Test
+    public void sessionHeaderIsCompactAndHasNoShortcutBadge() {
+        Activity activity = activity();
+        BottomSheetDialog dialog = mainSheet(activity, session(null, true, 1, 1));
+        View icon = dialog.findViewById(R.id.context_header_icon);
+        float density = activity.getResources().getDisplayMetrics().density;
+        Assert.assertEquals((int) (24 * density), icon.getLayoutParams().width);
+        Assert.assertNull(icon.getBackground());
+        TextView title = dialog.findViewById(R.id.context_header_title);
+        Assert.assertEquals(16f * activity.getResources().getDisplayMetrics().scaledDensity, title.getTextSize(), .1f);
+        dialog.dismiss();
+    }
+
+    private static View viewTitled(BottomSheetDialog dialog, int titleId, int rootId, String title) {
         for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
-            if (view.getId() == R.id.context_tile_title && title.contentEquals(((TextView) view).getText())) {
-                View tile = view;
-                while (tile.getId() != R.id.context_tile) tile = (View) tile.getParent();
-                return tile;
+            if (view.getId() == titleId && title.contentEquals(((TextView) view).getText())) {
+                View root = view;
+                while (root.getId() != rootId) root = (View) root.getParent();
+                return root;
             }
         }
-        throw new AssertionError("Missing tile: " + title);
+        throw new AssertionError("Missing view: " + title);
+    }
+
+    private static View rowTitled(BottomSheetDialog dialog, String title) {
+        return viewTitled(dialog, R.id.context_row_title, R.id.context_row, title);
     }
 
     @Test
-    public void killAndResetAlwaysShareTheLastRow() {
+    public void settingsAndKillAreSetApartInGroupsOfTheirOwn() {
         Activity activity = activity();
         for (TerminalContextMenu.State state : Arrays.asList(session(null, true, 1, 1), minimal())) {
-            BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
-                new TermuxContextMenuSheet(activity), activity.getResources(), state).show(id -> { });
+            BottomSheetDialog dialog = mainSheet(activity, state);
             String kill = state.processName == null ? "Kill session" : "Kill zsh";
-            View killTile = tileTitled(dialog, kill);
-            Assert.assertSame(killTile.getParent(), tileTitled(dialog, "Reset").getParent());
-            // Kill, the gap between the tiles, Reset.
-            Assert.assertEquals(3, ((android.view.ViewGroup) killTile.getParent()).getChildCount());
+            View killRow = rowTitled(dialog, kill);
+            View settingsRow = rowTitled(dialog, "Settings");
+            View keepRow = rowTitled(dialog, "Keep screen on");
+            Assert.assertNotSame(killRow.getParent(), settingsRow.getParent());
+            Assert.assertNotSame(killRow.getParent(), keepRow.getParent());
+            Assert.assertNotSame(settingsRow.getParent(), keepRow.getParent());
+            // The order down the sheet: strip, setting group, Settings, Kill.
+            android.view.ViewGroup items = dialog.findViewById(R.id.context_sheet_items);
+            Assert.assertEquals(4, items.getChildCount());
+            Assert.assertSame(keepRow.getParent(), items.getChildAt(1));
+            Assert.assertSame(settingsRow.getParent(), items.getChildAt(2));
+            Assert.assertSame(killRow.getParent(), items.getChildAt(3));
         }
-        // Without autofill there are five tiles: Keep screen on gets a row of its own.
-        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
-            new TermuxContextMenuSheet(activity), activity.getResources(), minimal()).show(id -> { });
-        Assert.assertEquals(1,
-            ((android.view.ViewGroup) tileTitled(dialog, "Keep screen on").getParent()).getChildCount());
     }
 
     @Test
-    public void keepScreenOnTileShowsItsStateAsASwitch() {
+    public void resetIsFoldedBehindAnExplicitMoreActionsRowWithItsStateAnnounced() {
         Activity activity = activity();
-        TerminalContextMenu.State on = new TerminalContextMenu.State(false, false, 4182, true, true,
-            null, "zsh", "~", 1, 1, 0);
+        List<Integer> chosen = new ArrayList<>();
         BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
-            new TermuxContextMenuSheet(activity), activity.getResources(), on).show(id -> { });
-        View tile = tileTitled(dialog, "Keep screen on");
-        Assert.assertEquals("on", ((TextView) tile.findViewById(R.id.context_tile_detail)).getText().toString());
-        androidx.core.view.accessibility.AccessibilityNodeInfoCompat info =
-            androidx.core.view.accessibility.AccessibilityNodeInfoCompat.obtain();
-        androidx.core.view.ViewCompat.onInitializeAccessibilityNodeInfo(tile, info);
-        Assert.assertEquals("android.widget.Switch", String.valueOf(info.getClassName()));
-        Assert.assertTrue(info.isCheckable());
-        Assert.assertTrue(info.isChecked());
+            new TermuxContextMenuSheet(activity), activity.getResources(), minimal()).show(chosen::add);
+        View reset = rowTitled(dialog, "Reset");
+        View expander = dialog.findViewById(R.id.context_row_expander);
+        View folded = (View) reset.getParent();
+        Assert.assertNotNull(expander);
+        Assert.assertEquals(View.GONE, folded.getVisibility());
+        Assert.assertEquals("More actions", ((TextView) expander.findViewById(R.id.context_row_title)).getText().toString());
+        Assert.assertEquals("Collapsed", String.valueOf(androidx.core.view.ViewCompat.getStateDescription(expander)));
+
+        Assert.assertTrue(expander.performClick());
+        Assert.assertEquals(View.VISIBLE, folded.getVisibility());
+        Assert.assertEquals("Fewer actions", ((TextView) expander.findViewById(R.id.context_row_title)).getText().toString());
+        Assert.assertEquals("Expanded", String.valueOf(androidx.core.view.ViewCompat.getStateDescription(expander)));
+        // Expanding chooses nothing and keeps the sheet open.
+        Assert.assertTrue(dialog.isShowing());
+        Assert.assertTrue(chosen.isEmpty());
+
+        Assert.assertTrue(expander.performClick());
+        Assert.assertEquals(View.GONE, folded.getVisibility());
+    }
+
+    @Test
+    public void resetChoosesItsIdAfterTheSheetIsExpanded() {
+        Activity activity = activity();
+        List<Integer> chosen = new ArrayList<>();
+        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
+            new TermuxContextMenuSheet(activity), activity.getResources(), everything()).show(chosen::add);
+        dialog.findViewById(R.id.context_row_expander).performClick();
+        Assert.assertTrue(rowTitled(dialog, "Reset").performClick());
+        org.robolectric.shadows.ShadowLooper.idleMainLooper();
+        Assert.assertEquals(Arrays.asList(TerminalContextMenu.RESET_TERMINAL), chosen);
+    }
+
+    @Test
+    public void keepScreenOnShowsItsStateAsAPillAndAsASwitch() {
+        Activity activity = activity();
+        for (boolean keepOn : new boolean[]{true, false}) {
+            TerminalContextMenu.State state = new TerminalContextMenu.State(false, false, 4182, true, keepOn,
+                null, "zsh", "~", 1, 1, 0);
+            BottomSheetDialog dialog = mainSheet(activity, state);
+            View row = rowTitled(dialog, "Keep screen on");
+            TextView pill = row.findViewById(R.id.context_row_state);
+            Assert.assertEquals(View.VISIBLE, pill.getVisibility());
+            Assert.assertEquals(keepOn ? "On" : "Off", pill.getText().toString());
+            androidx.core.view.accessibility.AccessibilityNodeInfoCompat info =
+                androidx.core.view.accessibility.AccessibilityNodeInfoCompat.obtain();
+            androidx.core.view.ViewCompat.onInitializeAccessibilityNodeInfo(row, info);
+            Assert.assertEquals("android.widget.Switch", String.valueOf(info.getClassName()));
+            Assert.assertTrue(info.isCheckable());
+            Assert.assertEquals(keepOn, info.isChecked());
+            // The pill repeats what the switch announces: screen readers read it once.
+            Assert.assertEquals(View.IMPORTANT_FOR_ACCESSIBILITY_NO, pill.getImportantForAccessibility());
+        }
+    }
+
+    @Test
+    public void onlyTheKeepScreenOnRowHasAPill() {
+        BottomSheetDialog dialog = mainSheet(activity(), everything());
+        List<String> pills = texts(dialog, R.id.context_row_state);
+        Assert.assertEquals(1, pills.size());
     }
 
     @Test
     public void withoutASelectionShareIsTheTranscript() {
         Activity activity = activity();
-        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
-            new TermuxContextMenuSheet(activity), activity.getResources(), minimal()).show(id -> { });
-        List<String> details = new ArrayList<>();
-        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
-            if (view.getId() == R.id.context_tile_detail) details.add(((TextView) view).getText().toString());
-        }
-        Assert.assertTrue(details.contains("transcript"));
+        BottomSheetDialog dialog = mainSheet(activity, minimal());
+        Assert.assertTrue(texts(dialog, R.id.context_shortcut_title).contains("Share"));
+        Assert.assertTrue(sheetIds(activity, minimal()).contains(TerminalContextMenu.SHARE_TRANSCRIPT));
         Assert.assertFalse(sheetIds(activity, minimal()).contains(TerminalContextMenu.SHARE_SELECTED_TEXT));
         Assert.assertFalse(sheetIds(activity, minimal()).contains(TerminalContextMenu.SHARE_MENU));
+        Assert.assertTrue(sheetIds(activity, everything()).contains(TerminalContextMenu.SHARE_MENU));
     }
 
     private static List<Integer> choiceIds(Activity activity, int menuId, TerminalContextMenu.State state) {
@@ -205,10 +289,18 @@ public class TerminalContextMenuTest {
     private static List<String> texts(BottomSheetDialog dialog, int viewId) {
         List<String> out = new ArrayList<>();
         for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
-            if (view.getId() == viewId && view.getVisibility() == View.VISIBLE)
+            if (view.getId() == viewId && isShown(view, dialog.findViewById(R.id.context_sheet_items)))
                 out.add(((TextView) view).getText().toString());
         }
         return out;
+    }
+
+    /** Whether the view and every ancestor up to the root are visible: a folded row is not. */
+    private static boolean isShown(View view, View root) {
+        for (View v = view; ; v = (View) v.getParent()) {
+            if (v.getVisibility() != View.VISIBLE) return false;
+            if (v == root) return true;
+        }
     }
 
     @Test
@@ -263,21 +355,14 @@ public class TerminalContextMenuTest {
     }
 
     @Test
-    public void killTileFallsBackToTheSessionAndSaysWhenNothingRuns() {
+    public void killRowFallsBackToTheSessionAndSaysWhenNothingRuns() {
         Activity activity = activity();
-        BottomSheetDialog dialog = TerminalContextMenu.populateSheet(
-            new TermuxContextMenuSheet(activity), activity.getResources(), minimal()).show(id -> { });
-        boolean found = false;
-        for (View view : allViews(dialog.findViewById(R.id.context_sheet_items))) {
-            if (view.getId() == R.id.context_tile_title && "Kill session".contentEquals(((TextView) view).getText())) {
-                View tile = (View) view.getParent().getParent();
-                Assert.assertFalse(tile.isEnabled());
-                Assert.assertEquals("not running",
-                    ((TextView) tile.findViewById(R.id.context_tile_detail)).getText().toString());
-                found = true;
-            }
-        }
-        Assert.assertTrue(found);
+        BottomSheetDialog dialog = mainSheet(activity, minimal());
+        View row = rowTitled(dialog, "Kill session");
+        Assert.assertFalse(row.isEnabled());
+        Assert.assertFalse(row.performClick());
+        Assert.assertFalse(row.performLongClick());
+        Assert.assertEquals("not running", ((TextView) row.findViewById(R.id.context_row_detail)).getText().toString());
     }
 
     @Test

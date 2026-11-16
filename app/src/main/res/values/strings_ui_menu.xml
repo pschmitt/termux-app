@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of the grouped terminal More menu (rows, state pills and the expander). -->
+<resources>
+    <string name="ui_menu_more">More actions</string>
+    <string name="ui_menu_fewer">Fewer actions</string>
+    <string name="ui_menu_state_on">On</string>
+    <string name="ui_menu_state_off">Off</string>
+    <string name="ui_menu_state_expanded">Expanded</string>
+    <string name="ui_menu_state_collapsed">Collapsed</string>
+</resources>
