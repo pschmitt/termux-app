@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="art/ic_launcher2.png" width="128" alt="TermuxPP app launcher icon" />
+  <img src="art/termuxpp-logo.svg" width="128" alt="TermuxPP app launcher icon" />
 </p>
 <h1 align="center">TermuxPP</h1>
 <p align="center">
@@ -60,17 +60,17 @@ Continue with the [Termux package management guide][package-management].
 | [Tap gestures](docs/en/tap-gestures.md) | Terminal touch gesture behavior. |
 | [Upstream and TermuxPP differences](docs/en/termuxpp-differences.md) | Compatibility points and intentional fork behavior. |
 | [URLs and hyperlinks](docs/en/urls-and-hyperlinks.md) | URL detection and terminal hyperlinks. |
-| [Termux:API README](termux-api/README.md) | API companion project and upstream usage documentation. |
-| [Termux:API TermuxPP notes](termux-api/TERMUXPP.md) | Fork identity, build, signing, helper, and update details. |
-| [Termux:Boot README](termux-boot/README.md) | Boot companion project documentation. |
-| [Termux:Float README](termux-float/README.md) | Float companion project documentation. |
-| [Termux:Styling README](termux-styling/README.md) | Styling companion project documentation. |
-| [Termux:Tasker README](termux-tasker/README.md) | Tasker companion project and protocol documentation. |
-| [Termux:Tasker TermuxPP notes](termux-tasker/TERMUXPP.md) | Fork identity, host permissions, tests, and update details. |
-| [Termux:Widget README](termux-widget/README.md) | Widget companion project documentation. |
-| [Termux API tools README](termux-api-package/README.md) | Native API command-line tools. |
+| [TermuxPP:API README](termux-api/README.md) | API companion project and upstream usage documentation. |
+| [TermuxPP:API notes](termux-api/TERMUXPP.md) | Fork identity, build, signing, helper, and update details. |
+| [TermuxPP:Boot README](termux-boot/README.md) | Boot companion project documentation. |
+| [TermuxPP:Float README](termux-float/README.md) | Float companion project documentation. |
+| [TermuxPP:Styling README](termux-styling/README.md) | Styling companion project documentation. |
+| [TermuxPP:Tasker README](termux-tasker/README.md) | Tasker companion project and protocol documentation. |
+| [TermuxPP:Tasker notes](termux-tasker/TERMUXPP.md) | Fork identity, host permissions, tests, and update details. |
+| [TermuxPP:Widget README](termux-widget/README.md) | Widget companion project documentation. |
+| [Termux API tools README](termux-api-package/README.md) | Native API command-line tools, retaining upstream helper names. |
 | [Termux API tools TermuxPP notes](termux-api-package/TERMUXPP.md) | Fork receiver/socket, native build, and packaging notes. |
-| [TermuxAm README](termux-am/README.md) | Android command helper project. |
+| [TermuxAm README](termux-am/README.md) | Android command helper project, retaining the upstream helper name. |
 | [TermuxAm TermuxPP notes](termux-am/TERMUXPP.md) | Caller identity and helper APK packaging notes. |
 
 ## License
