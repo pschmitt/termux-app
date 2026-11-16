@@ -15,6 +15,7 @@ import androidx.preference.PreferenceScreen;
 
 import com.termux.R;
 import com.termux.app.settings.TermuxPropertiesEditor;
+import com.termux.app.settings.PropertyInputSpec;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
 import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
 import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
@@ -60,11 +61,23 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
         ArrayList<String> keys = new ArrayList<>(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST);
         Collections.sort(keys);
         for (String key : keys) {
-            DialogPreference preference;
+            Preference preference;
             boolean defaultTrue = TermuxPropertyConstants.TERMUX_DEFAULT_TRUE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST.contains(key);
             boolean isBoolean = defaultTrue || TermuxPropertyConstants.TERMUX_DEFAULT_FALSE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST.contains(key);
             Set<String> options = choices(key);
-            if (isBoolean || !options.isEmpty()) {
+            if (key.equals("extra-keys")) {
+                preference = new Preference(requireContext());
+                preference.setPersistent(false);
+                preference.setSummary(R.string.extra_editor_help);
+                preference.setOnPreferenceClickListener(p -> {
+                    try {
+                        ExtraKeysEditorDialog.show(this, editor.read().getProperty("extra-keys", ""));
+                    } catch (IOException | IllegalArgumentException e) {
+                        Toast.makeText(requireContext(), R.string.properties_read_error, Toast.LENGTH_LONG).show();
+                    }
+                    return true;
+                });
+            } else if (isBoolean || !options.isEmpty()) {
                 ListPreference choice = new ListPreference(requireContext());
                 choice.setPersistent(false);
                 ArrayList<String> entries = new ArrayList<>();
@@ -91,6 +104,7 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
                 choice.setEntryValues(entryValues.toArray(new String[0]));
                 choice.setValue(current);
                 choice.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+                choice.setDialogMessage(PropertyInputSpec.help(key));
                 if (key.equals(TermuxConstants.PROP_ALLOW_EXTERNAL_APPS)) {
                     choice.setDialogMessage(R.string.properties_external_apps_warning);
                 }
@@ -99,7 +113,7 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
                 EditTextPreference text = new EditTextPreference(requireContext());
                 text.setPersistent(false);
                 text.setText(values.getProperty(key, ""));
-                text.setDialogMessage(getString(R.string.properties_text_help, key));
+                text.setDialogMessage(PropertyInputSpec.help(key));
                 text.setSummaryProvider(p -> {
                     String value = ((EditTextPreference) p).getText();
                     return value == null || value.isEmpty() ? getString(R.string.properties_default) : value;
@@ -108,9 +122,17 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
             }
             preference.setKey(key);
             preference.setTitle(key.replace('-', ' '));
-            preference.setDialogTitle(key);
+            if (preference instanceof DialogPreference) ((DialogPreference) preference).setDialogTitle(key);
             preference.setOnPreferenceChangeListener((p, value) -> save(key, value.toString()));
             categories.get(categoryFor(key)).addPreference(preference);
+        }
+    }
+
+    @Override public void onDisplayPreferenceDialog(Preference preference) {
+        if (preference instanceof EditTextPreference) {
+            PropertyTextDialog.show(this, (EditTextPreference) preference);
+        } else {
+            super.onDisplayPreferenceDialog(preference);
         }
     }
 
@@ -125,6 +147,9 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
     }
 
     private Set<String> choices(String key) {
+        String[] typedChoices = PropertyInputSpec.choices(key);
+        if (typedChoices != null && typedChoices.length != 0)
+            return new LinkedHashSet<>(java.util.Arrays.asList(typedChoices));
         switch (key) {
             case TermuxPropertyConstants.KEY_BELL_BEHAVIOUR: return TermuxPropertyConstants.MAP_BELL_BEHAVIOUR.keySet();
             case TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE: return TermuxPropertyConstants.MAP_TERMINAL_CURSOR_STYLE.keySet();
@@ -144,6 +169,10 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
                 return actions;
             default: return Collections.emptySet();
         }
+    }
+
+    boolean saveExtraKeys(String value) {
+        return save("extra-keys", value);
     }
 
     private boolean save(String key, String value) {

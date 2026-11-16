@@ -36,7 +36,8 @@ public class PropertiesPreferencesFragmentTest {
         }
         assertTrue(editor.findPreference("fullscreen") instanceof ListPreference);
         assertTrue(editor.findPreference("terminal-single-tap-action") instanceof ListPreference);
-        assertTrue(editor.findPreference("extra-keys") instanceof EditTextPreference);
+        assertFalse(editor.findPreference("extra-keys") instanceof EditTextPreference);
+        assertTrue(editor.findPreference("extra-keys-style") instanceof ListPreference);
         assertNotNull(((ListPreference) editor.findPreference(TermuxConstants.PROP_ALLOW_EXTERNAL_APPS)).getDialogMessage());
     }
 

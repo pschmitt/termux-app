@@ -50,11 +50,19 @@ The host requires `adb`, Python 3, and OpenSSL. Credentials are stored separatel
 
 TermuxPP adds **Settings > TermuxPP > Properties**, with controls for every supported
 app property: boolean choices, enumerated choices (including gesture and volume-key
-actions), and text dialogs for numeric values, extra-key layouts, colors, paths and
-key sequences. These controls edit the properties file itself, not a competing
-Android preference store. Clear a text field or select **App default** to remove
-an override. Values use the existing properties syntax and runtime validation;
-settings such as transcript size may require a new session or an app restart.
+actions and extra-key styles), and guided text dialogs for numeric values, colors,
+paths and key sequences. Text dialogs explain formats, ranges and defaults, use
+appropriate keyboards, and keep invalid input open for correction. Extra keys have
+a visual row-and-key editor: add, remove or reorder rows and keys; choose common
+keys or literal text; and configure labels, macros and swipe-up actions without
+writing JSON. An optional **Advanced JSON** editor preserves support for complex
+layouts. Existing custom key attributes are retained. Layout changes remain a draft
+until **Save**, and **Cancel** leaves the file unchanged.
+
+These controls edit the properties file itself, not a competing Android preference
+store. Clear a text field or select **App default** to remove an override; the layout
+editor has **Restore default layout** followed by **Save**. Settings such as
+transcript size may require a new session or an app restart.
 
 The canonical file is **`~/.config/termuxpp/termuxpp.properties`**. Reads use the
 first existing file in this order, without merging:
