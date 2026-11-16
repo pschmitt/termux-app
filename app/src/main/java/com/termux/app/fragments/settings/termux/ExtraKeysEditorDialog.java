@@ -9,7 +9,17 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
-import android.widget.HorizontalScrollView;
+import android.widget.FrameLayout;
+import android.widget.PopupMenu;
+import android.view.ViewGroup;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputLayout;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysView;
+import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysInfo;
+import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysConstants;
+import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysColorParser;
+import java.util.Properties;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -30,11 +40,17 @@ public class ExtraKeysEditorDialog extends DialogFragment {
     private String source;
     private boolean useDefault;
     private LinearLayout content;
+    private FrameLayout previewHost;
 
-    static void show(PropertiesPreferencesFragment parent, String value) {
+    static void show(PropertiesPreferencesFragment parent, Properties values) {
+        String value = values.getProperty("extra-keys", "");
         ExtraKeysEditorDialog dialog = new ExtraKeysEditorDialog();
         Bundle args = new Bundle();
         args.putString("value", value);
+        for (String key : new String[]{"extra-keys-style", "extra-keys-text-all-caps", "terminal-toolbar-height",
+                "extra-keys-button-active-text-color", "extra-keys-button-active-background-color", "extra-keys-button-corner-radius"}) {
+            args.putString(key, values.getProperty(key));
+        }
         dialog.setArguments(args);
         dialog.setTargetFragment(parent, 0);
         dialog.show(parent.getParentFragmentManager(), "extra_keys_editor");
@@ -58,17 +74,31 @@ public class ExtraKeysEditorDialog extends DialogFragment {
     }
 
     @NonNull @Override public android.app.Dialog onCreateDialog(Bundle state) {
+        LinearLayout root = column();
+        TextView title = new TextView(requireContext());
+        title.setText(R.string.extra_preview);
+        title.setTextAppearance(requireContext(), com.google.android.material.R.style.TextAppearance_MaterialComponents_Subtitle1);
+        root.addView(title);
+        TextView hint = new TextView(requireContext());
+        hint.setText(R.string.extra_preview_help);
+        root.addView(hint);
+        previewHost = new FrameLayout(requireContext());
+        ScrollView previewScroll = new ScrollView(requireContext());
+        previewScroll.addView(previewHost);
+        root.addView(previewScroll);
         content = column();
         ScrollView scroll = new ScrollView(requireContext());
         scroll.addView(content);
+        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         render();
         return DialogUtils.builder(requireContext()).setTitle(R.string.extra_editor_title)
-            .setView(scroll).setPositiveButton(R.string.extra_save, null)
+            .setView(root).setPositiveButton(R.string.extra_save, null)
             .setNegativeButton(android.R.string.cancel, null).create();
     }
 
     @Override public void onStart() {
         super.onStart();
+        requireDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         ((AlertDialog) requireDialog()).getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             if (layout == null) {
                 Toast.makeText(requireContext(), R.string.extra_invalid, Toast.LENGTH_LONG).show();
@@ -88,70 +118,131 @@ public class ExtraKeysEditorDialog extends DialogFragment {
     }
 
     private void button(LinearLayout parent, String title, View.OnClickListener action) {
-        Button button = new Button(requireContext());
+        MaterialButton button = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.borderlessButtonStyle);
         button.setText(title);
         button.setOnClickListener(action);
         parent.addView(button);
     }
 
+    private int dp(float value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private void renderPreview() {
+        previewHost.removeAllViews();
+        previewHost.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
+        if (layout == null || layout.rowCount() == 0) {
+            ((View) previewHost.getParent()).getLayoutParams().height = dp(64);
+            return;
+        }
+        try {
+            Bundle options = requireArguments();
+            ExtraKeysView keyboard = new ExtraKeysView(requireContext(), null);
+            keyboard.setBackgroundColor(android.graphics.Color.BLACK);
+            keyboard.setButtonTextAllCaps(!"false".equalsIgnoreCase(options.getString("extra-keys-text-all-caps")));
+            keyboard.setButtonActiveColorOverrides(
+                ExtraKeysColorParser.parseColor(options.getString("extra-keys-button-active-text-color")),
+                ExtraKeysColorParser.parseColor(options.getString("extra-keys-button-active-background-color")));
+            keyboard.setButtonCornerRadiusDp(ExtraKeysColorParser.parseCornerRadiusDp(options.getString("extra-keys-button-corner-radius")));
+            float scale = 1;
+            try { scale = Float.parseFloat(options.getString("terminal-toolbar-height", "1")); }
+            catch (NumberFormatException ignored) { }
+            if (Float.isNaN(scale) || scale < 0.4f || scale > 3) scale = 1;
+            int height = dp(37.5f * scale * layout.rowCount());
+            previewHost.addView(keyboard, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height));
+            int viewport = Math.min(height, getResources().getDisplayMetrics().heightPixels / 3);
+            ((View) previewHost.getParent()).getLayoutParams().height = viewport;
+            keyboard.reload(new ExtraKeysInfo(layout.toString(), options.getString("extra-keys-style", "default"),
+                ExtraKeysConstants.CONTROL_CHARS_ALIASES), height);
+            int child = 0;
+            for (int r = 0; r < layout.rowCount(); r++) {
+                for (int k = 0; k < layout.keyCount(r); k++) {
+                    final int row = r;
+                    final int key = k;
+                    View button = keyboard.getChildAt(child++);
+                    // Preview keys edit the draft; they must never start terminal input or repeat timers.
+                    button.setOnTouchListener(null);
+                    button.setOnLongClickListener(null);
+                    button.setOnClickListener(v -> editKey(row, key));
+                    button.setContentDescription(getString(R.string.extra_preview_key, layout.label(row, key), row + 1));
+                }
+            }
+        } catch (JSONException e) { throw new IllegalStateException(e); }
+    }
+
+    private void rowMenu(View anchor, int row) {
+        PopupMenu menu = new PopupMenu(requireContext(), anchor);
+        if (row > 0) menu.getMenu().add(0, 1, 0, R.string.extra_row_up);
+        if (row + 1 < layout.rowCount()) menu.getMenu().add(0, 2, 1, R.string.extra_row_down);
+        menu.getMenu().add(0, 3, 2, R.string.extra_remove_row);
+        menu.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 3) {
+                DialogUtils.builder(requireContext()).setMessage(R.string.extra_remove_row_confirm)
+                    .setPositiveButton(R.string.extra_remove_row, (d, w) -> { layout.removeRow(row); changed(); })
+                    .setNegativeButton(android.R.string.cancel, null).show();
+            } else {
+                layout.moveRow(row, item.getItemId() == 1 ? -1 : 1);
+                changed();
+            }
+            return true;
+        });
+        menu.show();
+    }
+
     private void render() {
         content.removeAllViews();
-        TextView help = new TextView(requireContext());
-        help.setText(layout == null ? R.string.extra_invalid_help : R.string.extra_editor_help);
-        content.addView(help);
+        renderPreview();
+        if (layout == null || layout.rowCount() == 0) {
+            TextView empty = new TextView(requireContext());
+            empty.setText(layout == null ? R.string.extra_invalid_help : R.string.extra_empty);
+            content.addView(empty);
+        }
         if (layout != null) {
-            if (layout.rowCount() == 0) {
-                TextView empty = new TextView(requireContext());
-                empty.setText(R.string.extra_empty);
-                content.addView(empty);
-            }
             for (int r = 0; r < layout.rowCount(); r++) {
                 final int row = r;
+                LinearLayout line = new LinearLayout(requireContext());
+                line.setGravity(android.view.Gravity.CENTER_VERTICAL);
                 TextView heading = new TextView(requireContext());
-                heading.setText(getString(R.string.extra_row, row + 1));
-                content.addView(heading);
-                HorizontalScrollView scroll = new HorizontalScrollView(requireContext());
-                LinearLayout keys = new LinearLayout(requireContext());
-                scroll.addView(keys);
-                content.addView(scroll);
-                for (int k = 0; k < layout.keyCount(row); k++) {
-                    final int key = k;
-                    try {
-                        button(keys, layout.label(row, key), v -> editKey(row, key));
-                    } catch (JSONException e) {
-                        throw new IllegalStateException(e);
-                    }
-                }
-                button(content, getString(R.string.extra_add_key), v -> editKey(row, layout.keyCount(row)));
-                LinearLayout actions = new LinearLayout(requireContext());
-                actions.setOrientation(LinearLayout.VERTICAL);
-                content.addView(actions);
-                if (row > 0) button(actions, getString(R.string.extra_row_up), v -> {
-                    layout.moveRow(row, -1); changed();
-                });
-                if (row + 1 < layout.rowCount()) button(actions, getString(R.string.extra_row_down), v -> {
-                    layout.moveRow(row, 1); changed();
-                });
-                button(actions, getString(R.string.extra_remove_row), v -> DialogUtils.builder(requireContext())
-                    .setMessage(R.string.extra_remove_row_confirm)
-                    .setPositiveButton(R.string.extra_remove_row, (d, w) -> { layout.removeRow(row); changed(); })
-                    .setNegativeButton(android.R.string.cancel, null).show());
+                heading.setText(getResources().getQuantityString(R.plurals.extra_row_count, layout.keyCount(row), row + 1, layout.keyCount(row)));
+                heading.setTextAppearance(requireContext(), com.google.android.material.R.style.TextAppearance_MaterialComponents_Subtitle1);
+                line.addView(heading, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+                button(line, getString(R.string.extra_add_key), v -> editKey(row, layout.keyCount(row)));
+                MaterialButton more = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.borderlessButtonStyle);
+                more.setText("⋮");
+                more.setTextSize(24);
+                more.setContentDescription(getString(R.string.extra_row_options, row + 1));
+                more.setOnClickListener(v -> rowMenu(v, row));
+                line.addView(more, new LinearLayout.LayoutParams(dp(48), dp(48)));
+                content.addView(line);
             }
             button(content, getString(R.string.extra_add_row), v -> { layout.addRow(); changed(); });
         }
-        button(content, getString(R.string.extra_reset), v -> DialogUtils.builder(requireContext())
-            .setMessage(R.string.extra_reset_confirm)
-            .setPositiveButton(R.string.extra_reset, (d, w) -> {
-                try { layout = ExtraKeysLayout.defaults(); useDefault = true; render(); }
-                catch (JSONException e) { throw new IllegalStateException(e); }
-            }).setNegativeButton(android.R.string.cancel, null).show());
-        button(content, getString(R.string.extra_raw), v -> {
-            RawDialog raw = new RawDialog();
-            Bundle args = new Bundle();
-            args.putString("value", layout == null ? source : layout.toString());
-            raw.setArguments(args);
-            raw.setTargetFragment(this, 0);
-            raw.show(getParentFragmentManager(), "extra_keys_raw");
+        TextView draft = new TextView(requireContext());
+        draft.setText(R.string.extra_draft_help);
+        draft.setPadding(0, dp(16), 0, dp(8));
+        content.addView(draft);
+        button(content, getString(R.string.extra_more), v -> {
+            PopupMenu menu = new PopupMenu(requireContext(), v);
+            menu.getMenu().add(0, 1, 0, R.string.extra_raw);
+            menu.getMenu().add(0, 2, 1, R.string.extra_reset);
+            menu.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == 2) {
+                    DialogUtils.builder(requireContext()).setMessage(R.string.extra_reset_confirm)
+                        .setPositiveButton(R.string.extra_reset, (d, w) -> {
+                            try { layout = ExtraKeysLayout.defaults(); useDefault = true; render(); }
+                            catch (JSONException e) { throw new IllegalStateException(e); }
+                        }).setNegativeButton(android.R.string.cancel, null).show();
+                } else {
+                    RawDialog raw = new RawDialog();
+                    Bundle args = new Bundle();
+                    args.putString("value", layout == null ? source : layout.toString());
+                    raw.setArguments(args);
+                    raw.setTargetFragment(this, 0);
+                    raw.show(getParentFragmentManager(), "extra_keys_raw");
+                }
+                return true;
+            });
+            menu.show();
         });
     }
 
@@ -214,20 +305,23 @@ public class ExtraKeysEditorDialog extends DialogFragment {
         private int index;
 
         private AutoCompleteTextView input(LinearLayout form, int title, String value) {
-            TextView heading = new TextView(requireContext());
-            heading.setText(title);
-            form.addView(heading);
-            AutoCompleteTextView input = new AutoCompleteTextView(requireContext());
-            input.setHint(title);
-            heading.setLabelFor(View.generateViewId());
-            input.setId(heading.getLabelFor());
+            TextInputLayout field = new TextInputLayout(requireContext());
+            field.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
+            field.setHint(getString(title));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.setMargins(0, Math.round(8 * getResources().getDisplayMetrics().density), 0, 0);
+            form.addView(field, params);
+            MaterialAutoCompleteTextView input = new MaterialAutoCompleteTextView(requireContext());
+            input.setId(View.generateViewId());
             input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
             input.setText(value);
-            input.setThreshold(0);
-            input.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line,
-                new String[]{"ESC", "TAB", "CTRL", "ALT", "SHIFT", "FN", "ENTER", "BKSP", "DEL", "UP", "DOWN", "LEFT", "RIGHT", "HOME", "END", "PGUP", "PGDN", "KEYBOARD", "DRAWER", "F1", "F2", "F3", "F4", "/", "-", "|"}));
-            input.setOnClickListener(v -> input.showDropDown());
-            form.addView(input);
+            if (title == R.string.extra_key_value || title == R.string.extra_popup) {
+                input.setThreshold(0);
+                input.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line,
+                    new String[]{"ESC", "TAB", "CTRL", "ALT", "SHIFT", "FN", "ENTER", "BKSP", "DEL", "UP", "DOWN", "LEFT", "RIGHT", "HOME", "END", "PGUP", "PGDN", "KEYBOARD", "DRAWER", "F1", "F2", "F3", "F4", "/", "-", "|"}));
+                field.setEndIconMode(TextInputLayout.END_ICON_DROPDOWN_MENU);
+            }
+            field.addView(input, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             return input;
         }
 
@@ -268,7 +362,7 @@ public class ExtraKeysEditorDialog extends DialogFragment {
             }
             ExtraKeysEditorDialog parent = (ExtraKeysEditorDialog) getTargetFragment();
             if (parent != null && index < parent.layout.keyCount(row)) {
-                Button remove = new Button(requireContext());
+                MaterialButton remove = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.borderlessButtonStyle);
                 remove.setText(R.string.extra_remove_key);
                 remove.setOnClickListener(v -> { parent.layout.removeKey(row, index); parent.changed(); dismiss(); });
                 form.addView(remove);

@@ -53,10 +53,12 @@ app property: boolean choices, enumerated choices (including gesture and volume-
 actions and extra-key styles), and guided text dialogs for numeric values, colors,
 paths and key sequences. Text dialogs explain formats, ranges and defaults, use
 appropriate keyboards, and keep invalid input open for correction. Extra keys have
-a visual row-and-key editor: add, remove or reorder rows and keys; choose common
-keys or literal text; and configure labels, macros and swipe-up actions without
-writing JSON. An optional **Advanced JSON** editor preserves support for complex
-layouts. Existing custom key attributes are retained. Layout changes remain a draft
+a full-width live keyboard preview using the terminal's own extra-key renderer,
+including the configured key style, capitalization, active colors, corner radius
+and row height. Tap a preview key to edit it without sending terminal input.
+Compact row controls add, remove or reorder rows and keys; choose common keys or
+literal text; and configure labels, macros and swipe-up actions without writing
+JSON. An optional **Advanced JSON** editor preserves support for complex layouts. Existing custom key attributes are retained. Layout changes remain a draft
 until **Save**, and **Cancel** leaves the file unchanged.
 
 These controls edit the properties file itself, not a competing Android preference

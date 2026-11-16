@@ -71,7 +71,7 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
                 preference.setSummary(R.string.extra_editor_help);
                 preference.setOnPreferenceClickListener(p -> {
                     try {
-                        ExtraKeysEditorDialog.show(this, editor.read().getProperty("extra-keys", ""));
+                        ExtraKeysEditorDialog.show(this, editor.read());
                     } catch (IOException | IllegalArgumentException e) {
                         Toast.makeText(requireContext(), R.string.properties_read_error, Toast.LENGTH_LONG).show();
                     }

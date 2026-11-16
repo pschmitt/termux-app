@@ -56,7 +56,12 @@ public class PropertyDialogsTest {
         dialog.onSaveInstanceState(state);
         assertEquals("[[\"ESC\"],[]]", state.getString("value"));
         assertFalse(state.getBoolean("default"));
-        view(dialog.requireDialog().getWindow().getDecorView(), Button.class, "ESC").performClick();
+        dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysView preview = view(dialog.requireDialog().getWindow().getDecorView(),
+            dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysView.class, null);
+        assertNotNull(preview);
+        assertEquals(1, preview.getChildCount());
+        assertEquals(2, preview.getRowCount());
+        preview.getChildAt(0).performClick();
         activity.getSupportFragmentManager().executePendingTransactions();
         DialogFragment keyDialog = (DialogFragment) activity.getSupportFragmentManager().findFragmentByTag("extra_key");
         EditText key = view(keyDialog.requireDialog().getWindow().getDecorView(), EditText.class, null);
@@ -71,6 +76,27 @@ public class PropertyDialogsTest {
         assertEquals("[[{\"key\":\"TAB\"}],[]]", edited.getString("value"));
         dialog.dismiss();
         activity.getSupportFragmentManager().executePendingTransactions();
+    }
+
+    @Test public void previewDraftSurvivesActivityRecreation() {
+        org.robolectric.android.controller.ActivityController<SettingsActivity> controller =
+            Robolectric.buildActivity(SettingsActivity.class).setup();
+        ExtraKeysEditorDialog dialog = new ExtraKeysEditorDialog();
+        Bundle args = new Bundle();
+        args.putString("value", "[['ESC']]");
+        dialog.setArguments(args);
+        dialog.showNow(controller.get().getSupportFragmentManager(), "layout");
+        view(dialog.requireDialog().getWindow().getDecorView(), Button.class, "Add row").performClick();
+        controller.recreate();
+        ExtraKeysEditorDialog restored = (ExtraKeysEditorDialog) controller.get().getSupportFragmentManager().findFragmentByTag("layout");
+        assertNotNull(restored);
+        Bundle draft = new Bundle();
+        restored.onSaveInstanceState(draft);
+        assertEquals("[[\"ESC\"],[]]", draft.getString("value"));
+        assertNotNull(view(restored.requireDialog().getWindow().getDecorView(),
+            dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysView.class, null));
+        restored.dismiss();
+        controller.get().getSupportFragmentManager().executePendingTransactions();
     }
 
     @Test public void invalidRawLayoutRemainsOpenForCorrection() {

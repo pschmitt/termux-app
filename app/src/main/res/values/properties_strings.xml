@@ -19,9 +19,18 @@
     <string name="extra_apply">Apply to draft</string>
     <string name="extra_invalid">Invalid extra keys layout</string>
     <string name="extra_invalid_help">This layout cannot be opened visually. Repair it in Advanced JSON or restore the default. Nothing is saved until you tap Save.</string>
-    <string name="extra_editor_help">Tap a key to edit it. Add keys and rows below, or move them using the arrow buttons. Swipe up on a terminal key to use its optional secondary action. This preview never sends keystrokes. Changes remain a draft until Save.</string>
+    <string name="extra_editor_help">Preview and edit your keyboard rows, keys, labels, macros and swipe-up actions.</string>
+    <string name="extra_preview">Keyboard preview</string>
+    <string name="extra_preview_help">Tap any key to edit it. This is how the extra-key toolbar will look in your terminal.</string>
+    <string name="extra_preview_key">Edit %1$s in row %2$d</string>
+    <plurals name="extra_row_count">
+        <item quantity="one">Row %1$d (%2$d key)</item>
+        <item quantity="other">Row %1$d (%2$d keys)</item>
+    </plurals>
+    <string name="extra_row_options">Options for row %1$d</string>
+    <string name="extra_draft_help">The preview updates as you edit. Nothing changes in the terminal until you save.</string>
+    <string name="extra_more">More options</string>
     <string name="extra_empty">No extra keys. Add a row to begin.</string>
-    <string name="extra_row">Row %1$d</string>
     <string name="extra_add_key">Add key</string>
     <string name="extra_row_up">Move row up</string>
     <string name="extra_row_down">Move row down</string>
