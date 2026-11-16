@@ -58,6 +58,7 @@ jobs:
               }
           }
           GRADLE
+          ./gradlew :app:downloadBootstraps || exit_on_error "Bootstrap preparation failed."
           if ! ./gradlew --init-script "$RUNNER_TEMP/development-signing.gradle" ":app:assemble${BUILD_TYPE^}"; then
             exit_on_error "Build failed for '$APK_VERSION_TAG' release."
           fi

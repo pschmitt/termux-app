@@ -92,6 +92,7 @@ jobs:
               }
           }
           GRADLE
+          ./gradlew :app:downloadBootstraps
           task="assemble${BUILD_TYPE^}"
           ./gradlew --init-script "$RUNNER_TEMP/development-signing.gradle" \
             ":app:$task" ":termux-api:$task" ":termux-tasker:$task" \
