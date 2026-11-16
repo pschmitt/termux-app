@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" alt="TermuxPP app icon" />
+  <img src="art/ic_launcher2.png" width="128" alt="TermuxPP app launcher icon" />
 </p>
 <h1 align="center">TermuxPP</h1>
 <p align="center">
@@ -11,8 +11,9 @@
 
 - **Terminal and Linux environment** — Run command-line tools in an Android
   app sandbox using the Termux package ecosystem.
-- **Companion apps** — Build Termux:API, Termux:Tasker, Termux:Boot,
-  Termux:Styling, Termux:Widget, and Termux:Float in this repository.
+- **Companion apps** — Build TermuxPP:API, TermuxPP:Tasker, TermuxPP:Boot,
+  TermuxPP:Styling, TermuxPP:Widget, and TermuxPP:Float in this repository;
+  these are forks of the corresponding upstream Termux companion apps.
 - **Fork-aware helpers** — TermuxAm and the native API tools address TermuxPP's
   Android identities while retaining the APT names `termux-am` and `termux-api`.
 - **Upstream package compatibility** — Fork shells translate selected stock
