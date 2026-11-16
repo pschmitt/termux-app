@@ -113,17 +113,14 @@ public final class TerminalContextMenu {
         sheet.setSessionHeader(headerTitle(resources, state), headerDetail(resources, state));
 
         // The frequent actions. Where there is a choice, the shortcut opens a sheet of its own.
-        String urls = state.urlCount < 0 ? null
-            : (state.urlCount == 0 ? resources.getString(R.string.ui_menu_urls_none)
-            : resources.getQuantityString(R.plurals.ui_menu_urls_found, state.urlCount, state.urlCount));
-        sheet.addShortcut(SELECT_URL, resources.getString(R.string.ui_menu_open_url), urls,
-            R.drawable.ui_ic_menu_link, state.urlCount != 0);
-        sheet.addShortcut(state.hasSelectedText ? SHARE_MENU : SHARE_TRANSCRIPT,
-            resources.getString(R.string.ui_menu_share), null, R.drawable.ui_ic_menu_share);
         if (state.autoFillEnabled) {
             sheet.addShortcut(AUTOFILL_MENU, resources.getString(R.string.ui_menu_autofill), null,
                 R.drawable.ui_ic_menu_key);
         }
+        sheet.addShortcut(SELECT_URL, resources.getString(R.string.ui_menu_open_url), null,
+            R.drawable.ui_ic_menu_link, state.urlCount != 0);
+        sheet.addShortcut(state.hasSelectedText ? SHARE_MENU : SHARE_TRANSCRIPT,
+            resources.getString(R.string.ui_menu_share), null, R.drawable.ui_ic_menu_share);
 
         sheet.addStateRow(TOGGLE_KEEP_SCREEN_ON, resources.getString(R.string.action_toggle_keep_screen_on),
             R.drawable.ui_ic_menu_sun, state.keepScreenOn);

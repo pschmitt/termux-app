@@ -519,7 +519,12 @@ public class TermuxContextMenuSheet {
         if (mSessionHeader) {
             float density = view.getResources().getDisplayMetrics().density;
             int gutter = view.getResources().getDimensionPixelSize(R.dimen.ui_gutter);
-            view.setPaddingRelative(gutter, (int) (8 * density), gutter, (int) (12 * density));
+            LinearLayout.LayoutParams headerParams = (LinearLayout.LayoutParams) view.getLayoutParams();
+            headerParams.setMargins(gutter, (int) (8 * density), gutter, (int) (8 * density));
+            view.setLayoutParams(headerParams);
+            view.setBackgroundResource(R.drawable.ui_sheet_group_bg);
+            view.setPaddingRelative((int) (16 * density), (int) (12 * density),
+                (int) (16 * density), (int) (12 * density));
             ImageView icon = view.findViewById(R.id.context_header_icon);
             icon.setBackground(null);
             icon.getLayoutParams().width = (int) (24 * density);
@@ -673,6 +678,7 @@ public class TermuxContextMenuSheet {
                 if (mStrip == null) {
                     View scroll = LayoutInflater.from(mDialog.getContext())
                         .inflate(R.layout.ui_context_sheet_strip, mContainer, false);
+                    scroll.setClipToOutline(true);
                     mContainer.addView(scroll);
                     mStrip = scroll.findViewById(R.id.context_strip);
                 }

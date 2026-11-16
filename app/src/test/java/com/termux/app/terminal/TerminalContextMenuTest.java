@@ -78,8 +78,8 @@ public class TerminalContextMenuTest {
     public void sheetKeepsTheOtherActionsInOrder() {
         // Frequent actions first, then the setting and the folded Reset, Settings, and the destructive Kill last.
         Assert.assertEquals(Arrays.asList(
-                TerminalContextMenu.SELECT_URL, TerminalContextMenu.SHARE_MENU,
-                TerminalContextMenu.AUTOFILL_MENU, TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON,
+                TerminalContextMenu.AUTOFILL_MENU, TerminalContextMenu.SELECT_URL,
+                TerminalContextMenu.SHARE_MENU, TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON,
                 TerminalContextMenu.RESET_TERMINAL, TerminalContextMenu.SETTINGS,
                 TerminalContextMenu.KILL_PROCESS, TerminalContextMenu.KILL_PROCESS_NOW),
             sheetIds(activity(), everything()));
@@ -120,9 +120,15 @@ public class TerminalContextMenuTest {
     public void mainSheetUsesTheGroupedPresentation() {
         Activity activity = activity();
         BottomSheetDialog dialog = mainSheet(activity, session(null, true, 2, 3));
-        Assert.assertEquals(Arrays.asList("Open URL", "Share", "Autofill"), texts(dialog, R.id.context_shortcut_title));
-        // Only the URL count is a detail: Share and Autofill are named by their label.
-        Assert.assertEquals(Arrays.asList("2 found"), texts(dialog, R.id.context_shortcut_detail));
+        Assert.assertEquals(Arrays.asList("Autofill", "Open URL", "Share"), texts(dialog, R.id.context_shortcut_title));
+        Assert.assertTrue(texts(dialog, R.id.context_shortcut_detail).isEmpty());
+        View strip = dialog.findViewById(R.id.context_strip_scroll);
+        Assert.assertNotNull(strip.getBackground());
+        android.widget.LinearLayout.LayoutParams stripParams =
+            (android.widget.LinearLayout.LayoutParams) strip.getLayoutParams();
+        int gutter = activity.getResources().getDimensionPixelSize(R.dimen.ui_gutter);
+        Assert.assertEquals(gutter, stripParams.leftMargin);
+        Assert.assertEquals(gutter, stripParams.rightMargin);
         // Reset is folded away behind More actions, so it is not shown yet.
         Assert.assertEquals(Arrays.asList("Keep screen on", "More actions", "Settings", "Kill zsh"),
             texts(dialog, R.id.context_row_title));
@@ -161,6 +167,14 @@ public class TerminalContextMenuTest {
         float density = activity.getResources().getDisplayMetrics().density;
         Assert.assertEquals((int) (24 * density), icon.getLayoutParams().width);
         Assert.assertNull(icon.getBackground());
+        View header = dialog.findViewById(R.id.context_sheet_header);
+        Assert.assertNotNull(header.getBackground());
+        android.widget.LinearLayout.LayoutParams params =
+            (android.widget.LinearLayout.LayoutParams) header.getLayoutParams();
+        int gutter = activity.getResources().getDimensionPixelSize(R.dimen.ui_gutter);
+        Assert.assertEquals(gutter, params.leftMargin);
+        Assert.assertEquals(gutter, params.rightMargin);
+        Assert.assertFalse(header.isClickable());
         TextView title = dialog.findViewById(R.id.context_header_title);
         Assert.assertEquals(16f * activity.getResources().getDisplayMetrics().scaledDensity, title.getTextSize(), .1f);
         dialog.dismiss();

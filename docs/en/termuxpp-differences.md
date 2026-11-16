@@ -28,8 +28,8 @@ source-code change. Recheck both implementations when updating this page.
 ## Terminal More menu
 
 Upstream uses Android's context menu for terminal actions. TermuxPP uses a
-rounded bottom sheet with a compact session heading, an Open URL / Share / Autofill
-shortcut strip, and grouped icon-led rows. Open URL is disabled when the terminal
+rounded bottom sheet with a compact session card, an Autofill / Open URL / Share
+shortcut card, and grouped icon-led rows. Open URL is disabled when the terminal
 contains no URLs. Autofill remains conditional on Android support. Keep screen on has an On/Off state pill; Reset is under **More actions**.
 Settings and Kill remain visible in separate groups. Tapping Kill retains its
 confirmation, and holding it retains the immediate-kill action. Share and
