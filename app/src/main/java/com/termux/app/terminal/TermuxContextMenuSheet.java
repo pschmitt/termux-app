@@ -468,7 +468,8 @@ public class TermuxContextMenuSheet {
             title.setTextColor(color);
         } else if (Boolean.TRUE.equals(tile.checked)) {
             icon.setBackgroundResource(R.drawable.ui_sheet_tile_icon_on_bg);
-            icon.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(dialog.getContext(), R.color.ui_on_primary)));
+            view.setBackgroundResource(R.drawable.ui_sheet_tile_on_bg);
+            icon.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(dialog.getContext(), R.color.ui_on_active)));
         }
         if (tile.checked != null) {
             final boolean checked = tile.checked;
