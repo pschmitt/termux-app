@@ -1036,6 +1036,13 @@ public final class TermuxConstants {
             public static final String ACTION_STOP_SERVICE = TERMUX_PACKAGE_NAME + ".service_stop"; // Default: "com.termux.service_stop"
 
 
+            /** Intent action to stop all shells and then kill the whole app process. Sent by RUN_COMMAND_SERVICE.ACTION_KILL. */
+            public static final String ACTION_KILL = TERMUX_PACKAGE_NAME + ".service_kill"; // Default: "com.termux.service_kill"
+
+            /** Intent {@code boolean} extra for whether to relaunch the app after TERMUX_SERVICE.ACTION_KILL */
+            public static final String EXTRA_KILL_RESTART = TERMUX_PACKAGE_NAME + ".KILL_RESTART"; // Default: "com.termux.KILL_RESTART"
+
+
             /** Intent action to make TERMUX_SERVICE acquire a wakelock */
             public static final String ACTION_WAKE_LOCK = TERMUX_PACKAGE_NAME + ".service_wake_lock"; // Default: "com.termux.service_wake_lock"
 
@@ -1182,6 +1189,12 @@ public final class TermuxConstants {
 
             /** Intent action to execute command with RUN_COMMAND_SERVICE */
             public static final String ACTION_RUN_COMMAND = TERMUX_PACKAGE_NAME + ".RUN_COMMAND"; // Default: "com.termux.RUN_COMMAND"
+
+            /** Intent action to stop all shells and kill the whole app process with RUN_COMMAND_SERVICE (TermuxPP addition) */
+            public static final String ACTION_KILL = TERMUX_PACKAGE_NAME + ".KILL"; // Default: "com.termux.KILL"
+
+            /** Intent {@code boolean} extra for whether to relaunch the app after RUN_COMMAND_SERVICE.ACTION_KILL */
+            public static final String EXTRA_KILL_RESTART = TERMUX_PACKAGE_NAME + ".KILL_RESTART"; // Default: "com.termux.KILL_RESTART"
 
             /** Intent {@code String} extra for absolute path of command for the RUN_COMMAND_SERVICE.ACTION_RUN_COMMAND intent */
             public static final String EXTRA_COMMAND_PATH = TERMUX_PACKAGE_NAME + ".RUN_COMMAND_PATH"; // Default: "com.termux.RUN_COMMAND_PATH"

@@ -142,6 +142,10 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
                     Logger.logDebug(LOG_TAG, "ACTION_STOP_SERVICE intent received");
                     actionStopService();
                     break;
+                case TERMUX_SERVICE.ACTION_KILL:
+                    Logger.logInfo(LOG_TAG, "ACTION_KILL intent received");
+                    actionKill(intent);
+                    break;
                 case TERMUX_SERVICE.ACTION_WAKE_LOCK:
                     Logger.logDebug(LOG_TAG, "ACTION_WAKE_LOCK intent received");
                     actionAcquireWakeLock();
@@ -216,6 +220,28 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         Logger.logDebug(LOG_TAG, "Requesting to stop service");
         runStopForeground();
         stopSelf();
+    }
+
+    /** Stop all shells like the exit action, then kill the whole app process. */
+    private void actionKill(Intent intent) {
+        boolean restart = intent != null && intent.getBooleanExtra(TERMUX_SERVICE.EXTRA_KILL_RESTART, false);
+        if (restart) scheduleRelaunch();
+        actionStopService();
+        TermuxShellUtils.clearTermuxTMPDIR(true);
+        android.os.Process.killProcess(android.os.Process.myPid());
+    }
+
+    /** Ask AlarmManager to relaunch the main activity shortly after the process has died. */
+    private void scheduleRelaunch() {
+        try {
+            Intent launch = new Intent(this, TermuxActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            android.app.PendingIntent pi = android.app.PendingIntent.getActivity(this, 0, launch,
+                android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
+            android.app.AlarmManager am = (android.app.AlarmManager) getSystemService(ALARM_SERVICE);
+            if (am != null) am.set(android.app.AlarmManager.RTC, System.currentTimeMillis() + 1500, pi);
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to schedule relaunch after kill", e);
+        }
     }
 
     /** Process action to stop service. */

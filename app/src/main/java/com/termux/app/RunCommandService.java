@@ -71,6 +71,27 @@ public class RunCommandService extends Service {
         Error error;
         String errmsg;
 
+        // Kill request: stop every shell and kill the whole app process
+        if (RUN_COMMAND_SERVICE.ACTION_KILL.equals(intent.getAction())) {
+            errmsg = TermuxPluginUtils.checkIfAllowExternalAppsPolicyIsViolated(this, LOG_TAG);
+            if (errmsg != null) {
+                executionCommand.setStateFailed(Errno.ERRNO_FAILED.getCode(), errmsg);
+                TermuxPluginUtils.processPluginExecutionCommandError(this, LOG_TAG, executionCommand, true);
+                return stopService();
+            }
+
+            Logger.logInfo(LOG_TAG, "ACTION_KILL intent received, killing the app process");
+            Intent killIntent = new Intent(TERMUX_SERVICE.ACTION_KILL);
+            killIntent.setClass(this, TermuxService.class);
+            killIntent.putExtra(TERMUX_SERVICE.EXTRA_KILL_RESTART, intent.getBooleanExtra(RUN_COMMAND_SERVICE.EXTRA_KILL_RESTART, false));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                this.startForegroundService(killIntent);
+            } else {
+                this.startService(killIntent);
+            }
+            return stopService();
+        }
+
         // If invalid action passed, then just return
         if (!RUN_COMMAND_SERVICE.ACTION_RUN_COMMAND.equals(intent.getAction())) {
             errmsg = this.getString(R.string.error_run_command_service_invalid_intent_action, intent.getAction());
