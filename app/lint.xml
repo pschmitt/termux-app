@@ -2,6 +2,6 @@
 <lint>
     <!-- The upstream alias is required for Locale plug-in compatibility. -->
     <issue id="UniquePermission">
-        <ignore regexp="Permission name RUN_COMMAND is not unique \(appears in both dev\.pschmitt\.termux\.permission\.RUN_COMMAND and com\.termux\.permission\.RUN_COMMAND\)" />
+        <ignore path="src/main/AndroidManifest.xml" />
     </issue>
 </lint>
