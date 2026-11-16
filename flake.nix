@@ -15,7 +15,10 @@
         };
       };
       android = pkgs.androidenv.composeAndroidPackages {
-        platformVersions = [ "36" ];
+        platformVersions = [
+          "35"
+          "36"
+        ];
         buildToolsVersions = [
           "35.0.0"
           "36.0.0"
@@ -119,6 +122,83 @@
           cp termux-float/app/build/outputs/apk/debug/*.apk "$float/"
         '';
       });
+      termuxAm = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+        pname = "termuxpp-termux-am-helper";
+        version = "0.8.1";
+        src = ./.;
+        nativeBuildInputs = [
+          gradle
+          java
+        ];
+        ANDROID_HOME = sdk;
+        ANDROID_SDK_ROOT = sdk;
+        ANDROID_USER_HOME = "/tmp/termuxpp-android-user";
+        JAVA_HOME = java.home;
+        LANG = "C.UTF-8";
+        LC_ALL = "C.UTF-8";
+        TZ = "UTC";
+
+        mitmCache = gradle.fetchDeps {
+          pkg = finalAttrs.finalPackage;
+          data = ./nix/deps.json;
+          bwrapFlags = "--dir /bin --symlink ${pkgs.bash}/bin/bash /bin/sh";
+        };
+        gradleBuildTask = ":termux-am:assembleRelease -x :termux-am:lintVitalAnalyzeRelease -x :termux-am:lintVitalReportRelease -x :termux-am:lintVitalRelease";
+        gradleUpdateTask = ":termux-am:assembleRelease -x :termux-am:lintVitalAnalyzeRelease -x :termux-am:lintVitalReportRelease -x :termux-am:lintVitalRelease";
+        gradleFlags = [
+          "--no-daemon"
+          "-Pandroid.aapt2FromMavenOverride=${sdk}/build-tools/35.0.0/aapt2"
+        ];
+        preBuild = ''
+          mkdir -p "$ANDROID_USER_HOME"
+        '';
+        installPhase = ''
+          mkdir -p "$out"
+          cp termux-am/app/build/outputs/apk/release/termux-am-release-unsigned.apk \
+            "$out/termux-am-release-unsigned.apk"
+        '';
+      });
+      termuxApiNative = pkgs.stdenv.mkDerivation {
+        pname = "termuxpp-termux-api-native-aarch64";
+        version = "0.60.0";
+        src = ./termux-api-package;
+        nativeBuildInputs = [
+          pkgs.cmake
+          pkgs.ninja
+        ];
+        cmakeFlags = [
+          "-DCMAKE_TOOLCHAIN_FILE=${sdk}/ndk/29.0.14206865/build/cmake/android.toolchain.cmake"
+          "-DANDROID_ABI=arm64-v8a"
+          "-DANDROID_PLATFORM=android-24"
+          "-DCMAKE_INSTALL_PREFIX=/data/data/dev.pschmitt.termux/files/usr"
+          "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+        ];
+        installPhase = ''
+          DESTDIR="$out" cmake --install .
+        '';
+      };
+      helperDebs =
+        name: bootstrap:
+        pkgs.runCommand name
+          {
+            nativeBuildInputs = [ pkgs.python3 ];
+          }
+          ''
+            mkdir -p "$out"
+            ${pkgs.python3}/bin/python3 ${./scripts/package-helpers.py} \
+              --am-source ${./termux-am} \
+              --am-apk ${termuxAm}/termux-am-release-unsigned.apk \
+              --api-prefix ${termuxApiNative}/data/data/dev.pschmitt.termux/files/usr \
+              --out-dir "$out" ${pkgs.lib.optionalString bootstrap "--bootstrap"}
+          '';
+      helperDeb =
+        name: source: filename:
+        pkgs.runCommand name { } ''
+          mkdir -p "$out"
+          cp ${source}/${filename} "$out/"
+        '';
+      deviceHelperDebs = helperDebs "termuxpp-helper-debs-device-aarch64" false;
+      bootstrapHelperDebs = helperDebs "termuxpp-helper-debs-bootstrap-aarch64" true;
       companionApk =
         name: source:
         pkgs.runCommand "termuxpp-${name}-debug-apk-${apk.version}" { } ''
@@ -136,6 +216,18 @@
         styling = companionApk "styling" apk.styling;
         widget = companionApk "widget" apk.widget;
         float = companionApk "float" apk.float;
+        termux-am-device =
+          helperDeb "termuxpp-termux-am-device-deb-aarch64" deviceHelperDebs
+            "termux-am_0.8.1+termuxpp1_all.deb";
+        termux-api-device =
+          helperDeb "termuxpp-termux-api-device-deb-aarch64" deviceHelperDebs
+            "termux-api_0.60.0+termuxpp1_aarch64.deb";
+        termux-am-bootstrap =
+          helperDeb "termuxpp-termux-am-bootstrap-deb-aarch64" bootstrapHelperDebs
+            "termux-am_0.8.1+termuxpp1_all.deb";
+        termux-api-bootstrap =
+          helperDeb "termuxpp-termux-api-bootstrap-deb-aarch64" bootstrapHelperDebs
+            "termux-api_0.60.0+termuxpp1_aarch64.deb";
       };
       apps.${system}.update-deps = {
         type = "app";
