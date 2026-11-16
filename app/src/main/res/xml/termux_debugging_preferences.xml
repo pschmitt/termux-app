@@ -5,35 +5,41 @@
         app:title="@string/termux_logging_header">
 
         <ListPreference
+            app:icon="@drawable/ui_ic_transcript"
             app:defaultValue="1"
             app:key="log_level"
             app:title="@string/termux_log_level_title"
             app:useSimpleSummaryProvider="true" />
 
         <SwitchPreferenceCompat
+            app:icon="@drawable/ui_ic_keyboard"
             app:key="terminal_view_key_logging_enabled"
             app:summaryOff="@string/termux_terminal_view_key_logging_enabled_off"
             app:summaryOn="@string/termux_terminal_view_key_logging_enabled_on"
             app:title="@string/termux_terminal_view_key_logging_enabled_title" />
 
         <SwitchPreferenceCompat
+            app:icon="@drawable/ui_ic_warning"
             app:key="plugin_error_notifications_enabled"
             app:summaryOff="@string/termux_plugin_error_notifications_enabled_off"
             app:summaryOn="@string/termux_plugin_error_notifications_enabled_on"
             app:title="@string/termux_plugin_error_notifications_enabled_title" />
 
         <SwitchPreferenceCompat
+            app:icon="@drawable/ui_ic_bug"
             app:key="crash_report_notifications_enabled"
             app:summaryOff="@string/termux_crash_report_notifications_enabled_off"
             app:summaryOn="@string/termux_crash_report_notifications_enabled_on"
             app:title="@string/termux_crash_report_notifications_enabled_title" />
 
         <SwitchPreferenceCompat
+            app:icon="@drawable/ui_ic_terminal"
             app:key="adb_shell_enabled"
             app:summary="@string/adb_shell_enabled_summary"
             app:title="@string/adb_shell_enabled_title" />
 
         <Preference
+            app:icon="@drawable/ui_ic_lock"
             app:key="adb_shell_authorizations"
             app:title="ADB shell authorizations"
             app:summary="Review and revoke individual clients" />

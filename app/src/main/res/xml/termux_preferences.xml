@@ -1,27 +1,32 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <Preference
+        app:icon="@drawable/ui_ic_settings"
         app:key="termux_properties"
         app:title="@string/properties_title"
         app:summary="@string/properties_summary"
         app:fragment="com.termux.app.fragments.settings.termux.PropertiesPreferencesFragment" />
 
     <Preference
+        app:icon="@drawable/ui_ic_palette"
         app:key="termux_styling"
         app:title="@string/action_style_terminal"
         app:summary="@string/termux_update_app_styling" />
 
     <Preference
+        app:icon="@drawable/ui_ic_bug"
         app:title="@string/termux_debugging_preferences_title"
         app:summary="@string/termux_debugging_preferences_summary"
         app:fragment="com.termux.app.fragments.settings.termux.DebuggingPreferencesFragment"/>
 
     <Preference
+        app:icon="@drawable/ui_ic_keyboard"
         app:title="@string/termux_terminal_io_preferences_title"
         app:summary="@string/termux_terminal_io_preferences_summary"
         app:fragment="com.termux.app.fragments.settings.termux.TerminalIOPreferencesFragment"/>
 
     <Preference
+        app:icon="@drawable/ui_ic_terminal"
         app:title="@string/termux_terminal_view_preferences_title"
         app:summary="@string/termux_terminal_view_preferences_summary"
         app:fragment="com.termux.app.fragments.settings.termux.TerminalViewPreferencesFragment"/>

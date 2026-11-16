@@ -39,6 +39,7 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
         PreferenceScreen screen = getPreferenceManager().createPreferenceScreen(requireContext());
         setPreferenceScreen(screen);
         Preference explanation = new Preference(requireContext());
+        explanation.setIcon(R.drawable.ui_ic_info);
         explanation.setTitle(R.string.properties_title);
         explanation.setSummary(R.string.properties_explanation);
         explanation.setSelectable(false);
@@ -121,6 +122,7 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
                 preference = text;
             }
             preference.setKey(key);
+            preference.setIcon(iconFor(key));
             preference.setTitle(key.replace('-', ' '));
             if (preference instanceof DialogPreference) ((DialogPreference) preference).setDialogTitle(key);
             preference.setOnPreferenceChangeListener((p, value) -> save(key, value.toString()));
@@ -146,6 +148,23 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
         if (key.startsWith("terminal-") || key.equals("fullscreen") || key.equals("use-fullscreen-workaround")
             || key.equals("night-mode") || key.equals("bell-character")) return R.string.properties_appearance;
         return R.string.properties_advanced;
+    }
+
+    private int iconFor(String key) {
+        if (key.contains("color") || key.endsWith("style") || key.equals("night-mode")
+            || key.equals("use-black-ui")) return R.drawable.ui_ic_palette;
+        if (key.contains("keyboard") || key.startsWith("extra-keys") || key.startsWith("shortcut.")
+            || key.equals("back-key") || key.equals("volume-keys") || key.equals("ctrl-space-workaround")
+            || key.equals("enforce-char-based-input")) return R.drawable.ui_ic_keyboard;
+        if (key.endsWith("-action") || key.endsWith("-keys")) return R.drawable.ui_ic_select_text;
+        if (key.contains("share")) return R.drawable.ui_ic_share;
+        if (key.contains("url")) return R.drawable.ui_ic_link;
+        if (key.contains("delete")) return R.drawable.ui_ic_delete;
+        if (key.equals(TermuxConstants.PROP_ALLOW_EXTERNAL_APPS)) return R.drawable.ui_ic_lock;
+        if (key.equals("terminal-transcript-rows")) return R.drawable.ui_ic_transcript;
+        if (key.equals("bell-character") || key.contains("toast")) return R.drawable.ui_ic_info;
+        if (categoryFor(key) == R.string.properties_appearance) return R.drawable.ui_ic_terminal;
+        return R.drawable.ui_ic_settings;
     }
 
     private Set<String> choices(String key) {
