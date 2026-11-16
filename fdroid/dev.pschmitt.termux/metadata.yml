@@ -1,0 +1,13 @@
+name: 'TermuxPP'
+summary: 'Terminal emulator and Linux environment (TermuxPP)'
+license: GPL-3.0-only
+categories:
+  - System
+description: |
+  TermuxPP is a fork of the Termux terminal emulator and Linux environment for Android. It runs under its own application ID, so it installs next to stock Termux, and keeps its prefix in its own app data directory.
+
+  It keeps Termux's terminal, package manager and add-on protocol, and adds TermuxPP-only features such as an optional ADB shell endpoint with fingerprint-approved client certificates, a kill intent and an in-app updater (Settings > Updates).
+
+  The add-ons TermuxPP:API, Boot, Float, Styling, Tasker and Widget are published in this repository as well. Their stock Termux counterparts do not work with TermuxPP.
+
+  Source, changes against upstream Termux and issue tracker: https://github.com/pschmitt/termuxpp

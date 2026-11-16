@@ -3,7 +3,8 @@
 #
 # - The release is a prerelease named "Latest build"; its tag is moved to the built commit.
 # - Assets: debuggable and non-debuggable core APKs (universal plus one per ABI),
-#   both variants of all six companions, and SHA256SUMS over them.
+#   both variants of all six companions, SHA256SUMS over them, and fdroid-metadata.zip
+#   (the F-Droid publisher's app descriptions and icons, built from fdroid/).
 # - The release body names the full 40-digit commit; the updater compares that commit with the
 #   installed one, so the body must keep it.
 # - Never cancelled midway and serial per ref: a half-uploaded release would offer a partial set.
@@ -203,6 +204,15 @@ jobs:
           (cd "$dir" && sha256sum -- *.apk > SHA256SUMS)
           cat "$dir/SHA256SUMS"
           echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
+      - name: Build the F-Droid metadata archive
+        # fdroid/<package>/ describes each app for the F-Droid publisher (name, summary, description,
+        # license, icon); the archive stays in the asset set so the vacuum step below keeps it.
+        if: steps.stale.outputs.superseded != 'true'
+        uses: pschmitt/ci-workflows/.github/actions/fdroid-metadata@main
+        with:
+          directory: fdroid
+          output-directory: ${{ steps.assets.outputs.dir }}
 
       - name: Generate the release notes
         if: steps.stale.outputs.superseded != 'true'
