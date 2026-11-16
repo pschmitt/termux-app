@@ -67,10 +67,10 @@
     <string name="blurb_stdin">Stdin %1$s</string>
     <string name="blurb_custom_log_level">Custom Log Level %1$s</string>
     <string name="blurb_session_action">Session Action %1$s</string>
-    <string name="title_kill_termux">Kill Termux (stop all shells and kill the app process)</string>
-    <string name="title_kill_termux_restart">Restart Termux afterwards</string>
-    <string name="blurb_kill">Kill Termux</string>
-    <string name="blurb_kill_restart">Kill Termux and restart it</string>
+    <string name="title_kill_termux">Kill TermuxPP (stop all shells and kill the app process)</string>
+    <string name="title_kill_termux_restart">Restart TermuxPP afterwards</string>
+    <string name="blurb_kill">Kill TermuxPP</string>
+    <string name="blurb_kill_restart">Kill TermuxPP and restart it</string>
     <string name="blurb_in_terminal">Terminal Session %1$s</string>
     <string name="blurb_wait_for_result">Wait For Result %1$s</string>
 
