@@ -24,8 +24,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -60,6 +62,7 @@ public final class UpdateController {
     private static final String ADDON_CHECK_DIR_PREFIX = "app-update-check-";
     private static final long MAX_CHECKSUMS_BYTES = 64 * 1024;
     private static final long PROGRESS_INTERVAL_MS = 250;
+    private static final int MAX_PARALLEL_CHECKS = 3;
 
     private static volatile UpdateController instance;
 
@@ -82,12 +85,15 @@ public final class UpdateController {
     private final UpdateNetwork network;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService checkExecutor = Executors.newFixedThreadPool(MAX_PARALLEL_CHECKS);
     private final List<Listener> listeners = new ArrayList<>();
     private final Map<UpdateTarget, UpdateState> states = new ConcurrentHashMap<>();
 
     private final Object runLock = new Object();
     /** The thread of the task that is running, to interrupt it on cancel. Guarded by {@link #runLock}. */
     @Nullable private Thread runner;
+    /** Active child checks, so cancellation interrupts the network workers as well as their coordinator. */
+    private final List<Thread> checkRunners = new ArrayList<>();
     /** A task is queued or running; set from the main thread, cleared when it ends. */
     private volatile boolean taskActive;
     private final AtomicBoolean cancelRequested = new AtomicBoolean();
@@ -170,16 +176,7 @@ public final class UpdateController {
             if (!target.isUpdatable()) continue;
             publish(target, UpdateState.of(UpdateState.Phase.CHECKING, null));
         }
-        submit(() -> {
-            for (UpdateTarget target : UpdateTarget.values()) {
-                if (!target.isUpdatable() || getState(target).phase != UpdateState.Phase.CHECKING) continue;
-                if (cancelRequested.get()) {
-                    publish(target, UpdateState.IDLE);
-                    continue;
-                }
-                publishCheckResult(target, performCheck(target, channel));
-            }
-        });
+        submit(() -> runChecks(channel));
     }
 
     /** Checks one absent companion after its row is tapped, to offer a first install. */
@@ -189,6 +186,100 @@ public final class UpdateController {
         cancelRequested.set(false);
         publish(target, UpdateState.of(UpdateState.Phase.CHECKING, null));
         submit(() -> publishCheckResult(target, performCheck(target, channel)));
+    }
+
+    private void runChecks(UpdateChannel channel) {
+        List<UpdateTarget> targets = new ArrayList<>();
+        for (UpdateTarget target : UpdateTarget.values()) {
+            if (target.isUpdatable() && getState(target).phase == UpdateState.Phase.CHECKING) targets.add(target);
+        }
+
+        int next = 0;
+        List<Future<CheckResult>> pending = new ArrayList<>();
+        try {
+            while (next < targets.size() || !pending.isEmpty()) {
+                while (!cancelRequested.get() && next < targets.size() && pending.size() < MAX_PARALLEL_CHECKS) {
+                    UpdateTarget target = targets.get(next++);
+                    Future<CheckResult> future = checkExecutor.submit(() -> {
+                        Thread current = Thread.currentThread();
+                        synchronized (runLock) {
+                            checkRunners.add(current);
+                        }
+                        try {
+                            if (cancelRequested.get()) return new CheckResult(target, null);
+                            return new CheckResult(target, performCheck(target, channel));
+                        } finally {
+                            synchronized (runLock) {
+                                checkRunners.remove(current);
+                            }
+                        }
+                    });
+                    pending.add(future);
+                }
+                if (cancelRequested.get()) {
+                    interruptChecks();
+                    awaitChecks(pending);
+                    pending.clear();
+                    break;
+                }
+                Future<CheckResult> future = pending.get(0);
+                try {
+                    CheckResult result = future.get();
+                    if (result.result != null) publishCheckResult(result.target, result.result);
+                } catch (ExecutionException e) {
+                    Logger.logStackTraceWithMessage(LOG_TAG, "Update check failed", e.getCause());
+                } finally {
+                    pending.remove(future);
+                }
+            }
+        } catch (InterruptedException e) {
+            cancelRequested.set(true);
+            interruptChecks();
+            awaitChecks(pending);
+            Thread.currentThread().interrupt();
+        } finally {
+            for (UpdateTarget target : targets) {
+                if (getState(target).phase == UpdateState.Phase.CHECKING) {
+                    if (target.versionedApkPrefix != null && cancelRequested.get()) {
+                        wipe(new File(context.getCacheDir(), ADDON_CHECK_DIR_PREFIX + target.id));
+                    }
+                    publish(target, UpdateState.IDLE);
+                }
+            }
+        }
+    }
+
+    private void interruptChecks() {
+        synchronized (runLock) {
+            for (Thread thread : checkRunners) thread.interrupt();
+        }
+    }
+
+    private static void awaitChecks(List<? extends Future<?>> checks) {
+        boolean interrupted = false;
+        for (Future<?> future : checks) {
+            while (true) {
+                try {
+                    future.get();
+                    break;
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                } catch (ExecutionException e) {
+                    break;
+                }
+            }
+        }
+        if (interrupted) Thread.currentThread().interrupt();
+    }
+
+    private static final class CheckResult {
+        final UpdateTarget target;
+        final UpdateChecker.Result result;
+
+        CheckResult(UpdateTarget target, UpdateChecker.Result result) {
+            this.target = target;
+            this.result = result;
+        }
     }
 
     private UpdateChecker.Result performCheck(UpdateTarget target, UpdateChannel channel) {
@@ -261,6 +352,9 @@ public final class UpdateController {
             }
             // Equal or unparseable version names remain an explicit reinstall offer: versionCode is
             // fixed in these projects and cannot prove two APKs contain identical builds.
+            if (cancelRequested.get() || Thread.currentThread().isInterrupted()) {
+                return new UpdateChecker.Result(UpdateChecker.Kind.FAILED, null, "check cancelled");
+            }
             keepStaged = true;
             return new UpdateChecker.Result(UpdateChecker.Kind.AVAILABLE, offer.withStagedApk(apk), null);
         } catch (UpdateNetwork.InsufficientStorageException e) {
@@ -322,6 +416,7 @@ public final class UpdateController {
         cancelRequested.set(true);
         synchronized (runLock) {
             if (runner != null) runner.interrupt();
+            for (Thread thread : checkRunners) thread.interrupt();
         }
     }
 
