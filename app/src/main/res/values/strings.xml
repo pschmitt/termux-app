@@ -171,6 +171,18 @@
                 <string name="termux_crash_report_notifications_enabled_off">Disable notifications for crash reports.</string>
                 <string name="termux_crash_report_notifications_enabled_on">Show notifications for crash reports. (Default)</string>
 
+                <!-- ADB Shell -->
+                <string name="adb_shell_enabled_title">ADB shell access</string>
+                <string name="adb_shell_enabled_summary">Allow a shell through an ADB-forwarded loopback connection using mutual TLS and a separate access token. Enable this setting, then run the host helper with --provision.</string>
+                <string name="adb_shell_token_title">ADB shell access token</string>
+                <string name="adb_shell_token_warning">Keep this token private. A shell requires both this token and a trusted client certificate. On the host, run python3 scripts/termuxpp-adb-shell.py --serial SERIAL --provision and enter the token when prompted. The token is revoked when access is disabled.</string>
+                <string name="adb_shell_copy_token">Copy token</string>
+                <string name="adb_shell_token_copied">Token copied to clipboard</string>
+                <string name="adb_shell_notification_channel">ADB shell access</string>
+                <string name="adb_shell_notification_title">ADB shell is enabled</string>
+                <string name="adb_shell_notification_text">Listening on loopback ports 8022 and 8023 (mTLS shell)</string>
+                <string name="adb_shell_stop">Stop</string>
+
 
         <!-- Terminal IO Preferences -->
         <string name="termux_terminal_io_preferences_title">Terminal I/O</string>

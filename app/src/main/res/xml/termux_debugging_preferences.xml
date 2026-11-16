@@ -28,6 +28,16 @@
             app:summaryOn="@string/termux_crash_report_notifications_enabled_on"
             app:title="@string/termux_crash_report_notifications_enabled_title" />
 
+        <SwitchPreferenceCompat
+            app:key="adb_shell_enabled"
+            app:summary="@string/adb_shell_enabled_summary"
+            app:title="@string/adb_shell_enabled_title" />
+
+        <Preference
+            app:key="adb_shell_authorizations"
+            app:title="ADB shell authorizations"
+            app:summary="Review and revoke individual clients" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>
