@@ -529,6 +529,20 @@ public class PluginUtils {
     }
 
     /**
+     * Check if the "allow-external-apps" property is not set to {@code true}. Used for actions that
+     * are not tied to an executable in the tasker scripts directory, like killing Termux.
+     *
+     * @param context The {@link Context} for operations.
+     * @return Returns the {@code errmsg} if the property is not {@code true}, otherwise {@code null}.
+     */
+    public static String checkIfAllowExternalAppsPropertyIsUnset(final Context context) {
+        if (SharedProperties.isPropertyValueTrue(context,
+                SharedProperties.getPropertiesFileFromList(TermuxConstants.TERMUX_PROPERTIES_FILE_PATHS_LIST, LOG_TAG),
+                TermuxConstants.PROP_ALLOW_EXTERNAL_APPS, true)) return null;
+        return context.getString(R.string.error_allow_external_apps_ungranted_warning);
+    }
+
+    /**
      * Try to get the next unique {@link PendingIntent} request code that isn't already being used by
      * the app and which would create a unique {@link PendingIntent} that doesn't conflict with that
      * of any other execution commands.

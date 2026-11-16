@@ -71,6 +71,9 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
     private TextInputEditText mBackgroundCustomLogLevel;
     private CheckBox mInTerminalCheckbox;
     private CheckBox mWaitForResult;
+    private CheckBox mKillTermux;
+    private CheckBox mKillTermuxRestart;
+    private View mCommandContainer;
     private TextView mExecutableAbsolutePathText;
     private TextView mWorkingDirectoryAbsolutePathText;
     private TextView mTermuxAppFilesPathInaccessibleWarning;
@@ -128,6 +131,13 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
         mBackgroundCustomLogLevel = findViewById(R.id.background_custom_log_level);
         mInTerminalCheckbox = findViewById(R.id.in_terminal);
         mWaitForResult = findViewById(R.id.wait_for_result);
+        mKillTermux = findViewById(R.id.kill_termux);
+        mKillTermuxRestart = findViewById(R.id.kill_termux_restart);
+        mCommandContainer = findViewById(R.id.command_container);
+        mKillTermux.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            mCommandContainer.setVisibility(isChecked ? View.GONE : View.VISIBLE);
+            mKillTermuxRestart.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+        });
         mExecutableAbsolutePathText = findViewById(R.id.executable_absolute_path);
         mWorkingDirectoryAbsolutePathText = findViewById(R.id.working_directory_absolute_path);
         mTermuxAppFilesPathInaccessibleWarning = findViewById(R.id.termux_app_files_path_inaccessible_warning);
@@ -159,6 +169,12 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
         errmsg = PluginBundleManager.parseBundle(this, localeBundle);
         if (errmsg != null) {
             Logger.logError(LOG_TAG, errmsg);
+            return;
+        }
+
+        if (localeBundle.getBoolean(PluginBundleManager.EXTRA_KILL, false)) {
+            mKillTermuxRestart.setChecked(localeBundle.getBoolean(PluginBundleManager.EXTRA_KILL_RESTART, false));
+            mKillTermux.setChecked(true);
             return;
         }
 
@@ -671,6 +687,23 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
     @Override
     public void finish() {
         if (isCanceled()) {
+            super.finish();
+            return;
+        }
+
+        if (mKillTermux.isChecked()) {
+            final boolean restart = mKillTermuxRestart.isChecked();
+            final Bundle killBundle = PluginBundleManager.generateKillBundle(getApplicationContext(), restart);
+            if (killBundle == null) {
+                Logger.showToast(this, getString(R.string.error_generate_plugin_bundle_failed), true);
+                setResult(RESULT_CODE_FAILED, new Intent());
+                super.finish();
+                return;
+            }
+            final Intent killResult = new Intent();
+            killResult.putExtra(com.twofortyfouram.locale.Intent.EXTRA_BUNDLE, killBundle);
+            killResult.putExtra(com.twofortyfouram.locale.Intent.EXTRA_STRING_BLURB, PluginBundleManager.generateKillBlurb(this, restart));
+            setResult(RESULT_OK, killResult);
             super.finish();
             return;
         }

@@ -46,6 +46,12 @@ public class PluginBundleManager {
     /** The {@code boolean} extra for whether the executable should be run inside a terminal. */
     public static final String EXTRA_TERMINAL = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.TERMINAL"; // Default: "dev.pschmitt.termux.tasker.extra.TERMINAL"
 
+    /** The {@code boolean} extra for whether the action kills Termux instead of running an executable. */
+    public static final String EXTRA_KILL = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.KILL"; // Default: "dev.pschmitt.termux.tasker.extra.KILL"
+
+    /** The {@code boolean} extra for whether Termux is relaunched after it was killed. */
+    public static final String EXTRA_KILL_RESTART = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.KILL_RESTART"; // Default: "dev.pschmitt.termux.tasker.extra.KILL_RESTART"
+
     /** The {@code boolean} extra for whether plugin action should wait for result of commands or not. */
     public static final String EXTRA_WAIT_FOR_RESULT = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.WAIT_FOR_RESULT"; // Default: "dev.pschmitt.termux.tasker.extra.WAIT_FOR_RESULT"
 
@@ -75,6 +81,14 @@ public class PluginBundleManager {
     @SuppressLint("DefaultLocale")
     public static String parseBundle(@NonNull final Context context, final Bundle bundle) {
         if (bundle == null) return context.getString(R.string.error_null_bundle);
+
+        // Kill action: only needs the kill flag and the version code
+        if (bundle.getBoolean(EXTRA_KILL, false)) {
+            if (!bundle.containsKey(BUNDLE_EXTRA_INT_VERSION_CODE)) {
+                return String.format("The bundle must contain extra %s.", BUNDLE_EXTRA_INT_VERSION_CODE);
+            }
+            return null;
+        }
 
         /*
          * Make sure the correct number of extras exist.
@@ -159,6 +173,26 @@ public class PluginBundleManager {
 
         result.putInt(BUNDLE_EXTRA_INT_VERSION_CODE, versionCode);
         return result;
+    }
+
+    @Nullable
+    public static Bundle generateKillBundle(@NonNull final Context context, final boolean restart) {
+        final Bundle result = new Bundle();
+        result.putBoolean(EXTRA_KILL, true);
+        result.putBoolean(EXTRA_KILL_RESTART, restart);
+
+        Integer versionCode = PackageUtils.getVersionCodeForPackage(context);
+        if (versionCode == null) {
+            Logger.showToast(context, context.getString(R.string.error_get_version_code_failed, context.getPackageName()), true);
+            return null;
+        }
+
+        result.putInt(BUNDLE_EXTRA_INT_VERSION_CODE, versionCode);
+        return result;
+    }
+
+    public static String generateKillBlurb(@NonNull final Context context, final boolean restart) {
+        return context.getString(restart ? R.string.blurb_kill_restart : R.string.blurb_kill);
     }
 
     /**

@@ -68,6 +68,23 @@ public final class FireReceiver extends BroadcastReceiver {
             return;
         }
 
+        // Kill action: ask the TermuxPP service (same UID as this plug-in) to kill the app process
+        if (bundle.getBoolean(PluginBundleManager.EXTRA_KILL, false)) {
+            errmsg = TermuxUtils.isTermuxAppAccessible(context);
+            if (errmsg == null) errmsg = PluginUtils.checkIfAllowExternalAppsPropertyIsUnset(context);
+            if (errmsg != null) {
+                Logger.logError(LOG_TAG, errmsg);
+                PluginUtils.sendImmediateResultToPluginHostApp(this, intent, TaskerPlugin.Setting.RESULT_CODE_FAILED, errmsg);
+                return;
+            }
+
+            Intent killIntent = new Intent(TERMUX_SERVICE.ACTION_KILL);
+            killIntent.setClassName(TermuxConstants.TERMUX_PACKAGE_NAME, TermuxConstants.TERMUX_APP.TERMUX_SERVICE_NAME);
+            killIntent.putExtra(TERMUX_SERVICE.EXTRA_KILL_RESTART, bundle.getBoolean(PluginBundleManager.EXTRA_KILL_RESTART, false));
+            PluginUtils.sendExecuteIntentToExecuteService(context, this, intent, killIntent, false);
+            return;
+        }
+
         Intent commandIntent = new Intent().putExtras(bundle);
         ExecutionCommand executionCommand = new ExecutionCommand();
 
