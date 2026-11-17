@@ -81,7 +81,7 @@ auto-optimise-store = false' \
     -b "$directory/root/etc:/etc!" \
     -b "$directory/root/bin:/bin!" \
     -b "$directory/root/home:/home" \
-    -b "$directory/root/tmp:/tmp" \
+    -b "${SESSION_TMP_DIR:-$directory/root/tmp}:/tmp" \
     -b "$directory/root/usr:/usr" \
     -b "$directory/root/dev/shm:/dev/shm" \
     -b "$directory/proc-stat:/proc/stat" \

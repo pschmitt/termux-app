@@ -36,7 +36,15 @@ Its preparer supports an explicit guest username and `/home/<user>`; the session
 launcher preserves the original `nix` default for existing runtime settings.
 The optional [`login.sh`](../../nix-runtime/login.sh) selects the configured
 home's Nix-profile Zsh. This is guest identity only, not a separate Android UID
-or a change to upstream-compatible native recovery.
+or a change to upstream-compatible native recovery. An opt-in native
+[Android bridge](../../nix-runtime/android-bridge.py), started before entering
+the guest by [`start-android-bridge.sh`](../../nix-runtime/start-android-bridge.sh),
+exposes only ping, broker status, filtered battery status and toast. It validates
+same-UID Unix-socket peers and bounds requests/helper execution; it is not an
+arbitrary native command service. A `bridge.enabled` marker opts `login.sh` into
+starting it. `SESSION_TMP_DIR` can select a short native directory for guest
+`/tmp`, avoiding Android-translated Unix-socket path limits. These additions do
+not change Android permissions or enable the runtime in the APK by default.
 It has been exercised on a 4 KiB-page AArch64 device, including dynamic Nix builds
 and real terminal job control. It is not a security sandbox or production-qualified
 replacement for the native environment; APK integration and automatic full-Nix

@@ -2,6 +2,10 @@
 
 script=$(/system/bin/readlink -f "$0") || exit 1
 directory=${script%/*}
+if [[ -f "$directory/bridge.enabled" && -r "$directory/start-android-bridge.sh" ]]
+then
+  /system/bin/sh "$directory/start-android-bridge.sh" </dev/null >>"$directory/bridge.log" 2>&1 &
+fi
 if [[ $# -eq 0 ]]
 then
   set -- -l

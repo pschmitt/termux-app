@@ -67,7 +67,47 @@ the manifest; `~/.nix-profile/bin` takes precedence. Base packages have explicit
 GC roots. Sandbox builds and build users are disabled; cache signature checks
 remain required. Public DNS resolvers are written into the isolated root.
 `/android` exposes host paths: this is **not a sandbox**. Proc metrics use fixtures,
-not live CPU/uptime values. Android helpers and Home Manager are not integrated.
+not live CPU/uptime values. Home Manager profiles are maintained separately in
+[nixos-config](https://github.com/pschmitt/nixos-config/tree/agent/full-nix-hosts/android/full-nix).
+
+### Allowlisted Android bridge
+
+Linux/glibc processes cannot directly execute Bionic helpers. Stage
+`android-bridge.py` and `start-android-bridge.sh` alongside `session.sh`, then run
+this from the **native** TermuxPP shell, not inside the guest:
+
+```sh
+/system/bin/sh "$HOME/.local/share/termuxpp-nix/start-android-bridge.sh"
+```
+
+The script resolves the current core APK's prefix-redirect library and starts
+native Python with the native loader environment. The broker supports only
+ping, status, battery status and toast. It checks same-UID peer credentials,
+uses directory mode 0700/socket mode 0600, rejects extra request fields, and
+bounds helper runtime and output. It is not a security boundary between processes
+sharing the app UID. No arbitrary shell or private-data API is exposed.
+
+Set `SESSION_TMP_DIR` in the managed `session.env` to a short app-private native
+directory (for example `$HOME/.cache/tn`, using its absolute native path), and
+create it with mode 0700. The default bridge directory is its `android-bridge`
+child. The guest client uses `/tmp/android-bridge/bridge.sock`. An alternative
+native directory can be passed with `--socket-dir`; configure the guest client
+socket consistently. Relative bind/connect avoids Android-translated Unix socket
+path length limits.
+
+Once verified, a `bridge.enabled` marker beside `login.sh` opts into native
+broker startup before guest entry. Removing the marker disables future startup;
+it does not stop an already-running broker. A live broker is never replaced.
+Android may terminate background processes, so startup does not guarantee a
+persistent Android service. Keep native recovery available.
+
+Guest-to-native ping, filtered battery status and toast passed on both test
+phones. Reproduce broker/client tests on a worker with:
+
+```sh
+ANDROID_BRIDGE_CLIENT=/absolute/path/to/android-bridge-client.py \
+  python3 -I -m unittest discover -s nix-runtime/tests -p 'test_android_bridge.py'
+```
 
 ### Verified on Android, 2026-11-17
 
