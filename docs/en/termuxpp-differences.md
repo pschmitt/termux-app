@@ -32,6 +32,11 @@ The optional [`nix-runtime` prototype](../../nix-runtime/README.md) provides an
 isolated Linux/glibc Nix store and shell through a patched droid-nix launcher.
 It is separate from native Android/Bionic nixpp bundles and does not change
 normal shell startup, bootstrap selection, companion identities or permissions.
+Its preparer supports an explicit guest username and `/home/<user>`; the session
+launcher preserves the original `nix` default for existing runtime settings.
+The optional [`login.sh`](../../nix-runtime/login.sh) selects the configured
+home's Nix-profile Zsh. This is guest identity only, not a separate Android UID
+or a change to upstream-compatible native recovery.
 It has been exercised on a 4 KiB-page AArch64 device, including dynamic Nix builds
 and real terminal job control. It is not a security sandbox or production-qualified
 replacement for the native environment; APK integration and automatic full-Nix

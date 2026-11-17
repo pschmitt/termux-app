@@ -54,7 +54,10 @@ def extract(apk, root):
     archive.unlink()
 
 
-def prepare(directory, apk, manifest, certificate):
+def prepare(directory, apk, manifest, certificate, username='nix'):
+    if not re.fullmatch(r'[a-z_][a-z0-9_-]{0,31}', username):
+        raise ValueError('invalid guest username')
+    home = f'/home/{username}'
     config = json.loads(manifest.read_text())
     if config.get('schema') != 1 or config.get('system') != 'aarch64-linux' or config.get('pageSize') != 4096:
         raise ValueError('unsupported session manifest')
@@ -70,7 +73,7 @@ def prepare(directory, apk, manifest, certificate):
     busybox, = sorted(store.glob('*-busybox-static-*/'))
     nix, = sorted(store.glob('*-nix-static-*/'))
     virtual = lambda path: '/' + str(path.relative_to(root))
-    for name in ('home/nix', 'tmp', 'dev/shm', 'usr/bin', 'etc'):
+    for name in (home.lstrip('/'), 'tmp', 'dev/shm', 'usr/bin', 'etc'):
         (root / name).mkdir(parents=True, exist_ok=True, mode=0o700)
     for name, target in [('bin/sh', virtual(busybox) + '/bin/sh'), ('usr/bin/env', virtual(busybox) + '/bin/env')]:
         destination = root / name
@@ -78,8 +81,8 @@ def prepare(directory, apk, manifest, certificate):
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.symlink_to(target)
     files = {
-        'etc/passwd': f'nix:x:{os.getuid()}:{os.getgid()}:Nix user:/home/nix:{config["shell"]}\n',
-        'etc/group': f'nix:x:{os.getgid()}:\n',
+        'etc/passwd': f'{username}:x:{os.getuid()}:{os.getgid()}:Nix user:{home}:{config["shell"]}\n',
+        'etc/group': f'{username}:x:{os.getgid()}:\n',
         'etc/nsswitch.conf': 'passwd: files\ngroup: files\nhosts: files dns\n',
         'etc/resolv.conf': 'nameserver 1.1.1.1\nnameserver 9.9.9.9\n',
         'etc/hosts': '127.0.0.1 localhost\n::1 localhost\n',
@@ -97,6 +100,8 @@ def prepare(directory, apk, manifest, certificate):
     for index, package in enumerate(config['packages']):
         (roots / str(index)).symlink_to(package)
     values = {
+        'SESSION_USER': username,
+        'SESSION_HOME': home,
         'BOOTSTRAP_NIX': virtual(nix),
         'BOOTSTRAP_BUSYBOX': virtual(busybox),
         'ANDROID_CA': str(certificate.resolve(strict=True)),
@@ -117,9 +122,10 @@ def main():
     parser.add_argument('apk', type=Path)
     parser.add_argument('manifest', type=Path)
     parser.add_argument('certificate', type=Path)
+    parser.add_argument('--user', default='nix', help='guest username (default: nix)')
     args = parser.parse_args()
     os.umask(0o077)
-    prepare(args.directory, args.apk, args.manifest, args.certificate)
+    prepare(args.directory, args.apk, args.manifest, args.certificate, args.user)
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -22,6 +23,43 @@ class PrepareSessionTests(unittest.TestCase):
         with zipfile.ZipFile(apk, 'w') as archive:
             archive.writestr('assets/bootstrap-aarch64.zip', inner.getvalue())
         return apk
+
+    def test_guest_identity(self):
+        for username in ('nix', 'pschmitt'):
+            with self.subTest(username=username), tempfile.TemporaryDirectory() as tmp:
+                directory = Path(tmp)
+                package = '/nix/store/' + 'a' * 32 + '-session'
+                config = dict(schema=1, system='aarch64-linux', pageSize=4096,
+                              packages=[package], path=package + '/bin')
+                config.update({key: package for key in ('shell', 'nix', 'python', 'zsh', 'certificate', 'terminfo')})
+                manifest = directory / 'manifest.json'
+                manifest.write_text(json.dumps(config))
+                certificate = directory / 'cert.pem'
+                certificate.touch()
+
+                def extract(_apk, root):
+                    for name in ('fixture-busybox-static-test', 'fixture-nix-static-test'):
+                        (root / 'nix/store' / name).mkdir(parents=True)
+
+                with mock.patch.object(module, 'extract', extract):
+                    if username == 'nix':
+                        module.prepare(directory, None, manifest, certificate)
+                    else:
+                        module.prepare(directory, None, manifest, certificate, username)
+                home = f'/home/{username}'
+                self.assertTrue((directory / 'root' / home.lstrip('/')).is_dir())
+                fields = (directory / 'root/etc/passwd').read_text().strip().split(':')
+                self.assertEqual(fields[0], username)
+                self.assertEqual(fields[5], home)
+                self.assertTrue((directory / 'root/etc/group').read_text().startswith(username + ':'))
+                environment = (directory / 'session.env').read_text()
+                self.assertIn(f'SESSION_USER={username}\n', environment)
+                self.assertIn(f'SESSION_HOME={home}\n', environment)
+
+    def test_invalid_username_rejected_before_extraction(self):
+        for username in ('../outside', '/root', 'a:b', '', 'a b', 'x' * 33):
+            with self.subTest(username=username), self.assertRaisesRegex(ValueError, 'username'):
+                module.prepare(None, None, None, None, username)
 
     def test_bad_hash_does_not_create_root(self):
         with tempfile.TemporaryDirectory() as tmp:

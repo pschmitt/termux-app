@@ -14,6 +14,8 @@ main() {
   fi
   # shellcheck source=/dev/null
   . "$directory/session.env"
+  session_user=${SESSION_USER:-nix}
+  session_home=${SESSION_HOME:-/home/$session_user}
   if [[ $(/system/bin/uname -m) != aarch64 || $(/system/bin/getconf PAGE_SIZE) != 4096 ]]
   then
     printf 'This experimental runtime requires AArch64 with 4096-byte pages.\n' >&2
@@ -40,7 +42,7 @@ main() {
     login_shell=/bin/sh
     certificate="/android$ANDROID_CA"
   else
-    command_path="/home/nix/.nix-profile/bin:$SESSION_PATH"
+    command_path="$session_home/.nix-profile/bin:$SESSION_PATH"
     login_shell=$SESSION_SHELL
     certificate=$SESSION_CERTIFICATE
     if [[ ! -x "$directory/root$login_shell" ]]
@@ -61,9 +63,9 @@ main() {
     target=$login_shell
     set -- --noprofile --rcfile /etc/bashrc -i
   fi
-  cd "$directory/root/home/nix" || return 1
+  cd "$directory/root$session_home" || return 1
   exec /system/bin/env -i \
-    HOME=/home/nix USER=nix LOGNAME=nix \
+    HOME="$session_home" USER="$session_user" LOGNAME="$session_user" \
     TERM="${TERM:-xterm-256color}" COLORTERM="${COLORTERM:-truecolor}" \
     LANG=C.UTF-8 TMPDIR=/tmp SHELL="$login_shell" \
     PATH="$command_path" TERMINFO="$SESSION_TERMINFO" \

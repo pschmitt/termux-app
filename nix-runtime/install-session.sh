@@ -27,7 +27,8 @@ main() {
   if [[ $1 != --resume ]]
   then
     "$prefix/bin/python3" -I "$directory/prepare-session.py" \
-      "$directory" "$1" "$directory/manifest.json" "$prefix/etc/tls/cert.pem" || return 1
+      "$directory" "$1" "$directory/manifest.json" "$prefix/etc/tls/cert.pem" \
+      --user "${TERMUXPP_NIX_USER:-nix}" || return 1
   fi
   if [[ ! -r "$directory/session.env" || ! -r "$directory/packages.txt" ]]
   then

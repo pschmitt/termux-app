@@ -54,7 +54,14 @@ Start the session with `~/.local/share/termuxpp-nix/session.sh`; use
 has a `~/.local/bin/termuxpp-nix` symlink. `exit` returns to the unchanged native
 shell. There is deliberately no automatic startup change yet.
 
-The fresh persistent guest home is `/home/nix`, separate from native dotfiles.
+The default fresh persistent guest home is `/home/nix`, separate from native
+dotfiles. Set `TERMUXPP_NIX_USER=pschmitt` when invoking the installer (or pass
+`--user pschmitt` directly to the preparer) for `/home/pschmitt`. The username and
+home are recorded in `session.env` as `SESSION_USER` and `SESSION_HOME`; existing
+runtime files without those fields retain the original `nix` default. This does
+not change the Android UID. `login.sh` enters the Home Manager Zsh selected under
+the configured home, after that profile is installed. Back up and migrate an
+existing home and guest user records before changing these runtime settings.
 Bash, Zsh, Git, Python, common shell tools, certificates and Nix are pinned in
 the manifest; `~/.nix-profile/bin` takes precedence. Base packages have explicit
 GC roots. Sandbox builds and build users are disabled; cache signature checks
