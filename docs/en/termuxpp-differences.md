@@ -48,7 +48,7 @@ not change Android permissions or enable the runtime in the APK by default.
 The experimental launcher also accepts `--system CANDIDATE` to enter an explicitly
 prepared guest-system package tree and `/etc` snapshot. This does not select a
 default generation, activate Home Manager, or change native recovery; candidate
-selection is worker-tested but not yet Android-qualified. The native
+selection has been exercised on a 4 KiB-page AArch64 Android test device. The native
 [`system-control.py`](../../nix-runtime/system-control.py) can run the matching
 Home Manager generation's isolated runtime acceptance gate in a fresh candidate
 session, with bounded execution and cancellation cleanup. It also implements
@@ -57,8 +57,13 @@ retained generation listing, rollback and explicit interrupted-activation recove
 Guest `nixpp` requests these fixed operations over a dedicated same-UID native
 socket; it does not directly execute Bionic programs. Service startup is opt-in
 through `system.enabled`, and `--legacy`/`--bootstrap` bypass selection for recovery.
-These migration paths are worker-tested, not yet Android-qualified. The guest
-management interface reuses the `nixpp` name. This is fork-specific tooling, not
+Device qualification covered system/HM activation, rollback to the original
+HM-only generation, switching forward, recovery after a controlled interruption
+before activation, and a fresh login. It does not establish recovery from every
+possible partial Home Manager mutation or qualify other devices. Fresh sessions
+set `NIX_CONF_DIR` before shell startup so Nix does not resolve its configuration
+through the translated `/etc` symlink. The guest management interface reuses the
+`nixpp` name. This is fork-specific tooling, not
 an upstream Termux generation-management interface.
 It has been exercised on a 4 KiB-page AArch64 device, including dynamic Nix builds
 and real terminal job control. It is not a security sandbox or production-qualified
