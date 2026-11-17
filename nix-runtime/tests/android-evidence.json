@@ -1,0 +1,89 @@
+{
+  "date": "2026-11-17",
+  "status": "production_blocked",
+  "upstream_revision": "bb08d50117568e9994b6d87c918c4c2d7b5de9b1",
+  "release": "v0.9.0",
+  "release_apk_sha256": "f74f0de161fb51ccc9a6ffd1a839150c1c88fd88f1b7176e320ec564fc696ea2",
+  "environment": {
+    "execution": "Existing SSH session in TermuxPP app domain; run-as used only for file transfer",
+    "selinux_domain": "untrusted_app_27",
+    "page_size": 4096,
+    "tracer_pid_before_diagnostics": 0,
+    "seccomp_mode": 2,
+    "seccomp_filters": 2,
+    "nix": "2.34.9 static musl from verified release bootstrap",
+    "busybox": "1.37.0 static musl from verified release bootstrap",
+    "go": "1.26.10, CGO_ENABLED=0 GOOS=linux GOARCH=arm64",
+    "proc_stat_and_uptime": "Synthetic test fixtures, not real system metrics",
+    "nix_sandbox": false,
+    "nix_build_users_group": "",
+    "nix_substituters": ""
+  },
+  "unmodified": {
+    "go_probe_exit": 2,
+    "nix_version_exit": 0,
+    "nix_arithmetic_exit": 0,
+    "nix_arithmetic_output": "42",
+    "local_derivation_exit": 159
+  },
+  "sa_onstack": {
+    "go_probe_exit": 0,
+    "go_probe_output": "STATIC_GO_PASS",
+    "nix_version_exit": 139,
+    "nix_arithmetic_exit": 139,
+    "nix_arithmetic_output": "42",
+    "gc_dont_gc_did_not_resolve_crash": true,
+    "local_derivation": "not tested",
+    "trace": {
+      "alternate_stack_bytes": 22528,
+      "alternate_stack_mapping_bytes": 24576,
+      "sequence": [
+        "sigaltstack installs alternate stack inside mapping",
+        "munmap removes alternate stack mapping without prior disable",
+        "rt_sigprocmask causes launcher SIGSYS",
+        "kernel-generated SIGSEGV during signal delivery"
+      ]
+    }
+  },
+  "diagnostic_fchmodat2_enosys": {
+    "source_generator": "make-android-diagnostic.py",
+    "sa_onstack": false,
+    "local_derivation_exit": 0,
+    "verified_output": "android-build-pass",
+    "untraced_rebuild_exit": 0,
+    "go_probe": "not retested; upstream Go regression not addressed",
+    "production_fix": false
+  },
+  "cleanup": {
+    "isolated_device_directory_removed": true,
+    "disposable_worker_destroyed": true,
+    "small_raw_traces_retained_privately": true
+  },
+  "sha256": {
+    "release_launcher": "ff7743325a0c295450fb50914a0819f56678945b6c3dbf90c220a31270d87346",
+    "sa_onstack_launcher": "3728248b42bf334687a6486cf7e1a987d3d8c9cd5e0e4a9427af710e87ff9b11",
+    "go_probe": "aa7af9f939756c600842ed75980871f076cf42c176bd8a06272819a563d6302a",
+    "altstack_logging_launcher": "3df65cbd75059f482e42aa51ff42ed66d2cda972a340a927c4c7006e3d3bfd84",
+    "enosys_diagnostic_launcher": "e8df163fc8ce2d92485b248726b654b2599becf3ab24ab8f08e0c6a8cc2e80a7",
+    "static_strace": "97c8a721a5d8674b46025c68b83a453c20c40a3959a7efb54b03840c5899fd61",
+    "private_version_trace": "224f4c0d23e76e24ec094382087b4c3e9f4ad942d12f1b49e7e0d32720527d1a",
+    "private_build_trace": "3998acdf0a7089cec72e47f748c09b1b81aacbfa815f1fac200b4b665c91f53c",
+    "private_fallback_build_trace": "27749962a78f6fff17e17f9e380f7898a83b59a00ba5e47234c590b2ad52f0f1"
+  },
+  "unchanged": [
+    "Installed APKs",
+    "Normal TermuxPP prefix and nixpp generation",
+    "Default shell and SSH configuration"
+  ],
+  "not_tested": [
+    "Full 14-check VM suite on Android",
+    "Dynamic glibc closures",
+    "PTYs, job control and terminal resizing",
+    "App lifecycle and concurrent sessions",
+    "Android helper and companion integration",
+    "Performance versus PRoot",
+    "16 KiB page kernels",
+    "Actual garbage collection, bootstrap upgrades and rollback",
+    "Complete chmod/symlink semantics and other denied syscalls"
+  ]
+}

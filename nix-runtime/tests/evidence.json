@@ -2,6 +2,8 @@
   "date": "2026-11-17",
   "upstream_revision": "bb08d50117568e9994b6d87c918c4c2d7b5de9b1",
   "environment": "Full ARM64 Linux kernel in QEMU system emulation on a disposable x86_64 Linux worker",
+  "scope": "VM results only; see android-evidence.json for subsequent physical-device failures",
+  "production_ready": false,
   "uid": 10000,
   "gid": 10000,
   "go_version": "1.26.10",

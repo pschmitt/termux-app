@@ -32,10 +32,11 @@ the application/runtime. It does not allocate a per-thread alternate stack for
 applications that have none; in that case the kernel uses the normal stack.
 
 The regression probe is a static Go program with eight goroutines doing 100
-translated reads each, followed by shell execution. Matched-UID controls run
+translated reads each, followed by shell execution. Matched-UID VM controls run
 directly and under the launcher as UID/GID 10000. The unpatched launcher crashes;
-the patched launcher passes. This is a bounded compatibility result, not a proof
-of arbitrary signal nesting or compatibility with every Go version.
+the patched launcher passes in that VM. **The patch is not Android-safe:** the
+physical-device tests below expose a Nix exit crash. Do not ship this patch or
+enable the runtime on the strength of the VM results.
 
 ## Reproduce on a disposable x86_64 Linux worker
 
@@ -81,6 +82,67 @@ Small harness checks:
 python3 -I nix-runtime/tests/test_results.py
 shellcheck nix-runtime/tests/prepare-vm.sh nix-runtime/tests/guest-init.sh
 ```
+
+## Physical Android findings (2026-11-17)
+
+An isolated bootstrap from droid-nix v0.9.0 was tested over an existing TermuxPP
+SSH session in the real `untrusted_app_27` SELinux domain, not `runas_app`.
+The APK was downloaded and verified, but never installed. The normal prefix,
+SSH configuration, default shell and installed APKs were not changed. The test
+kernel uses 4096-byte pages. Under the launcher, `/proc/self/status` reported
+`TracerPid: 0`, `Seccomp: 2` and two seccomp filters before diagnostic tracing.
+
+| Probe | Upstream launcher | `SA_ONSTACK` launcher |
+| --- | --- | --- |
+| Static Go reads, threads and exec | Exit 2 | Pass, exit 0 |
+| Released static Nix 2.34.9 `--version` | Exit 0 | Correct output, then exit 139 |
+| Nix arithmetic evaluation | 42, exit 0 | 42, then exit 139 |
+| Offline BusyBox derivation | Exit 159 | Not tested |
+
+The static Go probe was cross-built with Go 1.26.10. Nix and BusyBox were the
+release bootstrap's static musl binaries, not the VM suite's closures. Fake
+`/proc/stat` and `/proc/uptime` fixtures followed upstream's workaround for
+unreadable Android proc files; these are not real system metrics. Removing the
+proc warning and setting `GC_DONT_GC=1` did not resolve the patched Nix crash.
+
+### Alternate-stack lifetime failure
+
+A syscall trace shows Nix installing an alternate stack with `ss_size=22528`
+inside a 24576-byte mapping. During exit it unmaps that mapping without first
+disabling the alternate stack. Its subsequent `rt_sigprocmask` is intercepted by
+the launcher. With `SA_ONSTACK`, signal delivery then fails with kernel-generated
+SIGSEGV. This is evidence of a stale alternate-stack mapping, not confirmation
+of the earlier small-stack-overflow hypothesis. Merely allocating a larger
+alternate stack does not address the observed lifetime failure.
+
+A production solution must handle both Go's small runtime stacks and guest
+alternate-stack lifetimes, including per-thread ownership, nested signals,
+unmapping and thread teardown. Neither unconditional `SA_ONSTACK` nor reverting
+it meets both tested runtimes' requirements.
+
+### Android-denied syscall recursion
+
+The upstream local build trace repeatedly issues `fchmodat2` from the launcher's
+raw-syscall stub and receives SIGSYS at that same address. The handler recursively
+reissues the denied syscall until stack exhaustion and fatal signal handling.
+The precise Android policy rule was not separately inspected; the trace establishes
+that the raw-stub exemption does not prevent this syscall from trapping.
+
+A **diagnostic-only** upstream variant returns `-ENOSYS` for `fchmodat2` before
+entering the path handler. With that variant, the offline derivation passes,
+its output contains `android-build-pass`, and an untraced `--rebuild` also exits
+0. This validates libc fallback for this workload, not complete chmod/symlink
+semantics or a general solution for every Android-denied syscall. The variant
+does not use `SA_ONSTACK`, so it does not resolve the Go regression.
+
+`tests/make-android-diagnostic.py SOURCE OUTPUT` reproduces that variant from the
+pinned upstream launcher directory. It also logs `sigaltstack` requests. Build
+it on a worker using the same static cross `callPackage` as `launcher.nix`, with
+`OUTPUT` as the source directory; do not package this diagnostic in an APK.
+Structured results and artifact hashes are in
+[`tests/android-evidence.json`](tests/android-evidence.json). Raw traces are
+retained privately because they contain device paths. No performance comparison,
+full glibc suite, PTY/job-control, lifecycle or companion acceptance is claimed.
 
 ## Acceptance gates and integration sequence
 
