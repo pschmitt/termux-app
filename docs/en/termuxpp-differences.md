@@ -139,7 +139,12 @@ mocked tests do not prove Android's native-library access or PTY behavior.
 Real-device mTLS acceptance on a non-debuggable build passed on 2026-11-16:
 incorrect-token rejection, fingerprint-approved enrollment, authorization listing,
 a shell command over mTLS, revocation, and denial of the revoked client.
-A successful APK build or mocked unit test alone does not prove those behaviors.
+On 2026-11-17, an in-place non-debuggable update restored the enabled listener
+and retained the existing client identity. Repeated token-free calls, literal
+arguments, a Zsh override, piped stdin, separate stderr, exit status 7, and a
+1 MiB full-duplex transfer passed on a real device. Auto-mode probes and APK
+lookup do not inherit command stdin. A successful APK build or mocked unit test
+alone does not prove those behaviors.
 The checked-in development signing key is public and must not be treated as a
 production signing identity.
 
