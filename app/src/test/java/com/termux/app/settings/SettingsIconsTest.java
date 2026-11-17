@@ -30,7 +30,8 @@ public class SettingsIconsTest {
             R.xml.termux_api_preferences, R.xml.termux_api_debugging_preferences,
             R.xml.termux_float_preferences, R.xml.termux_float_debugging_preferences,
             R.xml.termux_tasker_preferences, R.xml.termux_tasker_debugging_preferences,
-            R.xml.termux_widget_preferences, R.xml.termux_widget_debugging_preferences};
+            R.xml.termux_widget_preferences, R.xml.termux_widget_debugging_preferences,
+            R.xml.adb_shell_authorizations_preferences, R.xml.adb_shell_authorization_preferences};
         for (int screen : screens) {
             try (XmlResourceParser xml = activity.getResources().getXml(screen)) {
                 while (xml.next() != XmlPullParser.END_DOCUMENT) {

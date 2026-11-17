@@ -34,6 +34,10 @@ public class TermuxApplication extends Application {
 
         Logger.logDebug("Starting Application");
 
+        // Bring back an ADB shell listener that was already enabled (process restarted, app updated).
+        // Never enables access or creates a token.
+        AdbShellRecovery.recover(context, "application start");
+
         // Set TermuxBootstrap.TERMUX_APP_PACKAGE_MANAGER and TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT
         TermuxBootstrap.setTermuxPackageManagerAndVariant(BuildConfig.TERMUX_PACKAGE_VARIANT);
 

@@ -14,6 +14,7 @@ import androidx.annotation.Nullable;
 
 import com.termux.R;
 import com.termux.terminal.PtyProcess;
+import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
 import dev.pschmitt.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
 
@@ -76,7 +77,11 @@ public final class AdbShellService extends Service {
     private static final int NOTIFICATION_ID = 8022;
     private static final int MAX_PEM_BYTES = 16 * 1024;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final String LOG_TAG = "AdbShellService";
+    private static final int BIND_ATTEMPTS = 5;
     private volatile boolean stopping;
+    /** Identifies the current listener run; threads of an older run must not touch shared state. */
+    private final java.util.concurrent.atomic.AtomicInteger generation = new java.util.concurrent.atomic.AtomicInteger();
     private volatile ServerSocket bootstrapServerSocket;
     private volatile SSLServerSocket tlsServerSocket;
     private volatile Socket bootstrapClientSocket;
@@ -122,14 +127,57 @@ public final class AdbShellService extends Service {
         if (intent != null && ACTION_AUTHORIZATIONS_CHANGED.equals(intent.getAction())) {
             closeTlsClients();
         }
-        if (bootstrapThread == null || !bootstrapThread.isAlive()) {
-            stopping = false;
-            bootstrapThread = new Thread(this::serveBootstrap, "TermuxAdbShellBootstrap");
-            tlsThread = new Thread(this::serveTls, "TermuxAdbShellTls");
-            bootstrapThread.start();
-            tlsThread.start();
-        }
+        ensureServers();
         return START_STICKY;
+    }
+
+    private synchronized void ensureServers() {
+        if (!stopping && bootstrapThread != null && bootstrapThread.isAlive() &&
+            tlsThread != null && tlsThread.isAlive()) {
+            return;
+        }
+        // Never keep a half-live endpoint: tear down whatever is left before starting a fresh pair.
+        stopServer();
+        stopping = false;
+        final int run = generation.incrementAndGet();
+        bootstrapThread = new Thread(() -> serveBootstrap(run), "TermuxAdbShellBootstrap");
+        tlsThread = new Thread(() -> serveTls(run), "TermuxAdbShellTls");
+        bootstrapThread.start();
+        tlsThread.start();
+    }
+
+    private boolean isCurrent(int run) {
+        return !stopping && generation.get() == run;
+    }
+
+    /** A listener could not be bound: stop everything (and the service) instead of serving half the endpoint. */
+    private void failServer(int run, String what, Exception error) {
+        if (!isCurrent(run)) return;
+        Logger.logError(LOG_TAG, "Unable to listen for the ADB shell (" + what + "): " +
+            error.getClass().getSimpleName());
+        stopServer();
+        stopSelf();
+    }
+
+    private ServerSocket bindBootstrap(int run) throws IOException {
+        IOException last = null;
+        for (int attempt = 0; attempt < BIND_ATTEMPTS && isCurrent(run); attempt++) {
+            try {
+                return new ServerSocket(PORT, 1, InetAddress.getByName("127.0.0.1"));
+            } catch (IOException error) {
+                last = error;
+                sleepBriefly();
+            }
+        }
+        if (last != null) throw last;
+        return null;
+    }
+
+    /** Thrown when the TLS port cannot be bound, as opposed to missing or invalid certificate material. */
+    private static final class BindFailure extends IOException {
+        BindFailure(Throwable cause) {
+            super("Unable to bind TLS port", cause);
+        }
     }
 
     @Nullable
@@ -146,28 +194,37 @@ public final class AdbShellService extends Service {
         super.onDestroy();
     }
 
-    private void serveBootstrap() {
-        try (ServerSocket listener = new ServerSocket(PORT, 1, InetAddress.getByName("127.0.0.1"))) {
+    private void serveBootstrap(int run) {
+        ServerSocket listener = null;
+        try {
+            listener = bindBootstrap(run);
+            if (listener == null) return;
             bootstrapServerSocket = listener;
-            while (!stopping) {
+            while (isCurrent(run)) {
                 Socket socket = null;
                 try {
                     socket = listener.accept();
                     bootstrapClientSocket = socket;
                     socket.setSoTimeout(10_000);
                     handleBootstrap(socket);
-                } catch (Exception ignored) {
+                } catch (Exception error) {
                     // Do not log authentication data or peer-controlled input.
+                    if (listener.isClosed()) {
+                        if (isCurrent(run)) failServer(run, "bootstrap", error);
+                        break;
+                    }
                 } finally {
                     bootstrapClientSocket = null;
                     closeQuietly(socket);
                 }
             }
-        } catch (IOException ignored) {
-            // Binding failures are intentionally not logged.
+        } catch (IOException error) {
+            failServer(run, "bootstrap", error);
+        } catch (RuntimeException error) {
+            failServer(run, "bootstrap", error);
         } finally {
-            bootstrapServerSocket = null;
-            stopSelf();
+            closeQuietly(listener);
+            if (bootstrapServerSocket == listener) bootstrapServerSocket = null;
         }
     }
 
@@ -266,31 +323,41 @@ public final class AdbShellService extends Service {
         return mac.doFinal(transcript);
     }
 
-    private void serveTls() {
-        while (!stopping) {
-            if (!hasTlsMaterial()) {
-                sleepBriefly();
-                continue;
-            }
-
-            try (SSLServerSocket listener = createTlsServerSocket()) {
-                tlsServerSocket = listener;
-                while (!stopping) {
-                    SSLSocket socket = (SSLSocket) listener.accept();
-                    tlsClients.add(socket);
-                    try {
-                        clients.execute(() -> handleTlsClient(socket));
-                    } catch (java.util.concurrent.RejectedExecutionException full) {
-                        tlsClients.remove(socket);
-                        closeQuietly(socket);
-                    }
+    private void serveTls(int run) {
+        try {
+            while (isCurrent(run)) {
+                if (!hasTlsMaterial()) {
+                    sleepBriefly();
+                    continue;
                 }
-            } catch (Exception ignored) {
-                // TLS setup and binding failures are intentionally not logged.
-                sleepBriefly();
-            } finally {
-                tlsServerSocket = null;
+
+                SSLServerSocket listener = null;
+                try {
+                    listener = createTlsServerSocket(run);
+                    tlsServerSocket = listener;
+                    while (isCurrent(run)) {
+                        SSLSocket socket = (SSLSocket) listener.accept();
+                        tlsClients.add(socket);
+                        try {
+                            clients.execute(() -> handleTlsClient(socket));
+                        } catch (java.util.concurrent.RejectedExecutionException full) {
+                            tlsClients.remove(socket);
+                            closeQuietly(socket);
+                        }
+                    }
+                } catch (BindFailure error) {
+                    failServer(run, "TLS", error);
+                    return;
+                } catch (Exception ignored) {
+                    // Certificate setup problems are retried and intentionally not logged.
+                    if (isCurrent(run)) sleepBriefly();
+                } finally {
+                    closeQuietly(listener);
+                    if (tlsServerSocket == listener) tlsServerSocket = null;
+                }
             }
+        } catch (RuntimeException error) {
+            failServer(run, "TLS", error);
         }
     }
 
@@ -337,6 +404,8 @@ public final class AdbShellService extends Service {
                 writeLine(socket, "OK");
                 socket.setSoTimeout(0);
                 runShell(socket, shell);
+            } else if ("EXEC".equals(operation)) {
+                handleExec(socket);
             }
         } catch (Exception ignored) {
             // Never log credentials or peer-controlled input.
@@ -345,6 +414,47 @@ public final class AdbShellService extends Service {
             tlsClients.remove(socket);
             closeQuietly(socket);
         }
+    }
+
+    /** Authenticated EXEC: request is fully validated before anything is spawned or acknowledged. */
+    private void handleExec(SSLSocket socket) throws Exception {
+        AdbShellExec.Request request;
+        String shell;
+        try {
+            request = AdbShellExec.parseRequest(AdbShellExec.readRequestFrame(socket.getInputStream()));
+            shell = AdbShellCommand.resolveShell(new File(TermuxConstants.TERMUX_HOME_DIR_PATH),
+                new File(TermuxConstants.TERMUX_PREFIX_DIR_PATH), request.shell);
+        } catch (IOException invalid) {
+            writeLine(socket, "ERR");
+            return;
+        }
+        // Revocation may have happened while the request was read.
+        validateClientIdentity(socket);
+
+        Process process;
+        try {
+            process = AdbShellExec.start(AdbShellExec.buildCommand(shell, request.argv),
+                new File(TermuxConstants.TERMUX_HOME_DIR_PATH), shellEnvironment(shell));
+        } catch (IOException error) {
+            writeLine(socket, "ERR");
+            return;
+        }
+        try {
+            writeLine(socket, "OK");
+            socket.setSoTimeout(0);
+        } catch (IOException | RuntimeException error) {
+            process.destroy();
+            throw error;
+        }
+        AdbShellExec.stream(process, socket.getInputStream(), socket.getOutputStream());
+    }
+
+    private Map<String, String> shellEnvironment(String shell) {
+        Map<String, String> environment = new TermuxShellEnvironment().getEnvironment(this, false);
+        environment.put("SHELL", shell);
+        environment.put("TERM", "xterm-256color");
+        environment.put("COLORTERM", "truecolor");
+        return environment;
     }
 
     private void closeTlsClients() {
@@ -381,7 +491,7 @@ public final class AdbShellService extends Service {
         }
     }
 
-    private SSLServerSocket createTlsServerSocket() throws Exception {
+    private SSLServerSocket createTlsServerSocket(int run) throws Exception {
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
         X509Certificate serverCertificate;
         X509Certificate clientCaCertificate;
@@ -428,8 +538,21 @@ public final class AdbShellService extends Service {
         };
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(keyManagerFactory.getKeyManagers(), new javax.net.ssl.TrustManager[]{clients}, SECURE_RANDOM);
-        SSLServerSocket listener = (SSLServerSocket) sslContext.getServerSocketFactory()
-            .createServerSocket(TLS_PORT, 1, InetAddress.getByName("127.0.0.1"));
+        SSLServerSocket listener = null;
+        IOException bindError = null;
+        for (int attempt = 0; attempt < BIND_ATTEMPTS && listener == null && isCurrent(run); attempt++) {
+            try {
+                listener = (SSLServerSocket) sslContext.getServerSocketFactory()
+                    .createServerSocket(TLS_PORT, 1, InetAddress.getByName("127.0.0.1"));
+            } catch (IOException error) {
+                bindError = error;
+                sleepBriefly();
+            }
+        }
+        if (listener == null) {
+            if (bindError != null) throw new BindFailure(bindError);
+            throw new IOException("TLS listener superseded");
+        }
         listener.setNeedClientAuth(true);
         String[] supported = listener.getSupportedProtocols();
         List<String> protocols = new ArrayList<>();
@@ -646,10 +769,7 @@ public final class AdbShellService extends Service {
     }
 
     private void runShell(Socket socket, String shell) throws IOException {
-        Map<String, String> environment = new TermuxShellEnvironment().getEnvironment(this, false);
-        environment.put("SHELL", shell);
-        environment.put("TERM", "xterm-256color");
-        environment.put("COLORTERM", "truecolor");
+        Map<String, String> environment = shellEnvironment(shell);
         List<String> environmentEntries = new ArrayList<>();
         for (Map.Entry<String, String> entry : environment.entrySet()) {
             environmentEntries.add(entry.getKey() + "=" + entry.getValue());
@@ -737,6 +857,7 @@ public final class AdbShellService extends Service {
 
     private void stopServer() {
         stopping = true;
+        generation.incrementAndGet();
         AdbShellApprovalActivity.cancelPending();
         closeQuietly(bootstrapServerSocket);
         closeQuietly(tlsServerSocket);

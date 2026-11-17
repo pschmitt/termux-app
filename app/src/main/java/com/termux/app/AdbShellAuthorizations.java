@@ -11,11 +11,11 @@ import java.util.List;
 import java.util.Map;
 
 /** Persistent allowlist of individual ADB shell client certificates. */
-final class AdbShellAuthorizations {
+public final class AdbShellAuthorizations {
     private static final String PREFERENCES = "adb_shell_authorizations";
     private final SharedPreferences preferences;
 
-    AdbShellAuthorizations(Context context) {
+    public AdbShellAuthorizations(Context context) {
         preferences = context.getApplicationContext().getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
     }
 
@@ -55,12 +55,12 @@ final class AdbShellAuthorizations {
         }
     }
 
-    synchronized boolean revoke(String fingerprint) {
+    public synchronized boolean revoke(String fingerprint) {
         if (!validFingerprint(fingerprint)) throw new IllegalArgumentException("Invalid fingerprint");
         return preferences.edit().remove(fingerprint).commit();
     }
 
-    synchronized List<Entry> list() {
+    public synchronized List<Entry> list() {
         List<Entry> entries = new ArrayList<>();
         for (Map.Entry<String, ?> entry : preferences.getAll().entrySet()) {
             if (validFingerprint(entry.getKey()) && entry.getValue() instanceof String) {
@@ -75,9 +75,9 @@ final class AdbShellAuthorizations {
         return fingerprint != null && fingerprint.matches("[0-9a-f]{64}");
     }
 
-    static final class Entry {
-        final String fingerprint;
-        final String name;
+    public static final class Entry {
+        public final String fingerprint;
+        public final String name;
 
         Entry(String fingerprint, String name) {
             this.fingerprint = fingerprint;

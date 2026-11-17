@@ -40,9 +40,11 @@
 
         <Preference
             app:icon="@drawable/ui_ic_lock"
+            app:fragment="com.termux.app.fragments.settings.termux.AdbShellAuthorizationsPreferencesFragment"
             app:key="adb_shell_authorizations"
-            app:title="ADB shell authorizations"
-            app:summary="Review and revoke individual clients" />
+            app:persistent="false"
+            app:title="@string/adb_shell_authorizations_title"
+            app:summary="@string/adb_shell_authorizations_summary" />
 
     </PreferenceCategory>
 

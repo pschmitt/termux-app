@@ -43,11 +43,6 @@ public class DebuggingPreferencesFragment extends PreferenceFragmentCompat {
     }
 
     private void configureAdbShellPreference(@NonNull Context context) {
-        androidx.preference.Preference clients = findPreference("adb_shell_authorizations");
-        if (clients != null) clients.setOnPreferenceClickListener(preference -> {
-            startActivity(new Intent(context, com.termux.app.AdbShellApprovalActivity.class).setAction("manage"));
-            return true;
-        });
         SwitchPreferenceCompat adbShellPreference = findPreference("adb_shell_enabled");
         if (adbShellPreference == null) return;
 

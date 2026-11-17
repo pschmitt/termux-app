@@ -9,6 +9,7 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.termux.app.AdbShellRecovery;
 import dev.pschmitt.termux.shared.data.IntentUtils;
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.TermuxUtils;
@@ -41,6 +42,9 @@ public class SystemEventReceiver extends BroadcastReceiver {
             case Intent.ACTION_BOOT_COMPLETED:
                 onActionBootCompleted(context, intent);
                 break;
+            case Intent.ACTION_MY_PACKAGE_REPLACED:
+                onActionMyPackageReplaced(context, intent);
+                break;
             case Intent.ACTION_PACKAGE_ADDED:
             case Intent.ACTION_PACKAGE_REMOVED:
             case Intent.ACTION_PACKAGE_REPLACED:
@@ -53,6 +57,13 @@ public class SystemEventReceiver extends BroadcastReceiver {
 
     public synchronized void onActionBootCompleted(@NonNull Context context, @NonNull Intent intent) {
         TermuxShellManager.onActionBootCompleted(context, intent);
+        // Only restarts an ADB shell listener the user already enabled; never enables anything.
+        AdbShellRecovery.recover(context, "boot");
+    }
+
+    /** An APK update stops the process and its services; restore an already enabled ADB shell listener. */
+    public synchronized void onActionMyPackageReplaced(@NonNull Context context, @NonNull Intent intent) {
+        AdbShellRecovery.recover(context, "package replaced");
     }
 
     public synchronized void onActionPackageUpdated(@NonNull Context context, @NonNull Intent intent) {

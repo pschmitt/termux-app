@@ -1,0 +1,35 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        app:key="adb_shell_access"
+        app:title="@string/adb_shell_access_header">
+
+        <Preference
+            app:icon="@drawable/ui_ic_power"
+            app:key="adb_shell_status"
+            app:persistent="false"
+            app:selectable="false"
+            app:title="@string/adb_shell_status_title" />
+
+        <Preference
+            app:icon="@drawable/ui_ic_link"
+            app:key="adb_shell_connection"
+            app:persistent="false"
+            app:selectable="false"
+            app:title="@string/adb_shell_connection_title" />
+
+        <Preference
+            app:icon="@drawable/ui_ic_lock"
+            app:key="adb_shell_enrollment"
+            app:persistent="false"
+            app:selectable="false"
+            app:summary="@string/adb_shell_enrollment_summary"
+            app:title="@string/adb_shell_enrollment_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="adb_shell_clients"
+        app:title="@string/adb_shell_clients_header" />
+
+</PreferenceScreen>

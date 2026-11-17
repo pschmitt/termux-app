@@ -22,7 +22,7 @@ source-code change. Recheck both implementations when updating this page.
 | TermuxAm | The stock helper identifies its caller as `com.termux`. | The helper defaults its caller identity to `dev.pschmitt.termux`. Its Java namespace remains `com.termux.termuxam`, because the APK is loaded by `app_process`, not installed as a companion app. | Intentional runtime identity change. Filesystem path redirection cannot change the Android caller identity. |
 | APT helper packages | The stock `termux-am` and `termux-api` packages address stock Termux identities. | TermuxPP helper builds retain the package names `termux-am` and `termux-api` so existing APT requirements resolve, while the helper contents target TermuxPP. | Package-name compatibility does not make the packages interchangeable. Install the fork-built packages and hold them against incompatible upstream upgrades. See [API helper tools](../../termux-api-package/TERMUXPP.md) and [TermuxAm](../../termux-am/TERMUXPP.md). |
 | Kill intent | No equivalent; the app can only be exited through its notification or force-stopped. | `RunCommandService` accepts `dev.pschmitt.termux.KILL` (same `RUN_COMMAND` permission and `allow-external-apps` policy). It SIGKILLs all shells and then kills the app process. Boolean extra `dev.pschmitt.termux.KILL_RESTART` schedules a relaunch of the main activity through `AlarmManager`. Tasker hosts cannot hold the fork's `RUN_COMMAND` permission, so the TermuxPP:Tasker plug-in has a "Kill Termux" action (with a restart checkbox) that sends the kill from the plug-in's shared UID. | TermuxPP-only addition. The relaunch is best effort: it relied on the app's "display over other apps" grant on the test device, and Android may otherwise block the background activity start. Source: [`RunCommandService`](../../app/src/main/java/com/termux/app/RunCommandService.java), [`TermuxService#actionKill`](../../app/src/main/java/com/termux/app/TermuxService.java). |
-| ADB shell | No equivalent TermuxPP endpoint. | Debugging settings explicitly enable app-private loopback enrollment (`8022`) and mTLS PTY/management (`8023`) endpoints. Token-authenticated enrollment requires on-device fingerprint-only approval of each concrete client certificate. Subsequent enrollment preserves the server identity. Both the GUI and authenticated CLI list and revoke individual certificate authorizations; disabling access deletes the token, allowlist, and device TLS material. | The host CLI supports `--mode auto|mtls|run-as`: auto prefers Android `run-as` for debuggable installations and selects mTLS only when Android reports the app is not debuggable. The opt-in mTLS endpoint works without SSH or `run-as`. The host verifies the server certificate and loopback IP identity. The device requires an exact approved leaf-certificate pin, certificate validity/clientAuth usage, and proof of key possession through TLS. The token is required only for enrollment; approved certificate sessions do not prompt for it. CA membership alone never authorizes a client. |
+| ADB shell | No equivalent TermuxPP endpoint. | Debugging settings explicitly enable app-private loopback enrollment (`8022`) and mTLS PTY/command/management (`8023`) endpoints. Token-authenticated enrollment requires on-device fingerprint-only approval of each concrete client certificate. Subsequent enrollment preserves the server identity. Both the GUI and authenticated CLI list and revoke individual certificate authorizations; disabling access deletes the token, allowlist, and device TLS material. | The host CLI supports `--mode auto|mtls|run-as`: auto prefers Android `run-as` for debuggable installations and selects mTLS only when Android reports the app is not debuggable. The opt-in mTLS endpoint works without SSH or `run-as`. The host verifies the server certificate and loopback IP identity. The device requires an exact approved leaf-certificate pin, certificate validity/clientAuth usage, and proof of key possession through TLS. The token is required only for enrollment; approved certificate sessions do not prompt for it. CA membership alone never authorizes a client. |
 | Tasker and Locale | The plug-in protocol is the stock Termux Tasker/Locale protocol. | The TermuxPP plug-in keeps the protocol action names while using its fork-specific app identity and shared UID. | Protocol compatibility is retained. Existing Tasker tasks may still need to select the TermuxPP plug-in again because Android stores the plug-in package identity. See [Tasker integration](../../termux-tasker/TERMUXPP.md). |
 | Updates | Upstream distributes its app through its own release channels. | Settings > Updates can check and install the TermuxPP core, API, and Tasker rolling `latest` builds through Shizuku, after an explicit user action. | TermuxPP-only updater and release feeds. It does not update absent apps or alter APT package updates. See [Self-update over Shizuku](self-update.md). |
 
@@ -61,8 +61,23 @@ The CLI supports three transports selected with `--mode`:
 For example, `python3 scripts/termuxpp-adb-shell.py --serial SERIAL --mode run-as`.
 Provisioning, listing authorizations, and revocation always use mTLS in auto mode;
 combining these operations with explicit `--mode run-as` is an argument error.
-Both shell transports require an interactive terminal. The `run-as` transport
-preserves the remote exit status.
+Interactive shells require a terminal. To run an ad-hoc command without a PTY,
+append `-- COMMAND ARG...`; stdin, stdout and stderr work with pipes and files,
+and both transports return the remote command's exit status. For example:
+
+```sh
+termuxpp-adb-shell --serial SERIAL --shell zsh -- ls -al
+termuxpp-adb-shell --serial SERIAL -- printf '%s\n' 'two words' '$(literal)'
+termuxpp-adb-shell --serial SERIAL -- sh -c 'printf error >&2; exit 7'
+```
+
+Arguments are passed literally, not joined into an interpreted command. Use an
+explicit shell command such as `sh -c '...'` for remote pipelines or redirection;
+unquoted local shell syntax is still interpreted on the host. Commands run from
+TermuxPP's HOME through the selected login shell, using its configured PATH.
+The mTLS command protocol requires the updated app. Requests are limited to
+64 KiB and 4096 arguments; empty or option-like executable names and NULs are
+rejected. Command text and output are not logged by the service.
 
 Both transports resolve the configured shell symlink in order:
 `~/.config/termuxpp/shell`, `~/.config/termux/shell`, then `~/.termux/shell`.
@@ -81,13 +96,29 @@ The mTLS override requires an updated app.
 3. Run `python3 scripts/termuxpp-adb-shell.py --serial SERIAL --mode mtls` for an interactive mTLS shell. The helper forwards the enrollment and TLS ports, verifies the pinned server certificate and `127.0.0.1` identity, and presents the approved client certificate without requesting the enrollment token. Token-free sessions require the updated app and CLI; existing approved certificates remain usable without re-enrollment. Older CLIs can still use the legacy token handshake with the updated app. A new CLI connecting to an old app reports that the app must be updated; it does not silently save or request the token. Neither token nor private-key material is placed in command arguments or output.
 4. Review authorizations under **Settings > Debugging > ADB shell authorizations**, or run `python3 scripts/termuxpp-adb-shell.py --serial SERIAL --list-authorizations`. Revoke a client in the GUI or use `--revoke FULL_LOWERCASE_SHA256_FINGERPRINT` from an authorized CLI. Revocation disconnects affected active clients; GUI revocation conservatively disconnects all clients. Local credential files are not deleted by remote revocation. Turning access off stops both listeners, clears the allowlist and token, and deletes the device TLS material. Re-enabling requires fresh enrollment.
 
+The authorization manager is a native settings page, not a management dialog.
+It shows the access state, loopback connection information, enrollment guidance,
+and approved clients. Selecting a client opens its name and full SHA-256
+fingerprint, with a confirmed revocation action. These pages never display the
+enrollment token. Enrollment approval remains a separate fingerprint-only flow.
+
+Enabled access is restored when TermuxPP starts, after an app update, and after
+boot when Android permits starting the foreground service. Recovery never enables
+access that was disabled, rotates the token, or approves a new client. Opening the
+updated app retries recovery if Android blocked a background start. Listener bind
+failures stop the whole endpoint instead of leaving only one listener alive.
+Unavailable listeners produce a CLI diagnostic rather than a raw TLS EOF. Do not
+disable/re-enable access just to restart it: disabling deliberately revokes all
+approvals and deletes its TLS identity.
+
 The host requires `adb`, Python 3, and OpenSSL. Credentials are stored separately for each ADB serial; use `--credential-dir` to select a directory explicitly when switching transports. The helper creates ephemeral local ADB forwards and removes only those it created. Certificates are generated locally; no private key is written to the repository. For certificate renewal, enroll into a new `--credential-dir` and then revoke the old fingerprint. Existing client credentials are never silently overwritten. At most 32 certificates are approved, with up to four concurrent TLS connections. Certificates enforce wall-clock validity; correct the host/device clock rather than disabling verification. The one-year server certificate currently requires disabling and re-enabling access, followed by re-enrollment, to renew it.
 
 ### Shell completions
 
 The CLI ships Bash, Zsh, and Fish integrations in [`scripts/completions`](../../scripts/completions).
 They complete options, transport values, connected/authorized ADB device serials,
-and credential directories. They register both `termuxpp-adb-shell` and
+and credential directories. After `--`, they offer local command and filename
+completion, not the phone's command list or filesystem. They register both `termuxpp-adb-shell` and
 `termuxpp-adb-shell.py` (invoke the executable directly, rather than through
 `python3`, for command-name completion). Load them in an interactive shell:
 
@@ -114,7 +145,7 @@ production signing identity.
 
 ## Source references
 
-- ADB shell access: [`AdbShellService`](../../app/src/main/java/com/termux/app/AdbShellService.java), [`PtyProcess`](../../terminal-emulator/src/main/java/com/termux/terminal/PtyProcess.java), and [`termuxpp-adb-shell.py`](../../scripts/termuxpp-adb-shell.py).
+- ADB shell access: [`AdbShellService`](../../app/src/main/java/com/termux/app/AdbShellService.java), [`AdbShellExec`](../../app/src/main/java/com/termux/app/AdbShellExec.java), [`AdbShellRecovery`](../../app/src/main/java/com/termux/app/AdbShellRecovery.java), [`authorization settings`](../../app/src/main/java/com/termux/app/fragments/settings/termux/AdbShellAuthorizationsPreferencesFragment.java), [`PtyProcess`](../../terminal-emulator/src/main/java/com/termux/terminal/PtyProcess.java), and [`termuxpp-adb-shell.py`](../../scripts/termuxpp-adb-shell.py).
 
 - Core package identity, bootstrap selection, and optional archive verification: [`app/build.gradle`](../../app/build.gradle), [`app/src/main/AndroidManifest.xml`](../../app/src/main/AndroidManifest.xml), and [`docs/en/aarch64-bootstrap.md`](aarch64-bootstrap.md).
 - Shell path redirection: [`TermuxShellEnvironment.java`](../../termux-shared/src/main/java/dev/pschmitt/termux/shared/termux/shell/command/environment/TermuxShellEnvironment.java) and [`termux-pkg-redirect.c`](../../app/src/main/cpp/termux-pkg-redirect.c).

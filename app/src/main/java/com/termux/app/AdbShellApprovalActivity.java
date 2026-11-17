@@ -2,7 +2,6 @@ package com.termux.app;
 
 import android.app.Activity;
 import androidx.appcompat.app.AlertDialog;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import dev.pschmitt.termux.shared.interact.DialogUtils;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -20,7 +19,10 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-/** Local-only UI for certificate enrollment and authorization management. */
+/**
+ * Local-only UI for certificate enrollment approval. Authorizations are managed in the settings screen
+ * ({@code AdbShellAuthorizationsPreferencesFragment}).
+ */
 public final class AdbShellApprovalActivity extends Activity {
     private static final String CHANNEL = "adb_shell_approval";
     private static final int NOTIFICATION = 8024;
@@ -87,10 +89,6 @@ public final class AdbShellApprovalActivity extends Activity {
     public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        if ("manage".equals(getIntent().getAction())) {
-            showAuthorizations();
-            return;
-        }
         synchronized (AdbShellApprovalActivity.class) {
             displayed = pending;
         }
@@ -137,33 +135,6 @@ public final class AdbShellApprovalActivity extends Activity {
                 prompt.setMessage("Fingerprint not recognized. Try again or cancel.");
             }
         });
-    }
-
-    private void showAuthorizations() {
-        AdbShellAuthorizations authorizations = new AdbShellAuthorizations(this);
-        java.util.List<AdbShellAuthorizations.Entry> entries = authorizations.list();
-        String[] labels = new String[entries.size()];
-        for (int i = 0; i < labels.length; i++) {
-            labels[i] = entries.get(i).name + "\n" + entries.get(i).fingerprint;
-        }
-        MaterialAlertDialogBuilder dialog = DialogUtils.builder(this, com.termux.R.drawable.ui_ic_terminal, false).setTitle("ADB shell authorizations")
-            .setNegativeButton(android.R.string.cancel, (d, which) -> finish())
-            .setOnCancelListener(d -> finish());
-        if (entries.isEmpty()) dialog.setMessage("No authorized clients.");
-        else dialog.setItems(labels, (d, which) -> {
-            AdbShellAuthorizations.Entry entry = entries.get(which);
-            DialogUtils.builder(this, com.termux.R.drawable.ui_ic_terminal, false).setTitle("Revoke this client?")
-                .setMessage(entry.name + "\n" + entry.fingerprint)
-                .setPositiveButton("Revoke", (confirmation, button) -> {
-                    if (authorizations.revoke(entry.fingerprint)) {
-                        startService(new Intent(this, AdbShellService.class)
-                            .setAction(AdbShellService.ACTION_AUTHORIZATIONS_CHANGED));
-                    }
-                    showAuthorizations();
-                }).setNegativeButton(android.R.string.cancel, (confirmation, button) -> showAuthorizations())
-                .setOnCancelListener(confirmation -> showAuthorizations()).show();
-        });
-        dialog.show();
     }
 
     @Override
