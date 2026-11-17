@@ -70,12 +70,12 @@ explicitly from the native shell:
 the existing guest identity and uses the candidate's system PATH, Bash,
 certificate, terminfo and physical `/etc` snapshot. The snapshot preserves
 runtime identity/networking defaults and overlays declared system files.
-It does not alter `session.env`, the original `root/etc`, existing sessions,
-Home Manager or default login selection. Bootstrap continues to use the original
-runtime regardless of prepared candidates. Candidate sessions share the guest
-home and store; they are not disposable homes or a sandbox. They have not yet
-been qualified on Android. Persistent switch, rollback and child HM activation
-remain unsupported.
+Explicit candidate launch does not alter `session.env`, the original `root/etc`,
+existing sessions, Home Manager or default login selection. Bootstrap continues
+to use the original runtime regardless of prepared or selected candidates.
+Candidate sessions share the guest home and store; they are not disposable homes
+or a sandbox. Coordinated activation is implemented below but is not yet
+qualified on Android.
 
 For a prepared candidate with an associated Home Manager generation, the native
 controller runs the fixed runtime acceptance gate in a fresh candidate session:
@@ -91,6 +91,54 @@ metadata and invokes the matching generation's `full-nix-check-runtime` with
 to 20 minutes, terminating only its own process group on timeout or cancellation.
 It neither activates Home Manager nor selects a default generation. This native
 controller has worker regression coverage, not Android qualification.
+
+### Coordinated activation and default selection
+
+Stage `system-control.py` and `start-system-control.sh` alongside `session.sh`,
+`system-session.sh` and `login.sh`. Native Python and the installed core redirect
+library are required. The controller service starts on login only when an
+app-private `system.enabled` marker exists. It listens on `nixpp.sock` in the
+runtime's physical temporary directory (`SESSION_TMP_DIR` when configured),
+visible as `/tmp/nixpp.sock` inside the guest. The launcher supplies
+`NIXPP_RUNTIME` and `NIXPP_SOCKET` to the guest `nixpp` client.
+
+The socket is mode 0600 and accepts only same-UID clients. Its allowlist consists
+of system check, switch, rollback, recovery and generation listing. It exposes
+neither arbitrary native commands nor any additional Android APIs. Native gate
+output goes to the private `system-control.log`; the client receives a bounded
+JSON status. Duplicate service starts exit without replacing a live socket.
+
+For the first migration, verify the existing active HM generation before invoking
+this from the native shell:
+
+```sh
+python3 -I "$HOME/.local/share/termuxpp-nix/system-control.py" switch \
+  HASH-termuxpp-system-HOST --previous-home-manager /nix/store/HASH-home-manager-generation
+```
+
+A candidate must explicitly support activation and include matching HM. The
+controller retains the baseline with a direct GC root, runs isolated acceptance,
+journals the previous system/HM pair, activates the matching HM in a fresh
+candidate session, checks again, then publishes `current-system` and generation
+state. The existing HM activation itself includes active acceptance. New default
+sessions follow selection; existing sessions are not replaced. Retained candidates
+keep their matching HM closures rooted. No backup or candidate GC runs here.
+
+After migration the guest interface is `nixpp switch CANDIDATE`,
+`nixpp list-generations`, `nixpp rollback` and `nixpp recover`. The matching system
+package also supports `build` and `rebuild` with local compilation disabled.
+Mutating operations are serialized. An interrupted or failed activation leaves
+`system-pending.json`, blocking another switch. Recovery explicitly reactivates
+the journal's old HM generation in its old environment before restoring selection;
+failed recovery retains the journal. This does not pretend HM file changes are
+atomic. Rollback includes returning to the retained HM-only baseline.
+
+If selection is broken, `session.sh --legacy` ignores it and uses original
+configuration; `--bootstrap` remains independently available. The native
+controller's `recover` and `rollback` commands are also usable without the guest
+socket. The original native `nixpp` executable remains independent. These paths
+have worker tests but still require Android first-switch, fresh-login and rollback
+qualification before rollout.
 
 The controller and descriptor loader tests run on a worker; the loader is tested
 under both Bash and mksh:

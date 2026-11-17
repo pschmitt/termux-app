@@ -1,7 +1,7 @@
 #!/system/bin/sh
 
 usage() {
-  printf 'Usage: %s [--bootstrap | --system CANDIDATE] [-- COMMAND ARG...]\n' "$0"
+  printf 'Usage: %s [--bootstrap | --legacy | --system CANDIDATE] [-- COMMAND ARG...]\n' "$0"
 }
 
 main() {
@@ -22,6 +22,7 @@ main() {
     return 1
   fi
   bootstrap=
+  legacy=
   system_candidate=
   session_etc="$directory/root/etc"
   case ${1:-} in
@@ -31,6 +32,10 @@ main() {
       ;;
     --bootstrap)
       bootstrap=1
+      shift
+      ;;
+    --legacy)
+      legacy=1
       shift
       ;;
     --system)
@@ -46,6 +51,30 @@ main() {
       shift 2
       ;;
   esac
+  if [[ -z $bootstrap && -z $legacy && -z $system_candidate && ( -e "$directory/current-system" || -L "$directory/current-system" ) ]]
+  then
+    if [[ -L "$directory/current-system" || ! -f "$directory/current-system" ]]
+    then
+      printf 'Invalid default system selection. Use --legacy or --bootstrap for recovery.\n' >&2
+      return 1
+    fi
+    if ! {
+      IFS= read -r system_candidate &&
+      {
+        ! IFS= read -r selection_extra && [[ -z $selection_extra ]]
+      }
+    } < "$directory/current-system"
+    then
+      printf 'Invalid default system selection. Use --legacy or --bootstrap for recovery.\n' >&2
+      return 1
+    fi
+    if [[ -n $system_candidate ]]
+    then
+      # shellcheck source=system-session.sh
+      . "$directory/system-session.sh" || return 1
+      load_system_candidate "$directory" "$system_candidate" || return 1
+    fi
+  fi
   if [[ ${1:-} == -- ]]
   then
     shift
@@ -82,6 +111,7 @@ main() {
     HOME="$session_home" USER="$session_user" LOGNAME="$session_user" \
     TERM="${TERM:-xterm-256color}" COLORTERM="${COLORTERM:-truecolor}" \
     LANG=C.UTF-8 TMPDIR=/tmp SHELL="$login_shell" \
+    NIXPP_RUNTIME="/android$directory" NIXPP_SOCKET=/tmp/nixpp.sock \
     PATH="$command_path" TERMINFO="$SESSION_TERMINFO" \
     NIX_SSL_CERT_FILE="$certificate" SSL_CERT_FILE="$certificate" \
     NIX_CONFIG='sandbox = false

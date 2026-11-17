@@ -9,7 +9,7 @@ load_system_candidate() {
       ;;
   esac
   candidate_directory="$1/system-candidates/$candidate_name"
-  if [[ -L "$1/system-candidates" || -L "$candidate_directory" || -L "$candidate_directory/etc" || -L "$candidate_directory/session" || ! -d "$candidate_directory/etc" ]]
+  if [[ -L "$1/system-candidates" || -L "$candidate_directory" || -L "$candidate_directory/etc" || -L "$candidate_directory/session" || ! -f "$candidate_directory/session" || ! -d "$candidate_directory/etc" ]]
   then
     printf 'System candidate is missing or has an unsupported directory link.\n' >&2
     return 1

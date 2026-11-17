@@ -6,6 +6,13 @@ if [[ -f "$directory/bridge.enabled" && -r "$directory/start-android-bridge.sh" 
 then
   /system/bin/sh "$directory/start-android-bridge.sh" </dev/null >>"$directory/bridge.log" 2>&1 &
 fi
+if [[ -f "$directory/system.enabled" && -r "$directory/start-system-control.sh" ]]
+then
+  (
+    umask 077
+    exec /system/bin/sh "$directory/start-system-control.sh" </dev/null >>"$directory/system-control.log" 2>&1
+  ) &
+fi
 if [[ $# -eq 0 ]]
 then
   set -- -l

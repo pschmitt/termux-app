@@ -151,6 +151,48 @@ print(json.dumps({'args': sys.argv[1:], 'path': os.environ['PATH'],
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, '')
 
+    def test_default_session_loads_selected_system(self):
+        (self.runtime / 'current-system').write_text(self.name + '\n')
+        result = self.launch('--', 'echo', 'probe')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(str(self.candidate / 'etc') + ':/etc!', json.loads(result.stdout)['args'])
+
+    def test_legacy_bypasses_selected_system(self):
+        (self.runtime / 'current-system').write_text('missing-candidate\n')
+        result = self.launch('--legacy', '--', 'echo', 'probe')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(str(self.runtime / 'root/etc') + ':/etc!', json.loads(result.stdout)['args'])
+
+    def test_bootstrap_bypasses_broken_selected_system(self):
+        (self.runtime / 'current-system').write_text('../invalid\n')
+        result = self.launch('--bootstrap', '--', 'echo', 'probe')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)['path'], '/bootstrap/nix/bin:/bootstrap/busybox/bin:/bin')
+
+    def test_malformed_selection_fails_closed(self):
+        (self.runtime / 'current-system').write_text(self.name + '\nextra')
+        result = self.launch('--', 'echo', 'probe')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, '')
+
+    def test_empty_selection_uses_original_session(self):
+        (self.runtime / 'current-system').write_text('\n')
+        result = self.launch('--', 'echo', 'probe')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)['path'], '/home/guest/.nix-profile/bin:/legacy/bin')
+
+    def test_dangling_selection_is_rejected(self):
+        (self.runtime / 'current-system').symlink_to(self.runtime / 'missing')
+        result = self.launch('--', 'echo', 'probe')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, '')
+
+    def test_special_selection_is_rejected(self):
+        os.mkfifo(self.runtime / 'current-system')
+        result = self.launch('--', 'echo', 'probe')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, '')
+
     def test_missing_candidate_argument(self):
         result = self.launch('--system')
         self.assertEqual(result.returncode, 2)
