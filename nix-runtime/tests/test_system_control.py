@@ -79,6 +79,43 @@ class ControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'does not match'):
             module.check(self.runtime, self.name, runner=Mock())
 
+    def test_system_secrets_precede_home_activation(self):
+        secrets = '/nix/store/' + 'd' * 32 + '-system-secrets/bin/activate-secrets'
+        self.data['systemSecrets'] = secrets
+        self.save()
+        runner = Mock(return_value=0)
+        self.assertEqual(module.switch(self.runtime, self.name, self.baseline, runner), 0)
+        arguments = [entry.args[0][-1] for entry in runner.call_args_list]
+        self.assertEqual(arguments, ['--thorough', secrets, self.home + '/activate', '--thorough'])
+        state = module.read_state(self.runtime, 'system-state.json')
+        module.write_state(self.runtime, 'system-pending.json', {'before': state})
+        runner.reset_mock()
+        self.assertEqual(module.recover(self.runtime, runner), 0)
+        self.assertEqual([entry.args[0][-1] for entry in runner.call_args_list],
+                         [secrets, self.home + '/activate'])
+
+    def test_system_secrets_failure_preserves_journal_without_home_mutation(self):
+        self.data['systemSecrets'] = '/nix/store/' + 'd' * 32 + '-system-secrets/bin/activate-secrets'
+        self.save()
+        runner = Mock(side_effect=[0, 7])
+        with self.assertRaisesRegex(ValueError, 'System secrets activation failed'):
+            module.switch(self.runtime, self.name, self.baseline, runner)
+        self.assertEqual(runner.call_count, 2)
+        self.assertTrue((self.runtime / 'system-pending.json').is_file())
+        self.assertFalse((self.runtime / 'current-system').exists())
+        recovery = Mock(return_value=0)
+        self.assertEqual(module.recover(self.runtime, recovery), 0)
+        self.assertEqual(recovery.call_args.args[0][-1], self.baseline + '/activate')
+
+    def test_invalid_system_secrets_never_launch(self):
+        for value in ['$(false)', '/bin/activate-secrets', self.home + '/activate', {}, 7]:
+            self.data['systemSecrets'] = value
+            self.save()
+            runner = Mock()
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'system secrets'):
+                module.check(self.runtime, self.name, runner=runner)
+            runner.assert_not_called()
+
     def test_unsupported_manifest(self):
         self.data['runtime'] = 'other'
         self.save()

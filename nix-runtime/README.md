@@ -74,8 +74,8 @@ Explicit candidate launch does not alter `session.env`, the original `root/etc`,
 existing sessions, Home Manager or default login selection. Bootstrap continues
 to use the original runtime regardless of prepared or selected candidates.
 Candidate sessions share the guest home and store; they are not disposable homes
-or a sandbox. Coordinated activation is implemented below but is not yet
-qualified on Android.
+or a sandbox. Coordinated activation has been exercised on one Android test
+device; each target still requires its own runtime acceptance.
 
 For a prepared candidate with an associated Home Manager generation, the native
 controller runs the fixed runtime acceptance gate in a fresh candidate session:
@@ -90,7 +90,7 @@ metadata and invokes the matching generation's `full-nix-check-runtime` with
 `--isolated --generation`. It propagates the check status and bounds the session
 to 20 minutes, terminating only its own process group on timeout or cancellation.
 It neither activates Home Manager nor selects a default generation. This native
-controller has worker regression coverage, not Android qualification.
+controller has worker regression coverage and has run real Android candidate checks.
 
 ### Coordinated activation and default selection
 
@@ -136,9 +136,18 @@ atomic. Rollback includes returning to the retained HM-only baseline.
 If selection is broken, `session.sh --legacy` ignores it and uses original
 configuration; `--bootstrap` remains independently available. The native
 controller's `recover` and `rollback` commands are also usable without the guest
-socket. The original native `nixpp` executable remains independent. These paths
-have worker tests but still require Android first-switch, fresh-login and rollback
-qualification before rollout.
+socket. The original native `nixpp` executable remains independent. Android
+qualification covered first switch, fresh login, baseline rollback, switching
+forward and recovery after a controlled pre-activation interruption on the test
+device. It does not prove recovery from every partial Home Manager mutation.
+
+A manifest may provide `systemSecrets`, a store-backed executable named
+`bin/activate-secrets`. After journaling, the controller runs it in the selected
+candidate before Home Manager, including on rollback and recovery. Failure keeps
+the journal and prevents selection publication. Older manifests omit this hook;
+returning to an old generation does not revoke secrets installed by newer ones.
+Secrets remain app-UID-owned, not root-owned or isolated from other guest
+processes. Activation scripts must never print decrypted values.
 
 The controller and descriptor loader tests run on a worker; the loader is tested
 under both Bash and mksh:

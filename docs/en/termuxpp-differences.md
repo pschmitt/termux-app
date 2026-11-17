@@ -54,6 +54,10 @@ Home Manager generation's isolated runtime acceptance gate in a fresh candidate
 session, with bounded execution and cancellation cleanup. It also implements
 serialized, journaled system/HM activation, persistent default-session selection,
 retained generation listing, rollback and explicit interrupted-activation recovery.
+An optional store-backed system-secrets activator runs before Home Manager under
+the same journal, without requiring systemd. Secrets share the Android app UID;
+this does not provide root ownership or process isolation. Older generations
+without the hook do not revoke subsequently installed secrets on rollback.
 Guest `nixpp` requests these fixed operations over a dedicated same-UID native
 socket; it does not directly execute Bionic programs. Service startup is opt-in
 through `system.enabled`, and `--legacy`/`--bootstrap` bypass selection for recovery.

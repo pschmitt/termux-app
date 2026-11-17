@@ -39,6 +39,11 @@ def candidate_manifest(runtime, name):
     home = data.get('homeManager')
     if not isinstance(home, str) or not STORE.fullmatch(home):
         raise ValueError('candidate needs a store-backed Home Manager generation')
+    secrets = data.get('systemSecrets')
+    if secrets is not None:
+        suffix = '/bin/activate-secrets'
+        if not isinstance(secrets, str) or not secrets.endswith(suffix) or not STORE.fullmatch(secrets[:-len(suffix)]):
+            raise ValueError('candidate needs a store-backed system secrets activator')
     return data
 
 
@@ -142,6 +147,12 @@ def session_command(runtime, name, arguments):
 def activate_home(runtime, name, home, runner):
     if not isinstance(home, str) or not STORE.fullmatch(home):
         raise ValueError('invalid Home Manager generation')
+    if name is not None:
+        secrets = candidate_manifest(runtime, name).get('systemSecrets')
+        if secrets is not None:
+            status = runner(session_command(runtime, name, [secrets]), timeout=1800)
+            if status:
+                raise ValueError(f'System secrets activation failed with status {status}; recovery is required')
     status = runner(session_command(runtime, name, [home + '/activate']), timeout=1800)
     if status:
         raise ValueError(f'Home Manager activation failed with status {status}; recovery is required')
