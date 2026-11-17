@@ -111,12 +111,75 @@ Unavailable listeners produce a CLI diagnostic rather than a raw TLS EOF. Do not
 disable/re-enable access just to restart it: disabling deliberately revokes all
 approvals and deletes its TLS identity.
 
-The host requires `adb`, Python 3, and OpenSSL. Credentials are stored separately for each ADB serial; use `--credential-dir` to select a directory explicitly when switching transports. The helper creates ephemeral local ADB forwards and removes only those it created. Certificates are generated locally; no private key is written to the repository. For certificate renewal, enroll into a new `--credential-dir` and then revoke the old fingerprint. Existing client credentials are never silently overwritten. At most 32 certificates are approved, with up to four concurrent TLS connections. Certificates enforce wall-clock validity; correct the host/device clock rather than disabling verification. The one-year server certificate currently requires disabling and re-enabling access, followed by re-enrollment, to renew it.
+The host requires `adb`, Python 3, and OpenSSL. Credentials are stored separately for each ADB serial (or device alias); use `--credential-dir` to select a directory explicitly when switching transports. The helper creates ephemeral local ADB forwards and removes only those it created. Certificates are generated locally; no private key is written to the repository. For certificate renewal, enroll into a new `--credential-dir` and then revoke the old fingerprint. Existing client credentials are never silently overwritten. At most 32 certificates are approved, with up to four concurrent TLS connections. Certificates enforce wall-clock validity; correct the host/device clock rather than disabling verification. The one-year server certificate currently requires disabling and re-enabling access, followed by re-enrollment, to renew it.
+
+### Device aliases
+
+`--serial` accepts a raw ADB serial (unchanged) or an alias from a private runtime JSON file,
+`$XDG_CONFIG_HOME/termuxpp/adb-devices.json` (override with `--devices-config` or
+`TERMUXPP_ADB_DEVICES`). The file must be a regular file owned by you (or root) and not
+writable by others; it is never part of this repository.
+
+```json
+{
+  "version": 1,
+  "devices": {
+    "phone": {
+      "serials": ["USB_SERIAL", "192.0.2.10:5555"],
+      "serial_prefixes": ["adb-USB_SERIAL-"],
+      "metadata": {"model": ["MODEL"]},
+      "credential_dir": "/optional/absolute/dir",
+      "ssh": {"port": 2222, "start_argv": ["EXECUTABLE", "ARG"]}
+    }
+  }
+}
+```
+
+An alias needs at least one of `serials`, `serial_prefixes` or `metadata` (`model`, `device`,
+`product` values from `adb devices -l`; all exact matches). Candidates are matched against
+`adb devices -l` each time, and exactly one must be in the `device` state. Several ready
+candidates (for example USB and Wi-Fi at once), none, or only unauthorized/offline ones are errors;
+nothing is guessed, and no network scanning or `adb connect` is performed. Resolution happens once
+per invocation and the resolved serial is used for every later ADB call. Unknown keys are rejected.
+`termuxpp-adb-shell --list-aliases` prints the alias names (used by completions).
+
+Alias credentials live in a stable `adb-shell/aliases/NAME` directory, or in `credential_dir`
+when configured. If that directory has no credentials yet but exactly one legacy per-serial
+directory (of the resolved serial or of an exact serial listed by the alias) does, that directory is
+reused in place; several candidates are an error until `credential_dir` picks one, so identities are
+never merged. Credentials are never copied, overwritten or enrolled automatically. Enrollment stays an explicit `--provision`. `--credential-dir`
+still overrides everything.
+
+### SSH over ADB
+
+`scripts/termuxpp-adb-ssh-proxy.py` is an OpenSSH `ProxyCommand` that tunnels to a TermuxPP SSH
+daemon through `adb shell -T toybox nc 127.0.0.1 PORT` (default port `2222`, from alias `ssh.port`
+or `--port`); no ADB port forward or network route is needed.
+
+```
+Host phone
+  ProxyCommand termuxpp-adb-ssh-proxy --serial phone
+```
+
+The helper resolves the alias once and uses that serial for everything. It first probes the
+device-side port with `toybox nc` (stdin detached, so the SSH stream is not consumed; bounded by
+`--probe-timeout`). Only if the listener is down, an alias `ssh.start_argv` is run through the
+authenticated mTLS command endpoint via the CLI (existing approved credentials only, output sent to
+stderr, total wall-clock limit `--start-timeout`), then the port is re-probed once a second for up to
+`--ready-timeout` before exec'ing `adb ... nc`. A failing, timed-out or non-zero start command is
+not fatal (a concurrent starter may have won, or a daemon may hold the command's pipes open): the
+listener is re-probed regardless, nothing is ever stopped or restarted, and the start error is only
+reported if the port never comes up. Without `start_argv` (or with `--no-start`) a down
+listener is an error: TermuxPP has no built-in daemon starter, so supply the command that starts
+your daemon (for example a termux-services `sv up` call) in the private configuration. An
+inconclusive probe (adb failure, timeout) never starts anything. Only an explicit
+"Connection refused" counts as down (`toybox nc` exits 0 after connecting); any other probe
+failure is an error and never starts anything.
 
 ### Shell completions
 
 The CLI ships Bash, Zsh, and Fish integrations in [`scripts/completions`](../../scripts/completions).
-They complete options, transport values, connected/authorized ADB device serials,
+They complete options, transport values, connected/authorized ADB device serials, configured aliases,
 and credential directories. After `--`, they offer local command and filename
 completion, not the phone's command list or filesystem. They register both `termuxpp-adb-shell` and
 `termuxpp-adb-shell.py` (invoke the executable directly, rather than through
@@ -131,7 +194,7 @@ source <(python3 scripts/termuxpp-adb-shell.py --completions zsh)
 python3 scripts/termuxpp-adb-shell.py --completions fish | source
 ```
 
-Keep the `completions` directory alongside the Python script when installing it.
+Keep the `completions` directory and `termuxpp_adb_devices.py` alongside the Python scripts when installing them.
 OpenSSL is needed only for mTLS enrollment, not for `run-as`.
 
 **Validation status:** the run-as transport requires real-device acceptance testing;
