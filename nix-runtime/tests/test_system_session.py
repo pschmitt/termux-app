@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Exercise the native candidate descriptor without Android or a launcher."""
+import json
 import os
 from pathlib import Path
+import shlex
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -77,6 +81,80 @@ printf '%s\\n' "$SESSION_PATH" "$SESSION_SHELL" "$SESSION_CERTIFICATE" "$SESSION
     def test_missing_descriptor(self):
         (self.candidate / 'session').unlink()
         self.assertNotEqual(self.load().returncode, 0)
+
+    def launch(self, *arguments):
+        tools = self.runtime / 'tools'
+        tools.mkdir()
+        for name, value in [('uname', 'aarch64'), ('getconf', '4096')]:
+            executable = tools / name
+            executable.write_text(f'#!{sys.executable}\nprint({value!r})\n')
+            executable.chmod(0o700)
+        for name in ['env', 'readlink']:
+            (tools / name).symlink_to(shutil.which(name))
+        source = HELPER.with_name('session.sh').read_text()
+        script = self.runtime / 'session.sh'
+        script.write_text(source.replace('/system/bin/', str(tools) + '/'))
+        shutil.copyfile(HELPER, self.runtime / HELPER.name)
+        values = {
+            'SESSION_USER': 'guest', 'SESSION_HOME': '/home/guest',
+            'SESSION_PATH': '/legacy/bin', 'SESSION_SHELL': self.values[3],
+            'SESSION_CERTIFICATE': '/legacy/cert', 'SESSION_TERMINFO': '/legacy/terminfo',
+            'BOOTSTRAP_NIX': '/bootstrap/nix', 'BOOTSTRAP_BUSYBOX': '/bootstrap/busybox',
+            'ANDROID_CA': '/native/cert',
+        }
+        (self.runtime / 'session.env').write_text(''.join(
+            f'{key}={shlex.quote(value)}\n' for key, value in values.items()))
+        shell = self.runtime / 'root' / self.values[3].lstrip('/')
+        shell.parent.mkdir(parents=True)
+        shell.touch(mode=0o700)
+        (self.runtime / 'root/home/guest').mkdir(parents=True)
+        launcher = self.runtime / 'launcher'
+        launcher.write_text(f'#!{sys.executable}\n' + '''
+import json, os, sys
+print(json.dumps({'args': sys.argv[1:], 'path': os.environ['PATH'],
+                  'certificate': os.environ['NIX_SSL_CERT_FILE'],
+                  'home': os.environ['HOME']}))
+''')
+        launcher.chmod(0o700)
+        return subprocess.run([os.environ.get('TEST_SHELL', 'bash'), str(script), *arguments],
+                              env={'PATH': os.environ['PATH']}, text=True, capture_output=True)
+
+    def test_candidate_session_uses_candidate_binding(self):
+        result = self.launch('--system', self.name, '--', 'echo', 'probe')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertIn(str(self.candidate / 'etc') + ':/etc!', data['args'])
+        self.assertNotIn(str(self.runtime / 'root/etc') + ':/etc!', data['args'])
+        self.assertEqual(data['path'], '/home/guest/.nix-profile/bin:' + self.values[2])
+        self.assertEqual(data['certificate'], self.values[4])
+        self.assertEqual(data['home'], '/home/guest')
+        self.assertEqual(data['args'][-2:], ['echo', 'probe'])
+
+    def test_default_session_ignores_prepared_candidate(self):
+        result = self.launch('--', 'echo', 'probe')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertIn(str(self.runtime / 'root/etc') + ':/etc!', data['args'])
+        self.assertEqual(data['path'], '/home/guest/.nix-profile/bin:/legacy/bin')
+        self.assertEqual(data['certificate'], '/legacy/cert')
+
+    def test_bootstrap_ignores_prepared_candidate(self):
+        result = self.launch('--bootstrap', '--', 'echo', 'probe')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertIn(str(self.runtime / 'root/etc') + ':/etc!', data['args'])
+        self.assertEqual(data['path'], '/bootstrap/nix/bin:/bootstrap/busybox/bin:/bin')
+        self.assertEqual(data['certificate'], '/android/native/cert')
+
+    def test_bad_candidate_does_not_start_launcher(self):
+        result = self.launch('--system', '../escape', '--', 'echo', 'probe')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, '')
+
+    def test_missing_candidate_argument(self):
+        result = self.launch('--system')
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, '')
 
 
 if __name__ == '__main__':
