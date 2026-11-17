@@ -8,6 +8,77 @@ The intended user experience is one full-Nix environment: opening TermuxPP start
 the Nix-managed shell directly. A native Android bridge and recovery shell remain
 implementation plumbing, not a required `nixpp enter` workflow.
 
+## Usable isolated session
+
+An opt-in Linux/glibc shell is implemented by `session.sh`, `session.nix`,
+`prepare-session.py` and `install-session.sh`. It is not packaged or enabled by
+an APK. The normal native shell, prefix and nixpp generations remain untouched.
+Only AArch64 devices with 4096-byte pages are accepted.
+
+On the disposable worker described below, generate the pinned package manifest:
+
+```sh
+nix build --impure --expr 'import /home/agent/runtime/session.nix {
+  source = "/home/agent/droid-nix-source";
+}' -o /home/agent/session-manifest
+cp -L /home/agent/session-manifest /home/agent/manifest.json
+```
+
+Stage `launcher` from the patched build, `manifest.json`, `session.sh`,
+`install-session.sh` and `prepare-session.py` together in a new app-private
+`$HOME/.local/share/termuxpp-nix` directory. Transfer only these small files;
+packages download directly on the phone. Verify the transferred launcher hash
+before executing it. With ADB stdin transfers use `adb shell -T run-as ...
+/system/bin/toybox tee ...`, not a PTY; verify hashes after transfer.
+
+Download the droid-nix v0.9.0 bootstrap APK into a separate new download directory
+on the phone. Do not install it. The preparer requires SHA-256
+`f74f0de161fb51ccc9a6ffd1a839150c1c88fd88f1b7176e320ec564fc696ea2`.
+Run from the normal visible TermuxPP shell, with native Python available:
+
+```sh
+chmod 700 "$HOME/.local/share/termuxpp-nix/launcher" \
+  "$HOME/.local/share/termuxpp-nix/session.sh" \
+  "$HOME/.local/share/termuxpp-nix/install-session.sh"
+"$HOME/.local/share/termuxpp-nix/install-session.sh" /absolute/path/to/bootstrap.apk
+```
+
+Existing roots are never overwritten. After package-download interruption,
+`install-session.sh --resume` repeats signed cache imports and GC-root creation.
+An interrupted extraction is not resumable: preserve/inspect the failed directory
+and prepare a different empty directory rather than deleting an existing runtime.
+A `ready` marker is written only after dynamic Nix and glibc checks succeed.
+
+Start the session with `~/.local/share/termuxpp-nix/session.sh`; use
+`session.sh -- COMMAND ARG...` for command mode. The installed test device also
+has a `~/.local/bin/termuxpp-nix` symlink. `exit` returns to the unchanged native
+shell. There is deliberately no automatic startup change yet.
+
+The fresh persistent guest home is `/home/nix`, separate from native dotfiles.
+Bash, Zsh, Git, Python, common shell tools, certificates and Nix are pinned in
+the manifest; `~/.nix-profile/bin` takes precedence. Base packages have explicit
+GC roots. Sandbox builds and build users are disabled; cache signature checks
+remain required. Public DNS resolvers are written into the isolated root.
+`/android` exposes host paths: this is **not a sandbox**. Proc metrics use fixtures,
+not live CPU/uptime values. Android helpers and Home Manager are not integrated.
+
+### Verified on Android, 2026-11-17
+
+In the actual TermuxPP `untrusted_app_27` domain, the guest acceptance script
+`tests/usable-session.py` passed glibc 2.44/Bash/Zsh, filesystem/Git, threads and
+signals, 30 child processes, 256 alternate-stack registration/unmapping cycles,
+PTY use, DNS and verified HTTPS. Dynamic Nix 2.34.9 evaluated 42, built and
+force-rebuilt an offline glibc-Bash derivation, verified its output and added a
+package to a profile. A separate visible-terminal check verified `/home/nix`,
+Ctrl-Z suspension, `fg` resumption and Ctrl-C interruption with prompt recovery.
+
+Run the guest suite with `session.sh -- python3 -I /android/ABSOLUTE_TEST_PATH`.
+The PTY subprocess test alone does not prove controlling-terminal job control;
+that claim comes from the separate visible-terminal check. Remote validation
+passed five extraction tests, seven results-checker tests, ShellCheck, Nixfmt
+and Statix. No performance, app-restart, resize, companion or production-lifetime
+qualification is implied by this acceptance.
+
 ## Source and licensing
 
 `upstream/` contains the launcher from

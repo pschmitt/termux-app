@@ -26,6 +26,18 @@ source-code change. Recheck both implementations when updating this page.
 | Tasker and Locale | The plug-in protocol is the stock Termux Tasker/Locale protocol. | The TermuxPP plug-in keeps the protocol action names while using its fork-specific app identity and shared UID. | Protocol compatibility is retained. Existing Tasker tasks may still need to select the TermuxPP plug-in again because Android stores the plug-in package identity. See [Tasker integration](../../termux-tasker/TERMUXPP.md). |
 | Updates | Upstream distributes its app through its own release channels. | Settings > Updates can check and install the TermuxPP core, API, and Tasker rolling `latest` builds through Shizuku, after an explicit user action. | TermuxPP-only updater and release feeds. It does not update absent apps or alter APT package updates. See [Self-update over Shizuku](self-update.md). |
 
+## Experimental full-Nix session (not an APK default)
+
+The optional [`nix-runtime` prototype](../../nix-runtime/README.md) provides an
+isolated Linux/glibc Nix store and shell through a patched droid-nix launcher.
+It is separate from native Android/Bionic nixpp bundles and does not change
+normal shell startup, bootstrap selection, companion identities or permissions.
+It has been exercised on a 4 KiB-page AArch64 device, including dynamic Nix builds
+and real terminal job control. It is not a security sandbox or production-qualified
+replacement for the native environment; APK integration and automatic full-Nix
+startup remain unimplemented. This is experimental fork tooling, not an upstream
+Termux compatibility feature.
+
 ## Terminal More menu
 
 Upstream uses Android's context menu for terminal actions. TermuxPP uses a
