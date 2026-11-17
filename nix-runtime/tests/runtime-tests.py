@@ -130,6 +130,46 @@ def build_derivation():
     require('/guest/home/smoke-root' in roots, 'GC root missing')
     return {'output': output, 'gc_root': '/guest/home/smoke-root'}
 
+def alternate_stack_lifetime():
+    return run([sys.executable, '-I', '-c', '''
+import ctypes, errno, os
+libc = ctypes.CDLL(None, use_errno=True)
+class Stack(ctypes.Structure):
+    _fields_ = [('sp', ctypes.c_void_p), ('flags', ctypes.c_int), ('size', ctypes.c_size_t)]
+libc.mmap.restype = ctypes.c_void_p
+libc.mmap.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_long]
+libc.munmap.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+p = libc.mmap(None, 65536, 3, 0x22, -1, 0)
+assert p != ctypes.c_void_p(-1).value
+assert libc.sigaltstack(ctypes.byref(Stack(p, 0, 65536)), None) == 0
+assert libc.munmap(p, 65536) == -1
+assert ctypes.get_errno() == errno.EBUSY
+assert os.stat('/etc/evaluation-marker').st_size > 0
+assert libc.sigaltstack(ctypes.byref(Stack(None, 2, 0)), None) == 0
+assert libc.munmap(p, 65536) == 0
+print('ALTSTACK_LIFETIME_GUARD_PASS')
+'''])
+
+
+def inherited_syscall_denial():
+    return run([sys.executable, '-I', '-c', '''
+import ctypes, errno
+libc = ctypes.CDLL(None, use_errno=True)
+class Filter(ctypes.Structure):
+    _fields_ = [('code', ctypes.c_ushort), ('jt', ctypes.c_ubyte), ('jf', ctypes.c_ubyte), ('k', ctypes.c_uint)]
+class Program(ctypes.Structure):
+    _fields_ = [('length', ctypes.c_ushort), ('filters', ctypes.POINTER(Filter))]
+filters = (Filter * 4)(Filter(0x20, 0, 0, 0), Filter(0x15, 0, 1, 452), Filter(0x06, 0, 0, 0x30000), Filter(0x06, 0, 0, 0x7fff0000))
+assert libc.prctl(38, 1, 0, 0, 0) == 0
+assert libc.prctl(22, 2, ctypes.byref(Program(4, filters)), 0, 0) == 0
+assert libc.syscall(452, -100, b'/etc/evaluation-marker', 0o600, 0) == -1
+assert ctypes.get_errno() == errno.ENOSYS
+print('INHERITED_DENIAL_PASS')
+'''])
+
+
+check('alternate-stack-lifetime', alternate_stack_lifetime)
+check('inherited-syscall-denial', inherited_syscall_denial)
 check('path-mapping', mapping)
 check('no-ptrace-seccomp-active', status)
 check('hardlink-lifecycle', links)

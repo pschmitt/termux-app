@@ -19,7 +19,7 @@ class ResultValidationTest(unittest.TestCase):
         ])
 
     def test_success(self):
-        self.assertEqual(len(check(self.fixture())), 14)
+        self.assertEqual(len(check(self.fixture())), len(names))
 
     def test_missing_test(self):
         with self.assertRaises(ValueError):

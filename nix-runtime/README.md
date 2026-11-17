@@ -34,9 +34,24 @@ applications that have none; in that case the kernel uses the normal stack.
 The regression probe is a static Go program with eight goroutines doing 100
 translated reads each, followed by shell execution. Matched-UID VM controls run
 directly and under the launcher as UID/GID 10000. The unpatched launcher crashes;
-the patched launcher passes in that VM. **The patch is not Android-safe:** the
-physical-device tests below expose a Nix exit crash. Do not ship this patch or
-enable the runtime on the strength of the VM results.
+the original `signal-stack.patch` passes in that VM but exposes a Nix exit crash
+on Android. It is retained as historical evidence, not applied by `launcher.nix`.
+
+The current `signal-lifetime.patch` combines alternate-stack delivery with two
+additional compatibility rules:
+
+- `munmap` overlapping the calling thread's registered alternate stack returns
+  `EBUSY`. Disabling that registration permits ordinary unmapping again.
+- SIGSYS originating inside the raw syscall stub returns `ENOSYS` rather than
+  recursively reissuing an Android-denied syscall.
+
+This deliberately avoids scratch-stack switching and per-call allocation. It is
+not a complete memory-lifetime solution: another thread can invalidate a stack,
+`MAP_FIXED`, `mremap` and `mprotect` are not guarded, and applications ignoring
+`EBUSY` may retain mappings until exit. No minimum safe alternate-stack size is
+enforced. Do not enable the runtime merely because the regression probes pass.
+The VM suite now includes alternate-stack lifetime and inherited syscall-denial
+regressions, for 16 checks plus the direct Go control.
 
 ## Reproduce on a disposable x86_64 Linux worker
 
@@ -143,6 +158,27 @@ Structured results and artifact hashes are in
 [`tests/android-evidence.json`](tests/android-evidence.json). Raw traces are
 retained privately because they contain device paths. No performance comparison,
 full glibc suite, PTY/job-control, lifecycle or companion acceptance is claimed.
+
+### Combined lifetime/fallback candidate
+
+The smaller `signal-lifetime.patch` passed all 16 VM checks and the direct Go
+control. In a visible TermuxPP session in `untrusted_app_27`, the same binary
+passed ten Go runs, ten Nix version probes, ten arithmetic evaluations, a fresh
+offline BusyBox derivation, a forced rebuild and output verification: all 33 exit
+statuses were zero and expected output markers were checked. Artifact and log
+hashes are recorded in
+[`tests/signal-lifetime-evidence.json`](tests/signal-lifetime-evidence.json).
+
+An intermediate owned scratch-stack implementation passed the VM suite but
+failed all three Android Go runs (139, 139, 2), despite successful Nix builds.
+A subsequent nested-signal revision passed the VM but was not phone-tested;
+the smaller no-switching candidate was selected instead. The exact cause of
+the intermediate Go corruption has not been established. VM success alone must
+not be treated as Android acceptance.
+
+These results clear the specific observed Go/Nix regressions on the tested
+4 KiB AArch64 device, not the production gates below. The lifetime guard is a
+conservative compatibility restriction, not a complete stack-ownership design.
 
 ## Acceptance gates and integration sequence
 

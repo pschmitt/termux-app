@@ -8,7 +8,8 @@ EXPECTED = {
     'threaded-filesystem', 'signal-mask', 'unix-socket',
     'static-go-threads-and-exec', 'nix-load-registration',
     'nix-offline-evaluation', 'nix-local-build-and-gc-root',
-    'nix-store-verification',
+    'nix-store-verification', 'alternate-stack-lifetime',
+    'inherited-syscall-denial',
 }
 
 
@@ -30,4 +31,4 @@ def check(text):
 
 if __name__ == '__main__':
     check(pathlib.Path(sys.argv[1]).read_text())
-    print('PASS: all 14 guest checks and direct Go control')
+    print(f'PASS: all {len(EXPECTED)} guest checks and direct Go control')

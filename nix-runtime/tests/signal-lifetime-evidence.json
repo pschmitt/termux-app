@@ -1,0 +1,83 @@
+{
+  "date": "2026-11-17",
+  "status": "experimental; not enabled or production-qualified",
+  "patch": "signal-lifetime.patch",
+  "patch_sha256": "1cb2c33e07a73ba29f706796a16890f242c071d722c727e4959435af3023fba7",
+  "launcher_sha256": "431b7371b2856d7745328db9ecfdb42aaf7f098d1434fe963048aed101a8585d",
+  "android": {
+    "selinux_domain": "untrusted_app_27",
+    "page_size": 4096,
+    "go_version": "1.26.10",
+    "nix_version": "2.34.9",
+    "checks": {
+      "go-1": 0,
+      "nix-version-1": 0,
+      "nix-eval-1": 0,
+      "go-2": 0,
+      "nix-version-2": 0,
+      "nix-eval-2": 0,
+      "go-3": 0,
+      "nix-version-3": 0,
+      "nix-eval-3": 0,
+      "go-4": 0,
+      "nix-version-4": 0,
+      "nix-eval-4": 0,
+      "go-5": 0,
+      "nix-version-5": 0,
+      "nix-eval-5": 0,
+      "go-6": 0,
+      "nix-version-6": 0,
+      "nix-eval-6": 0,
+      "go-7": 0,
+      "nix-version-7": 0,
+      "nix-eval-7": 0,
+      "go-8": 0,
+      "nix-version-8": 0,
+      "nix-eval-8": 0,
+      "go-9": 0,
+      "nix-version-9": 0,
+      "nix-eval-9": 0,
+      "go-10": 0,
+      "nix-version-10": 0,
+      "nix-eval-10": 0,
+      "nix-build": 0,
+      "nix-rebuild": 0,
+      "output": 0
+    },
+    "output_assertions": "10 Go markers, 10 version strings, 10 evaluations equal 42, fresh derivation output and forced rebuild",
+    "log_sha256": "fbe2c6cedb028d969b04f5a2bfe242c95bfec71af13b1b4d4d18ce56ac367afe",
+    "activation": "none; no APK install, prefix, SSH or default-shell changes"
+  },
+  "vm": {
+    "checks_passed": 16,
+    "direct_go_control": "passed",
+    "log_sha256": "0e52912127fcfe72df7dc7bd2ef6a1b26f7936463a9a6adfdec54a9adf24e35c"
+  },
+  "discarded_experiments": [
+    {
+      "variant": "owned handler scratch stack with SA_ONSTACK and munmap guard",
+      "vm": "16 checks passed",
+      "android_go_exits": [
+        139,
+        139,
+        2
+      ],
+      "android_nix": "version, evaluation, local build and forced rebuild passed"
+    },
+    {
+      "variant": "scratch stack with temporary alternate-stack disable and guest-signal masking",
+      "vm": "16 checks passed",
+      "android": "not tested; simpler no-switching variant selected"
+    }
+  ],
+  "limits": [
+    "cross-thread stack invalidation",
+    "MAP_FIXED/mremap/mprotect not guarded",
+    "EBUSY may retain mappings until process exit",
+    "minimum alternate-stack size not enforced",
+    "full glibc suite not run on Android",
+    "PTY/job control and lifecycle untested",
+    "no PRoot performance comparison",
+    "4 KiB AArch64 only"
+  ]
+}

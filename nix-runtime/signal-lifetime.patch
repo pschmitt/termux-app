@@ -1,0 +1,37 @@
+--- a/launcher.c
++++ b/launcher.c
+@@ -1001 +1001 @@
+-					SA_SIGINFO | SA_RESTORER | SA_NODEFER,
++					SA_SIGINFO | SA_RESTORER | SA_NODEFER | SA_ONSTACK,
+@@ -1156,0 +1157,29 @@
++
++	// An inherited filter can reject even our exempt syscall instruction.
++	uintptr_t pc = (uintptr_t)si->si_call_addr;
++	if (pc >= (uintptr_t)allow_start && pc < (uintptr_t)allow_end) {
++		r[0] = (unsigned long)-ENOSYS;
++		return;
++	}
++
++	if (nr == SYS_munmap) {
++		stack_t ss;
++		long ret = SYS2(SYS_sigaltstack, 0, &ss);
++		if (ret < 0) {
++			r[0] = (unsigned long)ret;
++			return;
++		}
++		unsigned long start = r[0], end = start + r[1];
++		if (end < start) {
++			r[0] = (unsigned long)-EINVAL;
++			return;
++		}
++		// A registered alternate stack may contain this handler's signal frame.
++		if (!(ss.ss_flags & SS_DISABLE) && start < (unsigned long)ss.ss_sp + ss.ss_size &&
++		    end > (unsigned long)ss.ss_sp) {
++			r[0] = (unsigned long)-EBUSY;
++			return;
++		}
++		r[0] = (unsigned long)SYS2(SYS_munmap, start, r[1]);
++		return;
++	}
+@@ -1610,0 +1640 @@
++ SYS_munmap,
