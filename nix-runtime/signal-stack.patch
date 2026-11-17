@@ -1,0 +1,8 @@
+--- a/launcher.c
++++ b/launcher.c
+@@ -1000,2 +1000,3 @@
+-static struct kernel_sigaction g_ka = { (void *)sigsys_handler,
+-					SA_SIGINFO | SA_RESTORER | SA_NODEFER,
++// Runtime-managed stacks can be smaller than the handler's path buffers.
++static struct kernel_sigaction g_ka = { (void *)sigsys_handler,
++					SA_SIGINFO | SA_RESTORER | SA_NODEFER | SA_ONSTACK,

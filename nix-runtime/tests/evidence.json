@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-17",
+  "upstream_revision": "bb08d50117568e9994b6d87c918c4c2d7b5de9b1",
+  "environment": "Full ARM64 Linux kernel in QEMU system emulation on a disposable x86_64 Linux worker",
+  "uid": 10000,
+  "gid": 10000,
+  "go_version": "1.26.10",
+  "go_build": "CGO_ENABLED=0 GOOS=linux GOARCH=arm64",
+  "unmodified": {
+    "direct_go_control_exit": 0,
+    "launcher_go_exit": -11,
+    "passed": 13,
+    "total": 14,
+    "guest_exit": 1
+  },
+  "patched": {
+    "direct_go_control_exit": 0,
+    "passed": 14,
+    "total": 14,
+    "guest_exit": 0,
+    "successful_vm_runs": 3,
+    "launcher_sha256": "3728248b42bf334687a6486cf7e1a987d3d8c9cd5e0e4a9427af710e87ff9b11",
+    "go_probe_sha256": "9df048d5c72fcc5e808a621fa52ffd42730f4d4cd9bf02d9535d617e1e36e0b2"
+  },
+  "host_validation": {
+    "result_checker_unit_tests": 7,
+    "shellcheck": "passed",
+    "nixfmt": "applied",
+    "statix": "passed"
+  },
+  "not_tested": [
+    "Android app-domain execution and inherited seccomp/SELinux policies",
+    "Physical-device performance versus PRoot",
+    "16 KiB page kernels",
+    "Android helper and companion integration",
+    "Bootstrap installation, upgrades and rollback",
+    "Binary-cache downloads and signature checks",
+    "Actual garbage collection and store optimisation"
+  ]
+}
