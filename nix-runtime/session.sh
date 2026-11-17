@@ -1,7 +1,7 @@
 #!/system/bin/sh
 
 usage() {
-  printf 'Usage: %s [--bootstrap] [-- COMMAND ARG...]\n' "$0"
+  printf 'Usage: %s [--bootstrap | --system CANDIDATE] [-- COMMAND ARG...]\n' "$0"
 }
 
 main() {
@@ -22,6 +22,8 @@ main() {
     return 1
   fi
   bootstrap=
+  system_candidate=
+  session_etc="$directory/root/etc"
   case ${1:-} in
     -h|--help)
       usage
@@ -30,6 +32,18 @@ main() {
     --bootstrap)
       bootstrap=1
       shift
+      ;;
+    --system)
+      if [[ $# -lt 2 ]]
+      then
+        usage >&2
+        return 2
+      fi
+      system_candidate=$2
+      # shellcheck source=system-session.sh
+      . "$directory/system-session.sh" || return 1
+      load_system_candidate "$directory" "$system_candidate" || return 1
+      shift 2
       ;;
   esac
   if [[ ${1:-} == -- ]]
@@ -78,7 +92,7 @@ require-sigs = true
 auto-optimise-store = false' \
     "$directory/launcher" \
     -b "$directory/root/nix:/nix" \
-    -b "$directory/root/etc:/etc!" \
+    -b "$session_etc:/etc!" \
     -b "$directory/root/bin:/bin!" \
     -b "$directory/root/home:/home" \
     -b "${SESSION_TMP_DIR:-$directory/root/tmp}:/tmp" \

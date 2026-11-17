@@ -45,6 +45,12 @@ arbitrary native command service. A `bridge.enabled` marker opts `login.sh` into
 starting it. `SESSION_TMP_DIR` can select a short native directory for guest
 `/tmp`, avoiding Android-translated Unix-socket path limits. These additions do
 not change Android permissions or enable the runtime in the APK by default.
+The experimental launcher also accepts `--system CANDIDATE` to enter an explicitly
+prepared guest-system package tree and `/etc` snapshot. This does not select a
+default generation, activate Home Manager, or change native recovery; candidate
+selection is worker-tested but not yet Android-qualified. The planned system
+management interface reuses the `nixpp` name. This is fork-specific tooling, not
+an upstream Termux generation-management interface.
 It has been exercised on a 4 KiB-page AArch64 device, including dynamic Nix builds
 and real terminal job control. It is not a security sandbox or production-qualified
 replacement for the native environment; APK integration and automatic full-Nix

@@ -25,7 +25,7 @@ cp -L /home/agent/session-manifest /home/agent/manifest.json
 ```
 
 Stage `launcher` from the patched build, `manifest.json`, `session.sh`,
-`install-session.sh` and `prepare-session.py` together in a new app-private
+`system-session.sh`, `install-session.sh` and `prepare-session.py` together in a new app-private
 `$HOME/.local/share/termuxpp-nix` directory. Transfer only these small files;
 packages download directly on the phone. Verify the transferred launcher hash
 before executing it. With ADB stdin transfers use `adb shell -T run-as ...
@@ -52,7 +52,38 @@ A `ready` marker is written only after dynamic Nix and glibc checks succeed.
 Start the session with `~/.local/share/termuxpp-nix/session.sh`; use
 `session.sh -- COMMAND ARG...` for command mode. The installed test device also
 has a `~/.local/bin/termuxpp-nix` symlink. `exit` returns to the unchanged native
-shell. There is deliberately no automatic startup change yet.
+shell. There is deliberately no automatic startup change yet. That test symlink
+is historical; the planned user-facing system management command is `nixpp`,
+reusing the existing name rather than adding a competing command.
+
+### Explicit system candidates
+
+With the matching declarative system tooling, `nixpp prepare` creates a retained
+candidate under `system-candidates/` in the native runtime directory. Launch it
+explicitly from the native shell:
+
+```sh
+"$HOME/.local/share/termuxpp-nix/session.sh" --system HASH-termuxpp-system-HOST -- bash -lc 'echo "$PATH"'
+```
+
+`--system` loads a fixed six-line data descriptor, never shell code. It checks
+the existing guest identity and uses the candidate's system PATH, Bash,
+certificate, terminfo and physical `/etc` snapshot. The snapshot preserves
+runtime identity/networking defaults and overlays declared system files.
+It does not alter `session.env`, the original `root/etc`, existing sessions,
+Home Manager or default login selection. Bootstrap continues to use the original
+runtime regardless of prepared candidates. Candidate sessions share the guest
+home and store; they are not disposable homes or a sandbox. They have not yet
+been qualified on Android. Persistent switch, rollback and child HM activation
+remain unsupported.
+
+The descriptor loader tests run under both Bash and mksh on a worker:
+
+```sh
+python3 -I nix-runtime/tests/test_system_session.py
+TEST_SHELL=mksh python3 -I nix-runtime/tests/test_system_session.py
+shellcheck -x -P nix-runtime -s bash nix-runtime/session.sh
+```
 
 The default fresh persistent guest home is `/home/nix`, separate from native
 dotfiles. Set `TERMUXPP_NIX_USER=pschmitt` when invoking the installer (or pass
