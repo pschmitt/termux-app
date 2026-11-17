@@ -113,7 +113,7 @@ printf '%s\\n' "$SESSION_PATH" "$SESSION_SHELL" "$SESSION_CERTIFICATE" "$SESSION
 import json, os, sys
 print(json.dumps({'args': sys.argv[1:], 'path': os.environ['PATH'],
                   'certificate': os.environ['NIX_SSL_CERT_FILE'],
-                  'home': os.environ['HOME']}))
+                  'home': os.environ['HOME'], 'nix_conf_dir': os.environ['NIX_CONF_DIR']}))
 ''')
         launcher.chmod(0o700)
         return subprocess.run([os.environ.get('TEST_SHELL', 'bash'), str(script), *arguments],
@@ -128,6 +128,7 @@ print(json.dumps({'args': sys.argv[1:], 'path': os.environ['PATH'],
         self.assertEqual(data['path'], '/home/guest/.nix-profile/bin:' + self.values[2])
         self.assertEqual(data['certificate'], self.values[4])
         self.assertEqual(data['home'], '/home/guest')
+        self.assertEqual(data['nix_conf_dir'], '/home/guest/.config/nix')
         self.assertEqual(data['args'][-2:], ['echo', 'probe'])
 
     def test_default_session_ignores_prepared_candidate(self):
