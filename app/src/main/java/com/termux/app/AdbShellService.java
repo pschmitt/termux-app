@@ -303,7 +303,7 @@ public final class AdbShellService extends Service {
             clientIdentities.put(socket, AdbShellAuthorizations.fingerprint(
                 (X509Certificate) socket.getSession().getPeerCertificates()[0]));
             if (!authenticate(socket)) return;
-            byte[] command = readLine(socket.getInputStream(), 128);
+            byte[] command = readLine(socket.getInputStream(), 4096);
             if (command == null) return;
             String operation = new String(command, StandardCharsets.US_ASCII);
             validateClientIdentity(socket);
@@ -324,10 +324,19 @@ public final class AdbShellService extends Service {
                         }
                     }
                 }
-            } else if ("SHELL".equals(operation)) {
+            } else if ("SHELL".equals(operation) || operation.startsWith("SHELL ")) {
+                String shell;
+                try {
+                    shell = AdbShellCommand.resolveShell(new File(TermuxConstants.TERMUX_HOME_DIR_PATH),
+                        new File(TermuxConstants.TERMUX_PREFIX_DIR_PATH),
+                        "SHELL".equals(operation) ? null : operation.substring(6));
+                } catch (IOException error) {
+                    writeLine(socket, "ERR");
+                    return;
+                }
                 writeLine(socket, "OK");
                 socket.setSoTimeout(0);
-                runShell(socket);
+                runShell(socket, shell);
             }
         } catch (Exception ignored) {
             // Never log credentials or peer-controlled input.
@@ -500,7 +509,8 @@ public final class AdbShellService extends Service {
         if (line == null) return false;
         String supplied = new String(line, StandardCharsets.US_ASCII);
         String tokenPrefix = "TERMUXPP/1 ";
-        if (!supplied.startsWith(tokenPrefix) || !isValidToken(supplied.substring(tokenPrefix.length()))) {
+        if (!"TERMUXPP/2".equals(supplied)
+            && (!supplied.startsWith(tokenPrefix) || !isValidToken(supplied.substring(tokenPrefix.length())))) {
             writeLine(socket, "ERR");
             return false;
         }
@@ -635,8 +645,9 @@ public final class AdbShellService extends Service {
         }
     }
 
-    private void runShell(Socket socket) throws IOException {
+    private void runShell(Socket socket, String shell) throws IOException {
         Map<String, String> environment = new TermuxShellEnvironment().getEnvironment(this, false);
+        environment.put("SHELL", shell);
         environment.put("TERM", "xterm-256color");
         environment.put("COLORTERM", "truecolor");
         List<String> environmentEntries = new ArrayList<>();
@@ -645,9 +656,6 @@ public final class AdbShellService extends Service {
         }
         Collections.sort(environmentEntries);
 
-        String prefix = TermuxConstants.TERMUX_PREFIX_DIR_PATH;
-        File bash = new File(prefix, "bin/bash");
-        String shell = bash.canExecute() ? bash.getAbsolutePath() : new File(prefix, "bin/sh").getAbsolutePath();
         String name = new File(shell).getName();
         PtyProcess pty = PtyProcess.start(shell, TermuxConstants.TERMUX_HOME_DIR_PATH,
             new String[]{"-" + name}, environmentEntries.toArray(new String[0]), 24, 80);

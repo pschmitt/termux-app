@@ -173,9 +173,9 @@
 
                 <!-- ADB Shell -->
                 <string name="adb_shell_enabled_title">ADB shell access</string>
-                <string name="adb_shell_enabled_summary">Allow a shell through an ADB-forwarded loopback connection using mutual TLS and a separate access token. Enable this setting, then run the host helper with --provision.</string>
+                <string name="adb_shell_enabled_summary">Allow a shell through an ADB-forwarded loopback connection using an approved mutual TLS client certificate. The access token is used only for enrollment. Enable this setting, then run the host helper with --provision.</string>
                 <string name="adb_shell_token_title">ADB shell access token</string>
-                <string name="adb_shell_token_warning">Keep this token private. A shell requires both this token and a trusted client certificate. On the host, run python3 scripts/termuxpp-adb-shell.py --serial SERIAL --provision and enter the token when prompted. The token is revoked when access is disabled.</string>
+                <string name="adb_shell_token_warning">Keep this enrollment token private. It is required to approve a new client certificate; approved clients connect without entering it again. On the host, run python3 scripts/termuxpp-adb-shell.py --serial SERIAL --provision and enter the token when prompted. The token is revoked when access is disabled.</string>
                 <string name="adb_shell_copy_token">Copy token</string>
                 <string name="adb_shell_token_copied">Token copied to clipboard</string>
                 <string name="adb_shell_notification_channel">ADB shell access</string>
