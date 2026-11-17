@@ -77,9 +77,26 @@ home and store; they are not disposable homes or a sandbox. They have not yet
 been qualified on Android. Persistent switch, rollback and child HM activation
 remain unsupported.
 
-The descriptor loader tests run under both Bash and mksh on a worker:
+For a prepared candidate with an associated Home Manager generation, the native
+controller runs the fixed runtime acceptance gate in a fresh candidate session:
 
 ```sh
+python3 -I "$HOME/.local/share/termuxpp-nix/system-control.py" check HASH-termuxpp-system-HOST --thorough
+```
+
+Run this with Android-native Python, not Python inside the Linux guest. Stage
+`system-control.py` beside `session.sh`. The controller validates candidate
+metadata and invokes the matching generation's `full-nix-check-runtime` with
+`--isolated --generation`. It propagates the check status and bounds the session
+to 20 minutes, terminating only its own process group on timeout or cancellation.
+It neither activates Home Manager nor selects a default generation. This native
+controller has worker regression coverage, not Android qualification.
+
+The controller and descriptor loader tests run on a worker; the loader is tested
+under both Bash and mksh:
+
+```sh
+python3 -I nix-runtime/tests/test_system_control.py
 python3 -I nix-runtime/tests/test_system_session.py
 TEST_SHELL=mksh python3 -I nix-runtime/tests/test_system_session.py
 shellcheck -x -P nix-runtime -s bash nix-runtime/session.sh
