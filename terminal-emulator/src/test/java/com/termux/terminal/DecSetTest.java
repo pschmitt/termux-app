@@ -75,4 +75,50 @@ public class DecSetTest extends TerminalTestCase {
 		enterString("\033[?7hhij").assertLinesAre("abh", "ij ", "   ");
 	}
 
+	public void testSynchronizedOutputMode2026() {
+		withTerminalSized(10, 4);
+		assertEnteringStringGivesResponse("\033[?2026$p", "\033[?2026;2$y");
+		assertEquals(0L, mTerminal.getDeferredScreenUpdateDelayMs());
+
+		enterString("\033[?2026hHello");
+		assertTrue(mTerminal.isSynchronizedOutput());
+		long delayMs = mTerminal.getDeferredScreenUpdateDelayMs();
+		assertTrue(delayMs > 0L && delayMs <= 100L);
+		assertLinesAre("Hello     ", "          ", "          ", "          ");
+		assertEnteringStringGivesResponse("\033[?2026$p", "\033[?2026;1$y");
+		enterString("\033[?1049hAlt\033[?1049l");
+		assertTrue(mTerminal.isSynchronizedOutput());
+
+		enterString("\033[?2026l");
+		assertFalse(mTerminal.isSynchronizedOutput());
+		assertEquals(0L, mTerminal.getDeferredScreenUpdateDelayMs());
+		assertEnteringStringGivesResponse("\033[?2026$p", "\033[?2026;2$y");
+
+		enterString("\033[?2026h\033[?2026s\033[?2026l\033[?2026r");
+		assertTrue(mTerminal.isSynchronizedOutput());
+		enterString("\033[!p");
+		assertFalse(mTerminal.isSynchronizedOutput());
+		assertEquals(0L, mTerminal.mSyncOutputStartNs);
+		enterString("\033[?2026h\033c");
+		assertFalse(mTerminal.isSynchronizedOutput());
+		assertEquals(0L, mTerminal.mSyncOutputStartNs);
+	}
+
+	public void testSynchronizedOutputTimeout() {
+		withTerminalSized(10, 4);
+		enterString("\033[?2026h");
+		long startNs = mTerminal.mSyncOutputStartNs;
+		enterString("\033[?2026h");
+		assertEquals("Repeated enable must not extend the hold", startNs, mTerminal.mSyncOutputStartNs);
+		mTerminal.mSyncOutputStartNs = System.nanoTime() - TerminalEmulator.SYNC_OUTPUT_MAX_HOLD_NS - 1_000_000L;
+		assertEquals(0L, mTerminal.getDeferredScreenUpdateDelayMs());
+		assertFalse(mTerminal.isSynchronizedOutput());
+		assertEnteringStringGivesResponse("\033[?2026$p", "\033[?2026;2$y");
+		enterString("\033[?2026h");
+		assertTrue(mTerminal.isSynchronizedOutput());
+		mTerminal.reset();
+		assertEquals(0L, mTerminal.getDeferredScreenUpdateDelayMs());
+		assertEquals(0L, mTerminal.mSyncOutputStartNs);
+	}
+
 }

@@ -789,6 +789,9 @@ public final class TerminalEmulator {
     /** If automatic scrolling of terminal is disabled */
     private boolean mAutoScrollDisabled;
 
+    long mSyncOutputStartNs;
+    static final long SYNC_OUTPUT_MAX_HOLD_NS = 100_000_000L;
+
     private byte mUtf8ToFollow, mUtf8Index;
     private final byte[] mUtf8InputBuffer = new byte[4];
     private int mLastEmittedCodePoint = -1;
@@ -998,7 +1001,20 @@ public final class TerminalEmulator {
     }
 
     public boolean isSynchronizedOutput() {
-        return isDecsetInternalBitSet(DECSET_BIT_SYNCHRONIZED_OUTPUT);
+        return getDeferredScreenUpdateDelayMs() > 0L;
+    }
+
+    /** Returns the remaining synchronized-output hold, rounded up to milliseconds. */
+    public long getDeferredScreenUpdateDelayMs() {
+        if (!isDecsetInternalBitSet(DECSET_BIT_SYNCHRONIZED_OUTPUT)) return 0L;
+        long now = System.nanoTime();
+        if (mSyncOutputStartNs == 0L) mSyncOutputStartNs = now;
+        long remainingNs = SYNC_OUTPUT_MAX_HOLD_NS - (now - mSyncOutputStartNs);
+        if (remainingNs <= 0L) {
+            doDecSetOrReset(false, 2026);
+            return 0L;
+        }
+        return (remainingNs + 999_999L) / 1_000_000L;
     }
 
 
@@ -2242,6 +2258,13 @@ public final class TerminalEmulator {
             }
             case 2004:
                 // Bracketed paste mode - setting bit is enough.
+                break;
+            case 2026:
+                if (!setting) {
+                    mSyncOutputStartNs = 0L;
+                } else if (mSyncOutputStartNs == 0L) {
+                    mSyncOutputStartNs = System.nanoTime();
+                }
                 break;
             default:
                 unknownParameter(externalBit);
@@ -4821,6 +4844,7 @@ public final class TerminalEmulator {
         mArgIndex = 0;
         mContinueSequence = false;
         mEscapeState = ESC_NONE;
+        mSyncOutputStartNs = 0L;
         mInsertMode = false;
         mTopMargin = mLeftMargin = 0;
         mBottomMargin = mRows;
