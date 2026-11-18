@@ -285,4 +285,5 @@ and [preferences entry](../../app/src/main/res/xml/termux_preferences.xml).
 
 Set `create-session-on-single-session-switch=true` in `termuxpp.properties` to
 create and open a new terminal when previous or next session is invoked with
-only one terminal open. The default is to keep the current session.
+only one terminal open. This applies to keyboard shortcuts and configured
+gestures, including the extra-keys swipe. The default is to keep the current session.

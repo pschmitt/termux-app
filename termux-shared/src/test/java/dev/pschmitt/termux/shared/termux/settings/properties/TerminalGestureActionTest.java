@@ -131,10 +131,12 @@ public class TerminalGestureActionTest {
     }
 
     @Test
-    public void sessionActionsSwitchOnlyWithMoreThanOneSession() {
+    public void sessionActionsNavigateWithAtLeastOneSession() {
+        assertEquals(SessionSwitch.NEXT, TerminalGestureAction.NEXT_SESSION.sessionSwitch(1));
+        assertEquals(SessionSwitch.PREVIOUS, TerminalGestureAction.PREVIOUS_SESSION.sessionSwitch(1));
         assertEquals(SessionSwitch.NEXT, TerminalGestureAction.NEXT_SESSION.sessionSwitch(2));
         assertEquals(SessionSwitch.PREVIOUS, TerminalGestureAction.PREVIOUS_SESSION.sessionSwitch(5));
-        for (int count : new int[] {-1, 0, 1}) {
+        for (int count : new int[] {-1, 0}) {
             assertEquals(SessionSwitch.NONE, TerminalGestureAction.NEXT_SESSION.sessionSwitch(count));
             assertEquals(SessionSwitch.NONE, TerminalGestureAction.PREVIOUS_SESSION.sessionSwitch(count));
         }

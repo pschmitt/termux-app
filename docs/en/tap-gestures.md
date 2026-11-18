@@ -23,8 +23,8 @@ The four keys are independent and active at the same time. Valid values, case-in
 | `none` | Do nothing. |
 | `show-keyboard` | Show the soft keyboard. If it is already visible nothing changes. |
 | `toggle-keyboard` | Hide the soft keyboard if it is visible, otherwise show it. Before Android 6 the visibility cannot be read and this only shows it. |
-| `next-session` | Switch to the next session, wrapping around. Does nothing with a single session. |
-| `previous-session` | Switch to the previous session, wrapping around. Does nothing with a single session. |
+| `next-session` | Switch to the next session, wrapping around. With one session, creates a new one if `create-session-on-single-session-switch=true`. |
+| `previous-session` | Switch to the previous session, wrapping around. With one session, creates a new one if `create-session-on-single-session-switch=true`. |
 | `open-sidebar` | Open the sidebar with the session list. It is not opened while it is locked closed in copy mode. |
 | `open-menu` | Open the terminal menu, the bottom sheet that a long press on the terminal and then "More..." opens (Extract URL, Share transcript, Autofill, Reset, Kill process, Style, Settings and so on). It never touches the soft keyboard. |
 | `font-size-up` | Increase the terminal font size by one step, like pinching out. It never touches the soft keyboard. |

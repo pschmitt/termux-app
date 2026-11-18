@@ -60,12 +60,18 @@ public class GestureActionDispatcherTest {
     }
 
     @Test
-    public void sessionActionsAreHarmlessWithOneOrNoSession() {
-        for (int count : new int[] {0, 1}) {
-            mTarget.sessionCount = count;
-            GestureActionDispatcher.perform(TerminalGestureAction.NEXT_SESSION, mTarget);
-            GestureActionDispatcher.perform(TerminalGestureAction.PREVIOUS_SESSION, mTarget);
-        }
+    public void sessionActionsReachTheSessionHandlerWithOneSession() {
+        mTarget.sessionCount = 1;
+        GestureActionDispatcher.perform(TerminalGestureAction.NEXT_SESSION, mTarget);
+        GestureActionDispatcher.perform(TerminalGestureAction.PREVIOUS_SESSION, mTarget);
+        assertEquals(List.of("next", "previous"), mTarget.calls);
+    }
+
+    @Test
+    public void sessionActionsAreHarmlessWithNoSessions() {
+        mTarget.sessionCount = 0;
+        GestureActionDispatcher.perform(TerminalGestureAction.NEXT_SESSION, mTarget);
+        GestureActionDispatcher.perform(TerminalGestureAction.PREVIOUS_SESSION, mTarget);
         assertTrue(mTarget.calls.isEmpty());
     }
 

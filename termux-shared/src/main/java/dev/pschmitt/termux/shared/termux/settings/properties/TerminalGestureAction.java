@@ -164,12 +164,12 @@ public enum TerminalGestureAction {
     }
 
     /**
-     * Which way a session action should switch sessions. Nothing is done for other actions and
-     * if there is no other session to switch to.
+     * Which way to navigate when there is a current session. The session handler decides whether
+     * to create a session when there is only one.
      */
     @NonNull
     public SessionSwitch sessionSwitch(int sessionCount) {
-        if (sessionCount <= 1) return SessionSwitch.NONE;
+        if (sessionCount <= 0) return SessionSwitch.NONE;
         switch (this) {
             case NEXT_SESSION:
                 return SessionSwitch.NEXT;
