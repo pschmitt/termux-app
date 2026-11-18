@@ -34,3 +34,24 @@ class HelperPackageTests(unittest.TestCase):
             helpers.package(out, "helper", "1", "all", "", {"bin/am": (b"x", 0o755, None)}, False)
             with self.assertRaises(bootstrap.BootstrapError):
                 bootstrap.Deb(str(out / "helper_1_all.deb"))
+
+    def test_regular_files_are_owner_writable_in_device_and_bootstrap_packages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            files = {
+                "bin/executable": (b"binary", 0o555, None),
+                "lib/read-only.so": (b"library", 0o444, None),
+                "lib/already-writable.so": (b"library", 0o755, None),
+                "lib/link.so": (b"", 0o777, "read-only.so"),
+            }
+
+            for bootstrap_mode in (False, True):
+                helpers.package(out, "helper", "1", "all", "", files, bootstrap_mode)
+                path = out / "helper_1_all.deb"
+                members = bootstrap.parse_ar(path.read_bytes())
+                prefix = helpers.BOOTSTRAP_PREFIX if bootstrap_mode else helpers.PREFIX
+                with bootstrap.open_tar("data.tar.gz", members["data.tar.gz"]) as archive:
+                    self.assertEqual(archive.getmember(prefix + "/bin/executable").mode, 0o755)
+                    self.assertEqual(archive.getmember(prefix + "/lib/read-only.so").mode, 0o644)
+                    self.assertEqual(archive.getmember(prefix + "/lib/already-writable.so").mode, 0o755)
+                    self.assertTrue(archive.getmember(prefix + "/lib/link.so").issym())

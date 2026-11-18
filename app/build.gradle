@@ -59,6 +59,7 @@ android {
         targetSdkVersion project.properties.targetSdkVersion.toInteger()
         versionCode 118
         versionName "0.118.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         if (appVersionName) versionName = appVersionName
         validateVersionName(versionName)
@@ -164,6 +165,9 @@ dependencies {
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.robolectric:robolectric:4.10"
     testImplementation "org.json:json:20231013" // Android's org.json is a stub in plain JVM unit tests
+    androidTestImplementation "androidx.test.ext:junit:1.2.1"
+    androidTestImplementation "androidx.test:runner:1.6.2"
+    androidTestImplementation "androidx.test:rules:1.6.1"
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
 }
 

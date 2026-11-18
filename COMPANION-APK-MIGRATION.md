@@ -15,12 +15,19 @@ TermuxAm remains a separate helper APK. The installable application id is
 API socket dispatch now starts in the core package, and API, Tasker, Widget and
 Styling component launchers are being retargeted to that package. Initialization
 for API, Tasker, Widget and Float is called by the core `TermuxApplication`.
+The embedded API share provider uses the distinct
+`dev.pschmitt.termux.api.sharedfiles` authority and matching permission so the
+core APK can update while the former standalone API package remains installed.
 Feature preferences retain their old filenames and are copied once from each
 installed standalone companion when the destination is empty. Tasker continues
 to expose plugin components, but old Tasker profiles may still refer to the
 former standalone package id; automatic profile rewriting is not implemented.
-The existing `ExecutionIntegrationTest` covers ordered result delivery through
-the core command service, but does not prove a Tasker action enters the Nix guest.
+`ExecutionIntegrationTest` now runs as app-level instrumentation against the
+final APK. It sends a Tasker plug-in fire intent through the merged receiver,
+launches a script from the canonical Tasker directory, enters the active Nix
+guest through `nixpp`, and checks returned stdout, stderr, and exit status. It
+must still be run on a prepared device; compiling the instrumentation APK does
+not prove the guest is present or ready.
 
 The [`nix-community/nix-on-droid-app` source tree](https://github.com/nix-community/nix-on-droid-app) is a Termux core fork. Its
 top-level tree does not contain separate API or Tasker projects or a one-APK
@@ -73,3 +80,32 @@ companion implementation. I found no droid-nix companion merge to carry over.
 - Run the app's relevant unit and instrumentation tests, then verify the exact
   release APK artifact list contains one application APK per intended ABI
   variant and no separate companion APKs.
+
+## Tasker guest integration test
+
+Build the application and its app-target instrumentation APK with the custom
+bootstrap archive:
+
+```sh
+TERMUX_BOOTSTRAP_AARCH64_ZIP=/path/to/bootstrap-aarch64.zip \
+TERMUX_BOOTSTRAP_AARCH64_SHA256=<archive-sha256> \
+./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+```
+
+Install both APKs on a prepared test device, then run the focused test:
+
+```sh
+adb install -r app/build/outputs/apk/debug/termux-app_apt-android-7-debug_universal.apk
+adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w \
+  -e class dev.pschmitt.termux.tasker.ExecutionIntegrationTest \
+  dev.pschmitt.termux.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+The device needs the device-mode `termux-api` and `termux-am` helper packages,
+the native `nixpp` executable and seed assets, and an active guest generation
+with `/run/current-system/sw/bin/env`. The integration script lives inside
+`~/.config/termuxpp/tasker/`, so it does not require `allow-external-apps`.
+The instrumentation test sends from the app's own UID. A real Tasker host must
+also be granted `com.termux.permission.RUN_COMMAND`; that external-caller
+permission is not exercised by the self-sent test intent.

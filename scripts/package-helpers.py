@@ -29,7 +29,13 @@ def tarball(files):
 
 def package(out, name, version, architecture, depends, files, bootstrap):
     prefix = BOOTSTRAP_PREFIX if bootstrap else PREFIX
-    payload = {prefix + "/" + path: value for path, value in files.items()}
+    # dpkg writes a .dpkg-new sibling before replacing an installed file. On
+    # Android this runs as the app UID, so helper payload files must be writable
+    # by their owner even when the source binary was packaged read-only.
+    payload = {
+        prefix + "/" + path: (data, mode | 0o200 if target is None else mode, target)
+        for path, (data, mode, target) in files.items()
+    }
     control = (f"Package: {name}\nVersion: {version}\nArchitecture: {architecture}\n"
                "Maintainer: TermuxPP contributors\n"
                f"Depends: {depends}\nDescription: Fork-aware TermuxPP {name} helper\n").encode()

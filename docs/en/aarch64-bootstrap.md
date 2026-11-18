@@ -41,6 +41,10 @@ scripts/build-aarch64-bootstrap.py fetch \
 # 3. Build. --nixpp is an AArch64 Android/Bionic executable using only Android system libraries.
 scripts/build-aarch64-bootstrap.py build \
     --deb-dir debs --lock debs/debs.lock.json \
+    --deb /path/to/termux-api-bootstrap.deb \
+    --deb /path/to/termux-am-bootstrap.deb \
+    --upgrade \
+    --hold-package termux-api --hold-package termux-am \
     --nixpp /path/to/nixpp --nixpp-version 0.5.0 \
     --nixpp-assets /path/to/seed/share/nixpp \
     -o out/bootstrap-aarch64.zip

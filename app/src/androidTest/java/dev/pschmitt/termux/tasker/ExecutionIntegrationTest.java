@@ -28,9 +28,12 @@ public class ExecutionIntegrationTest {
     @Test
     public void orderedPluginCommandReturnsOutputAndExitStatus() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        File directory = new File("/data/data/dev.pschmitt.termux/files/home/.config/termuxpp/tasker");
+        File home = new File(context.getFilesDir(), "home");
+        File directory = new File(home, ".config/termuxpp/tasker");
         assertTrue(directory.isDirectory() || directory.mkdirs());
         File script = new File(directory, "termuxpp-integration-" + UUID.randomUUID());
+        File nixpp = new File(context.getFilesDir(), "usr/bin/nixpp");
+        assertTrue("nixpp is not installed in the Termux prefix: " + nixpp, nixpp.canExecute());
         String action = context.getPackageName() + ".TEST_RESULT." + UUID.randomUUID();
         CountDownLatch done = new CountDownLatch(1);
         AtomicReference<Intent> received = new AtomicReference<>();
@@ -43,7 +46,10 @@ public class ExecutionIntegrationTest {
         };
         ContextCompat.registerReceiver(context, receiver, new IntentFilter(action), ContextCompat.RECEIVER_NOT_EXPORTED);
         try {
-            Files.write(script.toPath(), ("#!/system/bin/sh\nprintf 'termuxpp-stdout'\nprintf 'termuxpp-stderr' >&2\nexit 7\n").getBytes(StandardCharsets.UTF_8));
+            String command = "printf termuxpp-stdout; printf termuxpp-stderr >&2; exit 7";
+            String scriptBody = "#!/system/bin/sh\nexec \"" + nixpp.getAbsolutePath()
+                    + "\" enter -- /run/current-system/sw/bin/env sh -c '" + command + "'\n";
+            Files.write(script.toPath(), scriptBody.getBytes(StandardCharsets.UTF_8));
             assertTrue(script.setExecutable(true, true));
             Bundle bundle = PluginBundleManager.generateBundle(context, script.getName(), "", null, null, null, null, false, true);
             Intent fire = new Intent(com.twofortyfouram.locale.Intent.ACTION_FIRE_SETTING);
@@ -55,8 +61,8 @@ public class ExecutionIntegrationTest {
             assertTrue("No plugin completion received", done.await(30, TimeUnit.SECONDS));
             Bundle variables = received.get().getBundleExtra("net.dinglisch.android.tasker.extras.VARIABLES");
             assertNotNull(variables);
-            assertEquals("termuxpp-stdout", variables.getString("%stdout").trim());
-            assertEquals("termuxpp-stderr", variables.getString("%stderr").trim());
+            assertTrue(variables.getString("%stdout"), variables.getString("%stdout").contains("termuxpp-stdout"));
+            assertTrue(variables.getString("%stderr"), variables.getString("%stderr").contains("termuxpp-stderr"));
             assertEquals("7", variables.getString("%result"));
         } finally {
             context.unregisterReceiver(receiver);

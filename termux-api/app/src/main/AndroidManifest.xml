@@ -42,7 +42,7 @@
 
     <!-- This permission is not used, but a permission is needed on the sharedfiles contentprovider,
          which will always use FLAG_GRANT_READ_URI_PERMISSION. -->
-    <permission android:name="${TERMUX_PACKAGE_NAME}.sharedfiles.READ_WRITE" android:protectionLevel="signature" />
+    <permission android:name="${TERMUX_PACKAGE_NAME}.api.sharedfiles.READ_WRITE" android:protectionLevel="signature" />
 
 
 
@@ -146,8 +146,8 @@
 
         <provider
             android:name=".apis.ShareAPI$ContentProvider"
-            android:authorities="${TERMUX_PACKAGE_NAME}.sharedfiles"
-            android:permission="${TERMUX_PACKAGE_NAME}.sharedfiles.READ_WRITE"
+            android:authorities="${TERMUX_PACKAGE_NAME}.api.sharedfiles"
+            android:permission="${TERMUX_PACKAGE_NAME}.api.sharedfiles.READ_WRITE"
             android:grantUriPermissions="true"
             android:exported="true" />
 
