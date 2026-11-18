@@ -10,9 +10,12 @@ implementation plumbing, not a required `nixpp enter` workflow.
 
 ## Usable isolated session
 
-An opt-in Linux/glibc shell is implemented by `session.sh`, `session.nix`,
-`prepare-session.py` and `install-session.sh`. It is not packaged or enabled by
-an APK. The normal native shell, prefix and nixpp generations remain untouched.
+An opt-in Linux/glibc shell uses the Rust `nixpp` manager, `session.nix` and the
+droid-nix launcher. The manager embeds the session scripts and handles bootstrap
+preparation, package import and resume. `install-session.sh` is a compatibility
+entry point into `nixpp init`, not a Python installer. This is not packaged or
+enabled by an APK. The normal native shell, prefix and old native recovery
+generations remain untouched.
 Only AArch64 devices with 4096-byte pages are accepted.
 
 On the disposable worker described below, generate the pinned package manifest:
@@ -24,9 +27,11 @@ nix build --impure --expr 'import /home/agent/runtime/session.nix {
 cp -L /home/agent/session-manifest /home/agent/manifest.json
 ```
 
-Stage `launcher` from the patched build, `manifest.json`, `session.sh`,
-`system-session.sh`, `install-session.sh` and `prepare-session.py` together in a new app-private
-`$HOME/.local/share/termuxpp-nix` directory. Transfer only these small files;
+Build `'.#nixpp-runtime-termux'` from the experimental Nix configuration branch
+on a worker. Stage its Android/Bionic `bin/nixpp`, `launcher` from the patched
+runtime build, `manifest.json` and the optional `install-session.sh` together in a
+new app-private `$HOME/.local/share/termuxpp-nix` directory. The manager writes its
+embedded launch scripts during initialization. Transfer only these small files;
 packages download directly on the phone. Verify the transferred launcher hash
 before executing it. With ADB stdin transfers use `adb shell -T run-as ...
 /system/bin/toybox tee ...`, not a PTY; verify hashes after transfer.
@@ -34,11 +39,11 @@ before executing it. With ADB stdin transfers use `adb shell -T run-as ...
 Download the droid-nix v0.9.0 bootstrap APK into a separate new download directory
 on the phone. Do not install it. The preparer requires SHA-256
 `f74f0de161fb51ccc9a6ffd1a839150c1c88fd88f1b7176e320ec564fc696ea2`.
-Run from the normal visible TermuxPP shell, with native Python available:
+Run from the normal visible TermuxPP shell; native Python is not required:
 
 ```sh
 chmod 700 "$HOME/.local/share/termuxpp-nix/launcher" \
-  "$HOME/.local/share/termuxpp-nix/session.sh" \
+  "$HOME/.local/share/termuxpp-nix/nixpp" \
   "$HOME/.local/share/termuxpp-nix/install-session.sh"
 "$HOME/.local/share/termuxpp-nix/install-session.sh" /absolute/path/to/bootstrap.apk
 ```
@@ -81,22 +86,24 @@ For a prepared candidate with an associated Home Manager generation, the native
 controller runs the fixed runtime acceptance gate in a fresh candidate session:
 
 ```sh
-python3 -I "$HOME/.local/share/termuxpp-nix/system-control.py" check HASH-termuxpp-system-HOST --thorough
+runtime="$HOME/.local/share/termuxpp-nix"
+"$runtime/nixpp" --runtime "$runtime" controller check HASH-termuxpp-system-HOST --thorough
 ```
 
-Run this with Android-native Python, not Python inside the Linux guest. Stage
-`system-control.py` beside `session.sh`. The controller validates candidate
-metadata and invokes the matching generation's `full-nix-check-runtime` with
-`--isolated --generation`. It propagates the check status and bounds the session
-to 20 minutes, terminating only its own process group on timeout or cancellation.
-It neither activates Home Manager nor selects a default generation. This native
-controller has worker regression coverage and has run real Android candidate checks.
+Run this with the Android/Bionic binary outside the Linux guest. The controller
+validates candidate metadata and invokes the matching generation's
+`full-nix-check-runtime` with `--isolated --generation`. It propagates the check
+status and bounds the session to 20 minutes, terminating only its own process
+group on timeout or cancellation. It neither activates Home Manager nor selects
+a default generation. The earlier Python controller established the on-device
+behavior; the Rust replacement requires its own build and device acceptance.
 
 ### Coordinated activation and default selection
 
-Stage `system-control.py` and `start-system-control.sh` alongside `session.sh`,
-`system-session.sh` and `login.sh`. Native Python and the installed core redirect
-library are required. The controller service starts on login only when an
+Stage the Android/Bionic `nixpp` executable alongside the runtime launcher and
+manifest. Its embedded resources supply `start-system-control.sh`, `session.sh`,
+`system-session.sh` and `login.sh`. The installed core redirect library is
+required; native Python is not required by the system controller. The controller service starts on login only when an
 app-private `system.enabled` marker exists. It listens on `nixpp.sock` in the
 runtime's physical temporary directory (`SESSION_TMP_DIR` when configured),
 visible as `/tmp/nixpp.sock` inside the guest. The launcher supplies
@@ -112,7 +119,8 @@ For the first migration, verify the existing active HM generation before invokin
 this from the native shell:
 
 ```sh
-python3 -I "$HOME/.local/share/termuxpp-nix/system-control.py" switch \
+runtime="$HOME/.local/share/termuxpp-nix"
+"$runtime/nixpp" --runtime "$runtime" controller switch \
   HASH-termuxpp-system-HOST --previous-home-manager /nix/store/HASH-home-manager-generation
 ```
 
@@ -142,10 +150,13 @@ atomic. Rollback includes returning to the retained HM-only baseline.
 If selection is broken, `session.sh --legacy` ignores it and uses original
 configuration; `--bootstrap` remains independently available. The native
 controller's `recover` and `rollback` commands are also usable without the guest
-socket. The original native `nixpp` executable remains independent. Android
-qualification covered first switch, fresh login, baseline rollback, switching
-forward and recovery after a controlled pre-activation interruption on the test
-device. It does not prove recovery from every partial Home Manager mutation.
+socket, through `nixpp --runtime DIR controller recover` or `controller rollback`.
+The legacy native bundle manager is retained only for unmigrated bootstrap and
+recovery consumers. Earlier Android qualification of the Python implementation
+covered first switch, fresh login, baseline rollback, switching forward and
+recovery after a controlled pre-activation interruption on the test device.
+Those results do not qualify the Rust replacement or prove recovery from every
+partial Home Manager mutation.
 
 A manifest may provide `systemSecrets`, a store-backed executable named
 `bin/activate-secrets`. After journaling, the controller runs it in the selected

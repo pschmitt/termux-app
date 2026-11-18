@@ -49,7 +49,8 @@ The experimental launcher also accepts `--system CANDIDATE` to enter an explicit
 prepared guest-system package tree and `/etc` snapshot. This does not select a
 default generation, activate Home Manager, or change native recovery; candidate
 selection has been exercised on a 4 KiB-page AArch64 Android test device. The native
-[`system-control.py`](../../nix-runtime/system-control.py) can run the matching
+Rust `nixpp` controller, launched by
+[`start-system-control.sh`](../../nix-runtime/start-system-control.sh), can run the matching
 Home Manager generation's isolated runtime acceptance gate in a fresh candidate
 session, with bounded execution and cancellation cleanup. It also implements
 serialized, journaled system/HM activation, persistent default-session selection,
@@ -64,7 +65,9 @@ without the hook do not revoke subsequently installed secrets on rollback.
 Guest `nixpp` requests these fixed operations over a dedicated same-UID native
 socket; it does not directly execute Bionic programs. Service startup is opt-in
 through `system.enabled`, and `--legacy`/`--bootstrap` bypass selection for recovery.
-Device qualification covered system/HM activation, rollback to the original
+The Rust replacement has remote unit, differential-preparation and package-build
+coverage; Android device qualification is still pending. Earlier device results
+from the Python controller covered system/HM activation, rollback to the original
 HM-only generation, switching forward, recovery after a controlled interruption
 before activation, and a fresh login. It does not establish recovery from every
 possible partial Home Manager mutation or qualify other devices. Fresh sessions

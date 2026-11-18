@@ -31,9 +31,9 @@ main() {
       ;;
   esac
   redirect=${apk%/*}/lib/arm64/libtermux-pkg-redirect.so
-  if [[ ! -r $redirect || ! -x $prefix/bin/python3 ]]
+  if [[ ! -r $redirect || ! -x $directory/nixpp ]]
   then
-    printf 'The native core redirect library and Python are required.\n' >&2
+    printf 'The native core redirect library and runtime nixpp binary are required.\n' >&2
     return 1
   fi
   export HOME=$data_dir/files/home PREFIX=$prefix TERMUX_APP__DATA_DIR=$data_dir
@@ -44,7 +44,7 @@ main() {
     export LD_PRELOAD=$LD_PRELOAD:$prefix/lib/libtermux-exec.so
   fi
   umask 077
-  exec "$prefix/bin/python3" -I "$directory/system-control.py" --runtime "$directory" serve \
+  exec "$directory/nixpp" --runtime "$directory" serve \
     --socket "$socket_directory/nixpp.sock"
 }
 
