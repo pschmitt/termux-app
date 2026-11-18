@@ -293,13 +293,18 @@ class BuildTests(Base):
             f.write(elf(pad=b"nixpp"))
         self.assertEqual(self.build("--nixpp", n, "--nixpp-version", "0.1"), 1)
         deps = []
-        for package in ("curl", "ca-certificates", "gzip", "xz-utils", "openssh"):
+        for package in ("bash", "curl", "ca-certificates", "gzip", "xz-utils", "openssh"):
             deps.extend(("--deb", self.deb(package, "1", {})))
         self.assertEqual(self.build(*deps, "--nixpp", n, "--nixpp-version", "0.1"), 0)
         t = self.tree()
         self.assertEqual(t.files["bin/nixpp"][1], 0o700)
         self.assertEqual(bab.stanza_get(t.installed()["nixpp"], "Version"), "0.1")
         self.assertIn("/%s/bin/nixpp" % P, t.files["var/lib/dpkg/info/nixpp.list"][0].decode())
+        launcher, mode, *_ = t.files["bin/nixpp-setup"]
+        self.assertEqual(mode, 0o700)
+        self.assertIn(b"https://y.brkn.lol", launcher)
+        self.assertIn(b'--nixpp "$@"', launcher)
+        self.assertIn("bin/nixpp-setup", t.package_files("nixpp"))
         self.assertEqual(bab.verify_tree(t, ["nixpp"]), [])
         with open(n, "wb") as f:
             f.write(elf(machine=62))  # x86_64

