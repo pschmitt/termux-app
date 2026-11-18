@@ -50,6 +50,12 @@ TERMUX_BOOTSTRAP_AARCH64_SHA256=$(cut -d' ' -f1 out/bootstrap-aarch64.zip.sha256
 ./gradlew assembleDebug
 ```
 
+The `--nixpp` bootstrap includes the `nixpp-setup` command. Run it from a
+native TermuxPP session to enroll the device and clone its dotfiles. From an
+app session that already opened the Nix guest, run
+`nixpp enter --outer -- nixpp-setup`. The launcher fetches yadm-init over
+HTTPS and leaves the terminal attached for Bitwarden authentication.
+
 If `--base-zip` is omitted, `build` downloads the pinned upstream archive (the same URL and hash
 as `app/build.gradle`) into `~/.cache/termuxpp-bootstrap`. A custom `--base-zip` needs
 `--base-sha256`.
