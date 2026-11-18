@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_section_terminal">Terminal</string>
+    <string name="settings_section_automation">Automation and services</string>
+    <string name="settings_section_app">App and support</string>
+    <string name="settings_display">Display</string>
+    <string name="settings_input">Keyboard and input</string>
+    <string name="settings_search">Search settings</string>
+    <string name="settings_search_properties">Search properties</string>
+    <string name="settings_search_empty">No matching settings</string>
+    <string name="settings_integration_api_title">API</string>
+    <string name="settings_integration_api_summary">Access Android features from terminal commands</string>
+    <string name="settings_integration_tasker_title">Tasker</string>
+    <string name="settings_integration_tasker_summary">Run terminal commands from Tasker</string>
+    <string name="settings_integration_float_title">Floating terminal</string>
+    <string name="settings_integration_float_summary">Open a terminal over other apps</string>
+    <string name="settings_integration_widget_title">Widgets</string>
+    <string name="settings_integration_widget_summary">Launch terminal scripts from the home screen</string>
+    <string name="settings_integration_boot_title">Run at boot</string>
+    <string name="settings_integration_boot_summary">Run scripts when the device starts</string>
+    <string name="settings_integration_styling_title">Colors and fonts</string>
+    <string name="settings_integration_styling_summary">Change the terminal palette and typeface</string>
+</resources>

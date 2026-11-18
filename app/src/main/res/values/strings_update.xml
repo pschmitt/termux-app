@@ -2,7 +2,10 @@
 <resources>
 
     <string name="termux_updates_title">Updates</string>
-    <string name="termux_updates_summary">Check for and install new builds of TermuxPP, Termux:API, Termux:Tasker and compatible TermuxPP add-ons over Shizuku</string>
+    <string name="termux_updates_summary">Check for and install new TermuxPP builds</string>
+
+    <string name="termux_update_track">Latest builds</string>
+    <string name="termux_update_installation">Installation</string>
 
     <string name="termux_update_channel_title">Channel</string>
     <string name="termux_update_channel_latest">Latest</string>
@@ -32,7 +35,7 @@
     <string name="termux_update_app_not_installed">Not installed. Tap to check for an installable build.</string>
     <string name="termux_update_app_tap_to_update">Tap to update.</string>
     <string name="termux_update_app_tap_to_install">Tap to install.</string>
-    <string name="termux_update_app_shizuku_needed">Shizuku is not ready, see above.</string>
+    <string name="termux_update_app_shizuku_needed">Set up Shizuku below to install this update.</string>
 
     <string name="termux_update_warning_title">Before you update</string>
     <string name="termux_update_warning_summary">TermuxPP, Termux:API and Termux:Tasker share one user id. Replacing any one of them ends the processes of all of them: open terminal sessions and running tasks stop. Apps are updated one at a time; nothing is installed in the background.</string>
@@ -55,7 +58,7 @@
     <string name="termux_update_status_downloading">Downloading %1$s of %2$s</string>
     <string name="termux_update_status_downloading_unknown">Downloading %1$s</string>
     <string name="termux_update_status_verifying">Verifying the download…</string>
-    <string name="termux_update_status_installing">Installing. All TermuxPP apps restart when it is done.</string>
+    <string name="termux_update_status_installing">Installing. Android will close TermuxPP.</string>
     <string name="termux_update_status_failed">Update failed: %1$s</string>
     <string name="termux_update_status_failed_detail">%1$s (%2$s)</string>
 
@@ -64,7 +67,7 @@
     <string name="termux_update_cancel">Cancel</string>
     <string name="termux_update_install_confirm_title">Install %1$s?</string>
     <string name="termux_update_confirm_title">Update %1$s?</string>
-    <string name="termux_update_confirm_message">Build %2$s of %1$s will be downloaded, verified against its published checksum and the signing certificate of the installed apps, and installed through Shizuku.\n\nTermuxPP, Termux:API and Termux:Tasker share one user id, so Android ends the processes of all of them when %1$s is replaced. Open terminal sessions and running tasks stop.</string>
+    <string name="termux_update_confirm_message">Build %2$s of %1$s will be downloaded, verified, and installed through Shizuku.\n\nAndroid will close TermuxPP, ending open terminal sessions and running tasks.</string>
     <string name="termux_update_confirm_positive">Update</string>
     <string name="termux_update_install_confirm_positive">Install</string>
 

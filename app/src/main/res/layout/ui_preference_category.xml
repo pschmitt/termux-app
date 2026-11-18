@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:paddingStart="32dp"
-    android:paddingTop="24dp"
+    android:paddingTop="20dp"
     android:paddingEnd="32dp"
     android:paddingBottom="8dp">
 
@@ -12,6 +13,8 @@
         android:id="@android:id/title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:accessibilityHeading="true"
+        tools:targetApi="p"
         android:textAppearance="@style/TextAppearance.TermuxPP.Section" />
 
     <TextView

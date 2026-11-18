@@ -204,7 +204,7 @@
 
         <!-- Terminal IO Preferences -->
         <string name="termux_terminal_io_preferences_title">Terminal I/O</string>
-        <string name="termux_terminal_io_preferences_summary">Preferences for terminal I/O</string>
+        <string name="termux_terminal_io_preferences_summary">Keyboard behavior and terminal input</string>
 
             <!-- Keyboard Category -->
             <string name="termux_keyboard_header">Keyboard</string>
@@ -224,7 +224,7 @@
 
         <!-- Terminal View Preferences -->
         <string name="termux_terminal_view_preferences_title">Terminal View</string>
-        <string name="termux_terminal_view_preferences_summary">Preferences for terminal view</string>
+        <string name="termux_terminal_view_preferences_summary">Terminal display and screen behavior</string>
 
             <!-- View Category -->
             <string name="termux_terminal_view_view_header">View</string>
@@ -263,9 +263,9 @@
 
 
     <!-- Companion Apps -->
-    <string name="companion_apps_title">Companion apps</string>
-    <string name="companion_apps_summary">Settings for apps that work with TermuxPP</string>
-    <string name="companion_apps_category_title">TermuxPP companions</string>
+    <string name="companion_apps_title">Integrations</string>
+    <string name="companion_apps_summary">API, Tasker, widgets, startup scripts, and styling</string>
+    <string name="companion_apps_category_title">Built-in features</string>
     <string name="companion_apps_category_summary">Only TermuxPP-compatible builds can connect to this installation.</string>
     <string name="termux_boot_title">TermuxPP:Boot</string>
     <string name="termux_boot_summary">Run scripts when the device starts</string>

@@ -33,6 +33,20 @@ public class CompanionAppsPreferencesTest {
     }
 
     @Test
+    public void navigatingAndGoingBackUpdatesTheToolbarTitle() {
+        SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
+        PreferenceFragmentCompat root = (PreferenceFragmentCompat)
+            activity.getSupportFragmentManager().findFragmentById(R.id.settings);
+        Preference integrations = root.findPreference("companion_apps");
+        Assert.assertTrue(activity.onPreferenceStartFragment(root, integrations));
+        activity.getSupportFragmentManager().executePendingTransactions();
+
+        Assert.assertEquals(integrations.getTitle(), activity.getTitle());
+        Assert.assertTrue(activity.getSupportFragmentManager().popBackStackImmediate());
+        Assert.assertEquals(activity.getString(R.string.title_activity_termux_settings), activity.getTitle());
+    }
+
+    @Test
     public void companionScreenIncludesEverySupportedTermuxppApp() {
         SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
         CompanionAppsPreferencesFragment fragment = new CompanionAppsPreferencesFragment();

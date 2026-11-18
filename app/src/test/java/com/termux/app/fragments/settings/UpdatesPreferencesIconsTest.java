@@ -6,8 +6,13 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
+import android.view.LayoutInflater;
+import android.view.View;
 
 import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
+
+import com.google.android.material.button.MaterialButton;
 
 import com.termux.R;
 import com.termux.app.activities.SettingsActivity;
@@ -44,25 +49,39 @@ public class UpdatesPreferencesIconsTest {
         SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
         UpdatesPreferencesFragment fragment = open(activity);
 
-        for (String key : new String[]{"update_channel", "update_shizuku", "update_warning", "update_check",
-                "update_app_core"}) {
+        for (String key : new String[]{"update_shizuku", "update_app_core"}) {
             Preference preference = fragment.findPreference(key);
             Assert.assertNotNull(key, preference);
             Assert.assertNotNull(key + " has an icon", preference.getIcon());
         }
+        Assert.assertNull(fragment.findPreference("updates_apps"));
+        Assert.assertNull(fragment.findPreference("update_channel"));
     }
 
     @Test
-    public void appRowsUseTheUntintedLayoutAndOthersTheTintedOne() throws Exception {
+    public void statusCardAndShizukuUseTheirOwnLayouts() {
         SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
         UpdatesPreferencesFragment fragment = open(activity);
 
-        for (String key : new String[]{"update_app_core", "update_shizuku"}) {
-            Assert.assertEquals(key, R.layout.ui_preference_row_app, fragment.findPreference(key).getLayoutResource());
-        }
-        for (String key : new String[]{"update_channel", "update_warning", "update_check"}) {
-            Assert.assertEquals(key, R.layout.ui_preference_row, fragment.findPreference(key).getLayoutResource());
-        }
+        Assert.assertEquals(R.layout.ui_preference_update_status,
+            fragment.findPreference("update_app_core").getLayoutResource());
+        Assert.assertEquals(R.layout.ui_preference_row_app,
+            fragment.findPreference("update_shizuku").getLayoutResource());
+    }
+
+    @Test
+    public void initialCardOffersACheckWithoutStartingOne() {
+        SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
+        UpdatesPreferencesFragment fragment = open(activity);
+        UpdateAppPreference card = fragment.findPreference("update_app_core");
+        View view = LayoutInflater.from(fragment.requireContext())
+            .inflate(R.layout.ui_preference_update_status, null);
+        card.onBindViewHolder(PreferenceViewHolder.createInstanceForTests(view));
+
+        MaterialButton button = view.findViewById(R.id.update_action);
+        Assert.assertTrue(button.hasOnClickListeners());
+        Assert.assertEquals(activity.getString(R.string.termux_update_check), button.getText());
+        Assert.assertEquals(View.GONE, view.findViewById(R.id.update_progress).getVisibility());
     }
 
     @Test

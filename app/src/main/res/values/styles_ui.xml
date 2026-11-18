@@ -21,7 +21,7 @@
         <item name="android:textColor">@color/ui_text_primary</item>
     </style>
     <style name="TextAppearance.TermuxPP.ToolbarTitle" parent="TextAppearance.MaterialComponents.Headline6">
-        <item name="android:textSize">20sp</item>
+        <item name="android:textSize">23sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:textColor">@color/ui_on_surface</item>
     </style>

@@ -2,8 +2,6 @@ package com.termux.app.fragments.settings;
 
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.LayerDrawable;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
@@ -11,8 +9,6 @@ import android.os.Bundle;
 import androidx.annotation.Keep;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
-import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
@@ -34,17 +30,17 @@ public class CompanionAppsPreferencesFragment extends PreferenceFragmentCompat {
         if (context == null) return;
 
         setPreferencesFromResource(R.xml.companion_apps_preferences, rootKey);
-        configurePreference("termux_api", TermuxConstants.TERMUX_PACKAGE_NAME,
+        configurePreference("termux_api",
             TermuxAPIAppSharedPreferences.build(context, false) != null, R.drawable.ui_ic_extension);
-        configurePreference("termux_float", TermuxConstants.TERMUX_PACKAGE_NAME,
+        configurePreference("termux_float",
             TermuxFloatAppSharedPreferences.build(context, false) != null, R.drawable.ui_ic_float);
-        configurePreference("termux_tasker", TermuxConstants.TERMUX_PACKAGE_NAME,
+        configurePreference("termux_tasker",
             TermuxTaskerAppSharedPreferences.build(context, false) != null, R.drawable.ui_ic_bolt);
-        configurePreference("termux_widget", TermuxConstants.TERMUX_PACKAGE_NAME,
+        configurePreference("termux_widget",
             TermuxWidgetAppSharedPreferences.build(context, false) != null, R.drawable.ui_ic_widgets);
         boolean bootAvailable = isActivityAvailable(context.getPackageManager(),
             TermuxConstants.TERMUX_PACKAGE_NAME, TermuxConstants.TERMUX_BOOT_APP.TERMUX_BOOT_LAUNCHER_ACTIVITY_NAME);
-        configurePreference("termux_boot", TermuxConstants.TERMUX_PACKAGE_NAME, bootAvailable, R.drawable.ui_ic_power);
+        configurePreference("termux_boot", bootAvailable, R.drawable.ui_ic_power);
         Preference boot = findPreference("termux_boot");
         if (boot != null) {
             boot.setOnPreferenceClickListener(preference -> {
@@ -66,12 +62,7 @@ public class CompanionAppsPreferencesFragment extends PreferenceFragmentCompat {
         Preference styling = findPreference("termux_styling");
         if (styling != null) {
             boolean stylingAvailable = StylingApp.isAvailable(context.getPackageManager());
-            styling.setIcon(companionIcon(context, TermuxConstants.TERMUX_PACKAGE_NAME,
-                stylingAvailable, R.drawable.ui_ic_palette));
-            String stylingVersion = stylingAvailable ? getInstalledVersion(TermuxConstants.TERMUX_PACKAGE_NAME) : null;
-            styling.setSummary(!stylingAvailable ? getString(R.string.termux_styling_unavailable_summary)
-                : stylingVersion == null ? getString(R.string.termux_companion_installed_unknown_summary)
-                : getString(R.string.termux_companion_installed_summary, stylingVersion));
+            if (!stylingAvailable) styling.setSummary(R.string.termux_styling_unavailable_summary);
             styling.setOnPreferenceClickListener(preference -> {
                 if (StylingApp.isAvailable(context.getPackageManager())) {
                     try {
@@ -87,58 +78,18 @@ public class CompanionAppsPreferencesFragment extends PreferenceFragmentCompat {
         }
     }
 
-    private void configurePreference(@NonNull String key, @NonNull String packageName, boolean available,
+    private void configurePreference(@NonNull String key, boolean available,
                                      @DrawableRes int fallbackIcon) {
         Preference preference = findPreference(key);
         if (preference == null) return;
         preference.setVisible(true);
-        preference.setIcon(companionIcon(requireContext(), packageName, available, fallbackIcon));
-        if (available) {
-            String version = getInstalledVersion(packageName);
-            preference.setSummary(version == null
-                ? getString(R.string.termux_companion_installed_unknown_summary)
-                : getString(R.string.termux_companion_installed_summary, version));
-        } else {
-            preference.setSummary(R.string.termux_companion_unavailable_summary);
-        }
+        preference.setIcon(fallbackIcon);
         if (!available) {
+            preference.setSummary(R.string.termux_companion_unavailable_summary);
             preference.setOnPreferenceClickListener(ignored -> {
                 showCompanionUnavailable(requireContext());
                 return true;
             });
-        }
-    }
-
-    @NonNull
-    private Drawable companionIcon(@NonNull Context context, @NonNull String packageName, boolean installed,
-                                  @DrawableRes int fallbackIcon) {
-        if (installed) {
-            try {
-                Drawable appIcon = context.getPackageManager().getApplicationIcon(packageName);
-                if (appIcon != null) return appIcon;
-            } catch (PackageManager.NameNotFoundException | RuntimeException ignored) {
-                // Use the companion-specific fallback when the app icon is unavailable.
-            }
-        }
-
-        Drawable container = ContextCompat.getDrawable(context, R.drawable.ui_icon_container);
-        Drawable glyph = ContextCompat.getDrawable(context, fallbackIcon);
-        if (container == null || glyph == null) throw new IllegalStateException("Missing companion fallback icon");
-        glyph = DrawableCompat.wrap(glyph.mutate());
-        DrawableCompat.setTint(glyph, ContextCompat.getColor(context, R.color.ui_on_container));
-        LayerDrawable layers = new LayerDrawable(new Drawable[]{container.mutate(), glyph});
-        int inset = Math.round(8 * context.getResources().getDisplayMetrics().density);
-        layers.setLayerInset(1, inset, inset, inset, inset);
-        layers.setAlpha(160);
-        return layers;
-    }
-
-    private String getInstalledVersion(@NonNull String packageName) {
-        try {
-            String versionName = requireContext().getPackageManager().getPackageInfo(packageName, 0).versionName;
-            return versionName == null || versionName.isEmpty() ? null : versionName;
-        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
-            return null;
         }
     }
 

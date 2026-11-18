@@ -14,7 +14,7 @@ the background. Every check starts with a tap, and every install asks for confir
    the Updates screen says so, tap the Shizuku line to allow TermuxPP.
 2. Tap **Check for updates**. This contacts GitHub and shows the installed commit and the result for
    the TermuxPP APK.
-3. Tap TermuxPP when an update is available, read the confirmation and confirm.
+3. Tap **Update** when a build is available, then confirm.
 
 Without Shizuku (not installed, not running, permission missing or denied) the screen says exactly
 which, updates cannot be started and nothing is changed on the device.
