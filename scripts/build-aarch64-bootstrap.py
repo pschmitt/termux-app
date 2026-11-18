@@ -462,13 +462,18 @@ class Deb:
         return n[len(PREFIX_DATA) + 1:]
 
 
-def _conffile_hashes(md5sums_text):
-    out = {}
-    for line in md5sums_text.split("\n"):
-        if line.strip():
-            h, _, path = line.partition("  ")
-            out["/" + path.strip()] = h
-    return out
+def conffile_status(deb, conffile_text):
+    payload = {"/" + PREFIX_DATA + "/" + rel: content
+               for rel, kind, content, _mode in deb.entries if kind == "file"}
+    status = []
+    for line in conffile_text.splitlines():
+        path = line.strip()
+        if not path:
+            continue
+        if path not in payload:
+            raise BootstrapError(f"{deb.name}: conffile {path} is absent from package data")
+        status.append(f" {path} {hashlib.md5(payload[path]).hexdigest()}")
+    return status
 
 
 def _prefix_parents():
@@ -539,11 +544,9 @@ def install_deb(tree, deb, upgrade, force_overwrite):
 
     stanza = [(k, v) for k, v in deb.stanza if k.lower() not in ("status", "conffiles", "filename",
                                                                    "size", "md5sum", "sha1", "sha256", "sha512")]
-    cfiles = [c for c in conffile_text.split("\n") if c.strip()]
+    cfiles = conffile_status(deb, conffile_text)
     if cfiles:
-        hashes = _conffile_hashes(deb.control.get("md5sums", (b"", 0))[0].decode("utf-8"))
-        stanza.append(("Conffiles", "\n" + "\n".join(
-            " %s %s" % (c, hashes.get(c, "")) for c in cfiles)))
+        stanza.append(("Conffiles", "\n" + "\n".join(cfiles)))
     stanza.append(("Status", "install ok installed"))
     stanzas = [s for s in tree.status_stanzas() if stanza_get(s, "Package") != name]
     stanzas.append(stanza)
@@ -740,6 +743,9 @@ def verify_tree(tree, required=(), check_deps=True):
             errors.append("%s: missing dpkg info/%s.list" % (name, name))
         if stanza_get(s, "Architecture") not in (ARCH, "all"):
             errors.append("%s: architecture %s" % (name, stanza_get(s, "Architecture")))
+        for line in (stanza_get(s, "Conffiles") or "").splitlines():
+            if line.strip() and not re.fullmatch(r"\s*/.+ [0-9a-f]{32}(?: [a-z-]+)*\s*", line):
+                errors.append("%s: malformed Conffiles entry" % name)
         md5 = tree.files.get("var/lib/dpkg/info/%s.md5sums" % name)
         if md5 is None:
             continue

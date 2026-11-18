@@ -124,7 +124,8 @@ def make_deb(path, name, version, files, symlinks=None, depends=None, arch="aarc
 
     def ctl(t):
         addfile(t, "./control", stanza_text(name, version, depends, arch).encode())
-        sums = "".join("%s  %s/%s\n" % (md5(c), P, f) for f, (c, _) in files.items())
+        sums = "".join("%s  %s/%s\n" % (md5(c), P, f)
+                       for f, (c, _) in files.items() if f not in (conffiles or ()))
         addfile(t, "./md5sums", sums.encode())
         addfile(t, "./postinst", b"#!/data/data/com.termux/files/usr/bin/sh\n", 0o755)
         if conffiles:
