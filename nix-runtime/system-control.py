@@ -15,6 +15,7 @@ import os
 
 STORE = re.compile(r'/nix/store/[a-z0-9]{32}-[a-zA-Z0-9+._-]+')
 CANDIDATE = re.compile(r'[a-z0-9]{32}-[a-zA-Z0-9+._-]+')
+PROFILE_SET = 'exec nix-env --profile "${XDG_STATE_HOME:-$HOME/.local/state}/nix/profiles/home-manager" --set "$1"'
 
 
 def candidate_manifest(runtime, name):
@@ -156,6 +157,12 @@ def activate_home(runtime, name, home, runner):
     status = runner(session_command(runtime, name, [home + '/activate']), timeout=1800)
     if status:
         raise ValueError(f'Home Manager activation failed with status {status}; recovery is required')
+    # Upstream activate prints "No change so reusing latest profile generation" while the current-home
+    # GC root already points at this generation, so the XDG profile can stay behind after a recovery.
+    # Let upstream nix-env reconcile it; the store path is a positional argument, never shell text.
+    status = runner(session_command(runtime, name, ['/bin/sh', '-c', PROFILE_SET, 'profile-set', home]), timeout=300)
+    if status:
+        raise ValueError(f'Home Manager profile synchronization failed with status {status}; recovery is required')
 
 
 def publish_selection(runtime, state):

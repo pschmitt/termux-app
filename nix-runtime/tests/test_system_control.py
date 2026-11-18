@@ -86,13 +86,13 @@ class ControllerTests(unittest.TestCase):
         runner = Mock(return_value=0)
         self.assertEqual(module.switch(self.runtime, self.name, self.baseline, runner), 0)
         arguments = [entry.args[0][-1] for entry in runner.call_args_list]
-        self.assertEqual(arguments, ['--thorough', secrets, self.home + '/activate', '--thorough'])
+        self.assertEqual(arguments, ['--thorough', secrets, self.home + '/activate', self.home, '--thorough'])
         state = module.read_state(self.runtime, 'system-state.json')
         module.write_state(self.runtime, 'system-pending.json', {'before': state})
         runner.reset_mock()
         self.assertEqual(module.recover(self.runtime, runner), 0)
         self.assertEqual([entry.args[0][-1] for entry in runner.call_args_list],
-                         [secrets, self.home + '/activate'])
+                         [secrets, self.home + '/activate', self.home])
 
     def test_system_secrets_failure_preserves_journal_without_home_mutation(self):
         self.data['systemSecrets'] = '/nix/store/' + 'd' * 32 + '-system-secrets/bin/activate-secrets'
@@ -105,7 +105,8 @@ class ControllerTests(unittest.TestCase):
         self.assertFalse((self.runtime / 'current-system').exists())
         recovery = Mock(return_value=0)
         self.assertEqual(module.recover(self.runtime, recovery), 0)
-        self.assertEqual(recovery.call_args.args[0][-1], self.baseline + '/activate')
+        self.assertEqual([entry.args[0][-1] for entry in recovery.call_args_list],
+                         [self.baseline + '/activate', self.baseline])
 
     def test_invalid_system_secrets_never_launch(self):
         for value in ['$(false)', '/bin/activate-secrets', self.home + '/activate', {}, 7]:
@@ -172,8 +173,9 @@ class ControllerTests(unittest.TestCase):
                 self.assertEqual(module.read_state(self.runtime, 'system-pending.json')['phase'], 'activating')
             return 0
         self.assertEqual(module.switch(self.runtime, self.name, self.baseline, runner), 0)
-        self.assertEqual(len(calls), 3)
+        self.assertEqual(len(calls), 4)
         self.assertEqual(calls[1][-1], self.home + '/activate')
+        self.assertEqual(calls[2][-1], self.home)
         self.assertEqual((self.runtime / 'current-system').read_text(), self.name + '\n')
         self.assertEqual(module.read_state(self.runtime, 'system-state.json')['previousHomeManager'], self.baseline)
         self.assertFalse((self.runtime / 'system-pending.json').exists())
@@ -207,7 +209,9 @@ class ControllerTests(unittest.TestCase):
             module.switch(self.runtime, self.name, self.baseline, Mock(side_effect=[0, 7]))
         runner = Mock(return_value=0)
         self.assertEqual(module.recover(self.runtime, runner), 0)
-        runner.assert_called_once_with(module.session_command(self.runtime, None, [self.baseline + '/activate']), timeout=1800)
+        self.assertEqual([entry.args[0] for entry in runner.call_args_list], [
+            module.session_command(self.runtime, None, [self.baseline + '/activate']),
+            module.session_command(self.runtime, None, ['/bin/sh', '-c', module.PROFILE_SET, 'profile-set', self.baseline])])
         self.assertEqual((self.runtime / 'current-system').read_text(), '\n')
         self.assertFalse((self.runtime / 'system-pending.json').exists())
 
@@ -220,7 +224,40 @@ class ControllerTests(unittest.TestCase):
 
     def test_postcheck_failure_requires_recovery(self):
         with self.assertRaisesRegex(ValueError, 'post-activation'):
-            module.switch(self.runtime, self.name, self.baseline, Mock(side_effect=[0, 0, 7]))
+            module.switch(self.runtime, self.name, self.baseline, Mock(side_effect=[0, 0, 0, 7]))
+        self.assertTrue((self.runtime / 'system-pending.json').exists())
+        self.assertFalse((self.runtime / 'current-system').exists())
+
+    def test_profile_is_set_by_upstream_nix_env_with_positional_store_path(self):
+        runner = Mock(return_value=0)
+        self.assertEqual(module.switch(self.runtime, self.name, self.baseline, runner), 0)
+        command = runner.call_args_list[2].args[0]
+        self.assertEqual(command, module.session_command(
+            self.runtime, self.name, ['/bin/sh', '-c', module.PROFILE_SET, 'profile-set', self.home]))
+        self.assertNotIn(self.home, module.PROFILE_SET)
+        self.assertEqual(module.PROFILE_SET, 'exec nix-env --profile '
+                         '"${XDG_STATE_HOME:-$HOME/.local/state}/nix/profiles/home-manager" --set "$1"')
+        self.assertEqual(runner.call_args_list[2].kwargs, {'timeout': 300})
+
+    def test_failed_profile_sync_retains_journal_and_recovery_restores_old_profile(self):
+        runner = Mock(side_effect=[0, 0, 7])
+        with self.assertRaisesRegex(ValueError, 'profile synchronization failed.*recovery is required'):
+            module.switch(self.runtime, self.name, self.baseline, runner)
+        self.assertEqual(runner.call_count, 3)
+        self.assertEqual(module.read_state(self.runtime, 'system-pending.json')['phase'], 'activating')
+        self.assertFalse((self.runtime / 'current-system').exists())
+        recovery = Mock(return_value=0)
+        self.assertEqual(module.recover(self.runtime, recovery), 0)
+        self.assertEqual([entry.args[0][-1] for entry in recovery.call_args_list],
+                         [self.baseline + '/activate', self.baseline])
+        self.assertEqual(recovery.call_args.args[0][-4:-1], ['-c', module.PROFILE_SET, 'profile-set'])
+        self.assertFalse((self.runtime / 'system-pending.json').exists())
+
+    def test_failed_profile_sync_during_recovery_retains_journal(self):
+        with self.assertRaises(ValueError):
+            module.switch(self.runtime, self.name, self.baseline, Mock(side_effect=[0, 7]))
+        with self.assertRaisesRegex(ValueError, 'profile synchronization'):
+            module.recover(self.runtime, Mock(side_effect=[0, 7]))
         self.assertTrue((self.runtime / 'system-pending.json').exists())
         self.assertFalse((self.runtime / 'current-system').exists())
 

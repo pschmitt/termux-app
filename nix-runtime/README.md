@@ -130,7 +130,13 @@ package also supports `build` and `rebuild` with local compilation disabled.
 Mutating operations are serialized. An interrupted or failed activation leaves
 `system-pending.json`, blocking another switch. Recovery explicitly reactivates
 the journal's old HM generation in its old environment before restoring selection;
-failed recovery retains the journal. This does not pretend HM file changes are
+failed recovery retains the journal. After every successful upstream `activate`
+the controller runs upstream `nix-env --profile ${XDG_STATE_HOME:-$HOME/.local/state}/nix/profiles/home-manager --set HM`
+in the same session, because `activate` reuses the latest profile generation
+while its `current-home` GC root already names that generation, leaving the
+profile on the failed one after a recovery. `nix-env --set` of an unchanged path
+adds no generation; a failure keeps the journal like a failed activation. No
+custom generations are created. This does not pretend HM file changes are
 atomic. Rollback includes returning to the retained HM-only baseline.
 
 If selection is broken, `session.sh --legacy` ignores it and uses original

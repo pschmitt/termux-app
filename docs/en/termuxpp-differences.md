@@ -54,6 +54,9 @@ Home Manager generation's isolated runtime acceptance gate in a fresh candidate
 session, with bounded execution and cancellation cleanup. It also implements
 serialized, journaled system/HM activation, persistent default-session selection,
 retained generation listing, rollback and explicit interrupted-activation recovery.
+After each upstream Home Manager `activate` it runs upstream `nix-env --set` on
+the XDG Home Manager profile, so a recovery reusing a `current-home` GC root
+cannot leave the profile on the failed generation; a failure keeps the journal.
 An optional store-backed system-secrets activator runs before Home Manager under
 the same journal, without requiring systemd. Secrets share the Android app UID;
 this does not provide root ownership or process isolation. Older generations
