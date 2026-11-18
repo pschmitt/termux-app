@@ -1,33 +1,24 @@
 package com.termux.widget;
 
-import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
-import dev.pschmitt.termux.shared.termux.crash.TermuxCrashUtils;
 import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
 import dev.pschmitt.termux.shared.termux.theme.TermuxThemeUtils;
 
-public class TermuxWidgetApplication extends Application {
+public final class TermuxWidgetApplication {
 
     public static final String LOG_TAG = "TermuxWidgetApplication";
 
-    public void onCreate() {
-        super.onCreate();
+    private TermuxWidgetApplication() {
+    }
 
+    public static void initialize(Context context) {
         Log.i(LOG_TAG, "AppInit");
 
-        Context context = getApplicationContext();
-
-        // Set crash handler for the app
-        TermuxCrashUtils.setCrashHandler(context);
-
-        // Set log config for the app
         setLogConfig(context, true);
-
-        // Set NightMode.APP_NIGHT_MODE
         TermuxThemeUtils.setAppNightMode(context);
     }
 

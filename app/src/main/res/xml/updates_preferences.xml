@@ -44,36 +44,6 @@
             app:key="update_app_core"
             app:title="@string/termux_update_app_core" />
 
-        <com.termux.app.fragments.settings.UpdateAppPreference
-            android:layout="@layout/ui_preference_row_app"
-            app:key="update_app_api"
-            app:title="@string/termux_update_app_api" />
-
-        <com.termux.app.fragments.settings.UpdateAppPreference
-            android:layout="@layout/ui_preference_row_app"
-            app:key="update_app_tasker"
-            app:title="@string/termux_update_app_tasker" />
-
-        <com.termux.app.fragments.settings.UpdateAppPreference
-            android:layout="@layout/ui_preference_row_app"
-            app:key="update_app_float"
-            app:title="@string/termux_update_app_float" />
-
-        <com.termux.app.fragments.settings.UpdateAppPreference
-            android:layout="@layout/ui_preference_row_app"
-            app:key="update_app_boot"
-            app:title="@string/termux_update_app_boot" />
-
-        <com.termux.app.fragments.settings.UpdateAppPreference
-            android:layout="@layout/ui_preference_row_app"
-            app:key="update_app_styling"
-            app:title="@string/termux_update_app_styling" />
-
-        <com.termux.app.fragments.settings.UpdateAppPreference
-            android:layout="@layout/ui_preference_row_app"
-            app:key="update_app_widget"
-            app:title="@string/termux_update_app_widget" />
-
     </PreferenceCategory>
 
 </PreferenceScreen>

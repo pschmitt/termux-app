@@ -127,7 +127,7 @@ public class TermuxWidgetMainActivity extends AppCompatActivity {
     }
 
     private void setChangeLauncherActivityStateViews() {
-        String packageName = TermuxConstants.TERMUX_WIDGET_PACKAGE_NAME;
+        String packageName = TermuxConstants.TERMUX_PACKAGE_NAME;
         String className = TermuxConstants.TERMUX_WIDGET_APP.TERMUX_WIDGET_LAUNCHER_ACTIVITY_NAME;
 
         TextView changeLauncherActivityStateTextView = findViewById(R.id.textview_change_launcher_activity_state_details);

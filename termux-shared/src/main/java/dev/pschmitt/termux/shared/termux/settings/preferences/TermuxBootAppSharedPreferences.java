@@ -6,10 +6,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import dev.pschmitt.termux.shared.logger.Logger;
-import dev.pschmitt.termux.shared.android.PackageUtils;
 import dev.pschmitt.termux.shared.settings.preferences.AppSharedPreferences;
 import dev.pschmitt.termux.shared.settings.preferences.SharedPreferenceUtils;
-import dev.pschmitt.termux.shared.termux.TermuxUtils;
 import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_BOOT_APP;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
 
@@ -34,7 +32,7 @@ public class TermuxBootAppSharedPreferences extends AppSharedPreferences {
      */
     @Nullable
     public static TermuxBootAppSharedPreferences build(@NonNull final Context context) {
-        Context termuxBootPackageContext = PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_BOOT_PACKAGE_NAME);
+        Context termuxBootPackageContext = context;
         if (termuxBootPackageContext == null)
             return null;
         else
@@ -51,7 +49,7 @@ public class TermuxBootAppSharedPreferences extends AppSharedPreferences {
      * @return Returns the {@link TermuxBootAppSharedPreferences}. This will {@code null} if an exception is raised.
      */
     public static TermuxBootAppSharedPreferences build(@NonNull final Context context, final boolean exitAppOnError) {
-        Context termuxBootPackageContext = TermuxUtils.getContextForPackageOrExitApp(context, TermuxConstants.TERMUX_BOOT_PACKAGE_NAME, exitAppOnError);
+        Context termuxBootPackageContext = context;
         if (termuxBootPackageContext == null)
             return null;
         else

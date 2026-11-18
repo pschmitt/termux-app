@@ -4,49 +4,40 @@ page_ref: /docs/apps/termux/self-update.html
 
 # Self-update over Shizuku
 
-TermuxPP can replace itself and its six companion apps (Termux:API, Termux:Tasker, Float, Boot,
-Styling and Widget) with newer builds without opening a file manager: **Settings > Updates**. The
-companions have no updater of their own; this one screen manages all seven apps. Nothing is checked
-or downloaded in the background. Every step starts with a tap, and every install asks for a
-confirmation first.
+TermuxPP now contains Termux:API, Termux:Tasker, Float, Boot, Styling and Widget in one APK.
+**Settings > Updates** checks and updates that APK as a whole. Nothing is checked or downloaded in
+the background. Every check starts with a tap, and every install asks for confirmation first.
 
 ## Using it
 
 1. Install and start [Shizuku](https://shizuku.rikka.app/) (wireless debugging or root) and, when
    the Updates screen says so, tap the Shizuku line to allow TermuxPP.
-2. Tap **Check for updates**. This contacts GitHub, once per installed app, and shows the installed
-   commit and the result for TermuxPP and each installed companion app.
-3. Tap an app that has an update, read the confirmation and confirm. Apps are updated one at a
-   time: there is no "update all" and no promise that several apps are installed together.
+2. Tap **Check for updates**. This contacts GitHub and shows the installed commit and the result for
+   the TermuxPP APK.
+3. Tap TermuxPP when an update is available, read the confirmation and confirm.
 
-Companions that are not installed show "Not installed"; the updater never installs an app that is
-absent. Without Shizuku (not installed, not running, permission missing or denied) the screen says
-exactly which, updates cannot be started and nothing is changed on the device.
+Without Shizuku (not installed, not running, permission missing or denied) the screen says exactly
+which, updates cannot be started and nothing is changed on the device.
 
-**Replacing any one of the seven apps ends the processes of all of them**, because they share one
-user id (`dev.pschmitt.termux`). Open terminal sessions and running Tasker actions stop. Settings,
-data and saved Tasker profiles are untouched: nothing is cleared or downgraded.
+Updating the APK ends its processes. Open terminal sessions and running Tasker actions stop.
+Companion preferences are copied once from installed legacy companion packages when their package
+is present and the matching preference file in TermuxPP is empty. Existing standalone companion
+packages are not removed automatically. Tasker profiles that still name a standalone package may
+need to be reopened and saved after the integrated plugin has been discovered.
 
 ## Channel and what "newer" means
 
-There is one channel, **Latest**. All seven apps share the rolling `latest` prerelease in the
-[TermuxPP monorepo](https://github.com/pschmitt/termuxpp/releases/tag/latest). Its
-`.github/workflows/latest_release.yml` builds them from the same `main` commit and publishes one
-release containing the five core APK variants, `termux-api-app_debug.apk`,
-`termux-tasker-app_debug.apk`, `termux-float-app_debug.apk`, `termux-boot-app_debug.apk`,
-`termux-styling-app_debug.apk`, `termux-widget-app_debug.apk`, and a `SHA256SUMS` file covering
-every APK. The release body names the full commit of the build.
+There is one channel, **Latest**. The rolling `latest` prerelease in the
+[TermuxPP monorepo](https://github.com/pschmitt/termuxpp/releases/tag/latest) contains debug and
+release variants of the integrated APK. The release also includes the ABI-specific core APKs and a
+`SHA256SUMS` file covering every APK. The release body names the full commit of the build.
 
-Companion version codes are fixed, and version names are not used to order rolling builds. The
-updater compares commits instead: the installed app's own commit against the release commit, using
-GitHub's compare API. For TermuxPP that is `BuildConfig.GIT_REVISION`, written by
-`app/build.gradle`. Each companion declares its own commit in the manifest meta-data
-`dev.pschmitt.termux.GIT_REVISION` (value `git-<commit>`), so the commit of a pinned shared Gradle
-project is never mistaken for the app's identity.
+The updater compares commits instead of version names: the installed app's own commit against the
+release commit, using GitHub's compare API. That commit is `BuildConfig.GIT_REVISION`, written by
+`app/build.gradle`.
 
-Older TermuxPP builds still point add-on updates at their separate stable release repositories.
-Those feeds are being retained for older clients; after TermuxPP itself updates, the new updater uses
-the monorepo rolling feed for every companion.
+Older TermuxPP builds may still offer standalone companion updates. The integrated updater only
+offers the main TermuxPP package.
 
 | Result | Meaning |
 | --- | --- |
@@ -61,16 +52,13 @@ made from a dirty tree is not, by design.
 
 ## What is checked before anything is installed
 
-- The apps and repository are a fixed allowlist in `UpdateTarget`: TermuxPP and all six companions
-  use `pschmitt/termuxpp`, with distinct fixed package IDs and APK filenames.
-  Nothing in a release or in an installed app can add a target or change which repository or package
-  a target means; one target can never install another's APK.
+- The app and repository are a fixed allowlist in `UpdateTarget`. Nothing in a release or in an
+  installed app can add a target or change which repository or package it means.
 - Metadata comes only from `api.github.com` and files only from the fixed release download URL of
   the target's repository, over HTTPS. Redirects are followed by hand and each hop must stay on `github.com`
   or `*.githubusercontent.com`, https and the default port. Metadata, `SHA256SUMS` and the APK are
   size-limited. Asset file names are matched exactly against names the app builds itself
-  (`termux-app_<variant>-debug_<abi|universal>.apk` for the core, the fixed names above for the
-  companions) and never used as a path or in a command.
+  (`termux-app_<variant>-debug_<abi|universal>.apk`) and never used as a path or in a command.
 - The APK must match its entry in the release's `SHA256SUMS` and the size the release lists.
 - The archive must be the target's package, declare the shared user id `dev.pschmitt.termux`, be
   signed with the same certificate digests as both the installed copy and TermuxPP itself, and have
@@ -89,11 +77,7 @@ made from a dirty tree is not, by design.
 - The repository's development key (`testkey_untrusted.jks`) is public, so every debug build shares
   one signing identity. Matching certificates here mean "same key as the installed app", not "built
   by the maintainer". Treat the published APKs as exactly as trustworthy as the repository.
-- The rolling feed contains all apps after the release workflow has run once on `main`. If a
-  companion has no comparable commit metadata, the updater can still offer its fixed APK as an
-  explicit reinstall; the normal checksum, package, shared-UID, signer and installability checks
-  still apply. Current workflow builds embed each companion's own commit so later checks can compare
-  revisions.
+- The rolling feed contains the integrated APK after the release workflow has run once on `main`.
 - CI builds embed the upstream bootstrap archive unless the bootstrap inputs described in
   `docs/en/aarch64-bootstrap.md` are supplied to the workflow. An update does not re-extract the
   bootstrap of an existing installation, but a fresh install from the published APK would get the

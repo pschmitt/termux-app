@@ -34,22 +34,22 @@ public class CompanionAppsPreferencesFragment extends PreferenceFragmentCompat {
         if (context == null) return;
 
         setPreferencesFromResource(R.xml.companion_apps_preferences, rootKey);
-        configurePreference("termux_api", TermuxConstants.TERMUX_API_PACKAGE_NAME,
+        configurePreference("termux_api", TermuxConstants.TERMUX_PACKAGE_NAME,
             TermuxAPIAppSharedPreferences.build(context, false) != null, R.drawable.ui_ic_extension);
-        configurePreference("termux_float", TermuxConstants.TERMUX_FLOAT_PACKAGE_NAME,
+        configurePreference("termux_float", TermuxConstants.TERMUX_PACKAGE_NAME,
             TermuxFloatAppSharedPreferences.build(context, false) != null, R.drawable.ui_ic_float);
-        configurePreference("termux_tasker", TermuxConstants.TERMUX_TASKER_PACKAGE_NAME,
+        configurePreference("termux_tasker", TermuxConstants.TERMUX_PACKAGE_NAME,
             TermuxTaskerAppSharedPreferences.build(context, false) != null, R.drawable.ui_ic_bolt);
-        configurePreference("termux_widget", TermuxConstants.TERMUX_WIDGET_PACKAGE_NAME,
+        configurePreference("termux_widget", TermuxConstants.TERMUX_PACKAGE_NAME,
             TermuxWidgetAppSharedPreferences.build(context, false) != null, R.drawable.ui_ic_widgets);
         boolean bootAvailable = isActivityAvailable(context.getPackageManager(),
-            TermuxConstants.TERMUX_BOOT_PACKAGE_NAME, TermuxConstants.TERMUX_BOOT_APP.TERMUX_BOOT_LAUNCHER_ACTIVITY_NAME);
-        configurePreference("termux_boot", TermuxConstants.TERMUX_BOOT_PACKAGE_NAME, bootAvailable, R.drawable.ui_ic_power);
+            TermuxConstants.TERMUX_PACKAGE_NAME, TermuxConstants.TERMUX_BOOT_APP.TERMUX_BOOT_LAUNCHER_ACTIVITY_NAME);
+        configurePreference("termux_boot", TermuxConstants.TERMUX_PACKAGE_NAME, bootAvailable, R.drawable.ui_ic_power);
         Preference boot = findPreference("termux_boot");
         if (boot != null) {
             boot.setOnPreferenceClickListener(preference -> {
                 if (bootAvailable) {
-                    Intent intent = new Intent().setClassName(TermuxConstants.TERMUX_BOOT_PACKAGE_NAME,
+                    Intent intent = new Intent().setClassName(TermuxConstants.TERMUX_PACKAGE_NAME,
                         TermuxConstants.TERMUX_BOOT_APP.TERMUX_BOOT_LAUNCHER_ACTIVITY_NAME);
                     try {
                         startActivity(intent);
@@ -66,9 +66,9 @@ public class CompanionAppsPreferencesFragment extends PreferenceFragmentCompat {
         Preference styling = findPreference("termux_styling");
         if (styling != null) {
             boolean stylingAvailable = StylingApp.isAvailable(context.getPackageManager());
-            styling.setIcon(companionIcon(context, TermuxConstants.TERMUX_STYLING_PACKAGE_NAME,
+            styling.setIcon(companionIcon(context, TermuxConstants.TERMUX_PACKAGE_NAME,
                 stylingAvailable, R.drawable.ui_ic_palette));
-            String stylingVersion = stylingAvailable ? getInstalledVersion(TermuxConstants.TERMUX_STYLING_PACKAGE_NAME) : null;
+            String stylingVersion = stylingAvailable ? getInstalledVersion(TermuxConstants.TERMUX_PACKAGE_NAME) : null;
             styling.setSummary(!stylingAvailable ? getString(R.string.termux_styling_unavailable_summary)
                 : stylingVersion == null ? getString(R.string.termux_companion_installed_unknown_summary)
                 : getString(R.string.termux_companion_installed_summary, stylingVersion));

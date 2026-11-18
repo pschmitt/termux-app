@@ -238,106 +238,18 @@ public class UpdateCheckerTest {
         assertEquals(CompareStatus.DIVERGED, CompareStatus.parse("whatever"));
     }
 
-    private static UpdateChecker.Result checkCompanion(FakeNetwork network, UpdateTarget target, InstalledBuild installed) {
-        // No variant and no ABIs: companions have one APK.
-        return new UpdateChecker(network, API).check(target, installed, null,
-                Collections.<String>emptyList(), UpdateChannel.LATEST);
-    }
-
-    private static FakeNetwork companionNetwork(String status, String... assets) throws Exception {
-        FakeNetwork network = new FakeNetwork();
-        network.releaseJson = release(body(REMOTE), assets);
-        network.compareJson = new JSONObject().put("status", status).toString();
-        return network;
-    }
-
-    @Test
-    public void absentAddonsCanBeInstalledFromTheMonorepoRollingRelease() throws Exception {
-        for (UpdateTarget target : new UpdateTarget[] {
-                UpdateTarget.FLOAT, UpdateTarget.BOOT, UpdateTarget.STYLING, UpdateTarget.WIDGET}) {
-            String apkName = target.apkNames(null, Collections.<String>emptyList()).get(0);
-            FakeNetwork network = companionNetwork("ahead", apkName, "700", "SHA256SUMS", "100");
-            UpdateChecker.Result result = new UpdateChecker(network, API).check(target, InstalledBuild.parse(null),
-                    null, Collections.<String>emptyList(), UpdateChannel.LATEST, true);
-            assertEquals(target.id, UpdateChecker.Kind.AVAILABLE, result.kind);
-            assertEquals(target.id, REMOTE, result.offer.commit);
-            assertEquals(target.id, apkName, result.offer.apk.name);
-            assertEquals(target.id, Collections.singletonList(API + "/releases/tags/latest"), network.requests);
-        }
-    }
-
-    @Test
-    public void installedAddonBuildComparesAgainstMonorepoLatest() throws Exception {
-        String apkName = UpdateTarget.BOOT.apkNames(null, Collections.<String>emptyList()).get(0);
-        FakeNetwork network = companionNetwork("ahead", apkName, "700", "SHA256SUMS", "100");
-        UpdateChecker.Result result = checkCompanion(network, UpdateTarget.BOOT,
-                InstalledBuild.parseMetaData("git-" + INSTALLED));
-        assertEquals(UpdateChecker.Kind.AVAILABLE, result.kind);
-        assertNotNull(result.offer);
-        assertEquals(REMOTE, result.offer.commit);
-        assertNull(result.offer.releaseTag);
-        assertEquals(apkName, result.offer.apk.name);
-        assertEquals(Arrays.asList(API + "/releases/tags/latest", API + "/compare/" + INSTALLED + "..." + REMOTE + "?per_page=1"),
-                network.requests);
-    }
-
     @Test
     public void missingMonorepoRollingReleaseFailsClearly() {
         FakeNetwork network = new FakeNetwork();
-        UpdateChecker.Result result = new UpdateChecker(network, API).check(UpdateTarget.WIDGET,
-                InstalledBuild.parse(null), null, Collections.<String>emptyList(), UpdateChannel.LATEST, true);
+        UpdateChecker.Result result = new UpdateChecker(network, API).check(UpdateTarget.CORE,
+                InstalledBuild.parse(null), VARIANT, Collections.singletonList("arm64-v8a"), UpdateChannel.LATEST, true);
         assertEquals(UpdateChecker.Kind.FAILED, result.kind);
         assertNull(result.offer);
         assertEquals(Collections.singletonList(API + "/releases/tags/latest"), network.requests);
     }
 
     @Test
-    public void companionsOfferOnlyTheirFixedApk() throws Exception {
-        for (UpdateTarget target : new UpdateTarget[] {
-                UpdateTarget.API, UpdateTarget.TASKER, UpdateTarget.FLOAT, UpdateTarget.BOOT,
-                UpdateTarget.STYLING, UpdateTarget.WIDGET}) {
-            String apkName = target.apkNames(null, Collections.<String>emptyList()).get(0);
-            FakeNetwork network = companionNetwork("ahead", apkName, "700", "SHA256SUMS", "100");
-            UpdateChecker.Result result = checkCompanion(network, target,
-                    InstalledBuild.parseMetaData("git-" + INSTALLED));
-            assertEquals(target.id, UpdateChecker.Kind.AVAILABLE, result.kind);
-            assertEquals(target.id, apkName, result.offer.apk.name);
-            assertEquals(target.id, REMOTE, result.offer.commit);
-        }
-    }
-
-    @Test
-    public void absentCompanionCanBeInstalledWithoutComparingCommits() throws Exception {
-        FakeNetwork network = companionNetwork("ahead", "termux-api-app_debug.apk", "700", "SHA256SUMS", "100");
-        UpdateChecker.Result result = new UpdateChecker(network, API).check(UpdateTarget.API,
-                InstalledBuild.parse(null), null, Collections.<String>emptyList(), UpdateChannel.LATEST, true);
-        assertEquals(UpdateChecker.Kind.AVAILABLE, result.kind);
-        assertEquals(Collections.singletonList(API + "/releases/tags/latest"), network.requests);
-    }
-
-    @Test
-    public void companionsNeverTakeAnotherAppsApk() throws Exception {
-        InstalledBuild installed = InstalledBuild.parseMetaData("git-" + INSTALLED);
-        // A tasker release that also ships the API app's, the core's and an unknown APK.
-        String[] assets = {"termux-api-app_debug.apk", "1", "termux-app_apt-android-7-debug_universal.apk", "2",
-                "evil.apk", "3", "SHA256SUMS", "4"};
-        UpdateChecker.Result tasker = checkCompanion(companionNetwork("ahead", assets), UpdateTarget.TASKER, installed);
-        assertEquals(UpdateChecker.Kind.FAILED, tasker.kind);
-        assertNull(tasker.offer);
-
-        String[] taskerAssets = {"termux-tasker-app_debug.apk", "1", "SHA256SUMS", "4"};
-        UpdateChecker.Result api = checkCompanion(companionNetwork("ahead", taskerAssets), UpdateTarget.API, installed);
-        assertEquals(UpdateChecker.Kind.FAILED, api.kind);
-        assertNull(api.offer);
-
-        // And the core never takes a companion's APK either.
-        FakeNetwork core = companionNetwork("ahead", "termux-api-app_debug.apk", "1", "SHA256SUMS", "4");
-        UpdateChecker.Result coreResult = check(core, INSTALLED, "arm64-v8a");
-        assertEquals(UpdateChecker.Kind.FAILED, coreResult.kind);
-    }
-
-    @Test
-    public void everyTargetUsesTheMonorepoRollingRelease() {
+    public void coreUsesTheMonorepoRollingRelease() {
         FakeNetwork network = new FakeNetwork();
         for (UpdateTarget target : UpdateTarget.values()) {
             network.requests.clear();
@@ -350,69 +262,12 @@ public class UpdateCheckerTest {
     }
 
     @Test
-    public void controllerAllowsUnknownCommitChecksForInstalledCompanionsOnly() {
-        InstalledBuild unknown = InstalledBuild.parseMetaData(null);
-        assertFalse(UpdateController.requiresKnownCommitToCheck(UpdateTarget.API, unknown));
-        assertFalse(UpdateController.requiresKnownCommitToCheck(UpdateTarget.TASKER, unknown));
-        assertFalse(UpdateController.requiresKnownCommitToCheck(UpdateTarget.BOOT, unknown));
-        assertTrue(UpdateController.requiresKnownCommitToCheck(UpdateTarget.CORE, unknown));
-        assertFalse(UpdateController.requiresKnownCommitToCheck(UpdateTarget.API,
-                InstalledBuild.parseMetaData("git-" + INSTALLED)));
-    }
-
-    @Test
-    public void unknownCompanionBuildsCanReinstallFromFixedLatestRelease() throws Exception {
-        String[] metas = {null, "", "unknown", "git-unknown", "git-" + INSTALLED + "-dirty", INSTALLED};
-        for (String meta : metas) {
-            FakeNetwork network = companionNetwork("ahead", "termux-api-app_debug.apk", "700", "SHA256SUMS", "100");
-            UpdateChecker.Result result = checkCompanion(network, UpdateTarget.API, InstalledBuild.parseMetaData(meta));
-            assertEquals(meta, UpdateChecker.Kind.AVAILABLE, result.kind);
-            assertEquals("termux-api-app_debug.apk", result.offer.apk.name);
-            assertEquals(Collections.singletonList(API + "/releases/tags/latest"), network.requests);
-        }
-
-        FakeNetwork core = network("ahead");
-        UpdateChecker.Result coreResult = check(core, null, "arm64-v8a");
-        assertEquals(UpdateChecker.Kind.NOT_ELIGIBLE, coreResult.kind);
-        assertTrue(core.requests.isEmpty());
-    }
-
-    @Test
-    public void companionCommitsCompareLikeTheCores() throws Exception {
-        InstalledBuild installed = InstalledBuild.parseMetaData("git-" + INSTALLED);
-        String[] assets = {"termux-api-app_debug.apk", "700", "SHA256SUMS", "100"};
-        assertEquals(UpdateChecker.Kind.UP_TO_DATE,
-                checkCompanion(companionNetwork("behind", assets), UpdateTarget.API, installed).kind);
-        assertEquals(UpdateChecker.Kind.NOT_ELIGIBLE,
-                checkCompanion(companionNetwork("diverged", assets), UpdateTarget.API, installed).kind);
-        FakeNetwork unknown = companionNetwork("ahead", assets);
-        unknown.compareStatus = 404;
-        assertEquals(UpdateChecker.Kind.NOT_ELIGIBLE, checkCompanion(unknown, UpdateTarget.API, installed).kind);
-        assertEquals(UpdateChecker.Kind.UP_TO_DATE, checkCompanion(companionNetwork("ahead", assets), UpdateTarget.API,
-                InstalledBuild.parseMetaData("git-" + REMOTE)).kind);
-    }
-
-    @Test
     public void targetAllowlistIsFixed() {
-        assertEquals(7, UpdateTarget.values().length);
-        assertTrue(UpdateTarget.FLOAT.isUpdatable());
-        assertTrue(UpdateTarget.BOOT.isUpdatable());
-        assertTrue(UpdateTarget.STYLING.isUpdatable());
-        assertTrue(UpdateTarget.WIDGET.isUpdatable());
+        assertEquals(1, UpdateTarget.values().length);
         for (UpdateTarget target : UpdateTarget.values()) {
             assertEquals(target.id, "pschmitt/termuxpp", target.repository);
             assertNull(target.versionedApkPrefix);
         }
-        assertEquals(Collections.singletonList("termux-float-app_debug.apk"),
-                UpdateTarget.FLOAT.apkNames(null, Collections.<String>emptyList()));
-        assertEquals(Collections.singletonList("termux-boot-app_debug.apk"),
-                UpdateTarget.BOOT.apkNames(null, Collections.<String>emptyList()));
-        assertEquals(Collections.singletonList("termux-styling-app_debug.apk"),
-                UpdateTarget.STYLING.apkNames(null, Collections.<String>emptyList()));
-        assertEquals(Collections.singletonList("termux-widget-app_debug.apk"),
-                UpdateTarget.WIDGET.apkNames(null, Collections.<String>emptyList()));
-        assertEquals(UpdateTarget.API, UpdateTarget.forPackage("dev.pschmitt.termux.api"));
-        assertEquals(UpdateTarget.TASKER, UpdateTarget.forPackage("dev.pschmitt.termux.tasker"));
         assertEquals(UpdateTarget.CORE, UpdateTarget.forPackage("dev.pschmitt.termux"));
         assertNull(UpdateTarget.forPackage("com.termux"));
         assertNull(UpdateTarget.forPackage("dev.pschmitt.termux.evil"));

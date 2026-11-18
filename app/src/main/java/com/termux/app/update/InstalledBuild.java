@@ -29,7 +29,7 @@ public final class InstalledBuild {
     }
 
     /**
-     * What a companion's {@link UpdateTarget#REVISION_META_DATA} says: {@code git-<hex commit>}.
+     * What {@link UpdateTarget#REVISION_META_DATA} says: {@code git-<hex commit>}.
      * A value without the prefix, with a {@code -dirty} suffix or in any other shape is not comparable.
      */
     @NonNull

@@ -1,96 +1,27 @@
-apply plugin: 'com.android.application'
+apply plugin: 'com.android.library'
 
 android {
     namespace "com.termux.boot"
 
     compileSdk project.properties.compileSdkVersion.toInteger()
 
-    def appVersionName = System.getenv("TERMUX_BOOT_APP_BUILD__APP_VERSION_NAME") ?: ""
-    def apkVersionTag = System.getenv("TERMUX_BOOT_APP_BUILD__APK_VERSION_TAG") ?: ""
 
     defaultConfig {
-        applicationId "dev.pschmitt.termux.boot"
         minSdk project.properties.minSdkVersion.toInteger()
         targetSdk project.properties.targetSdkVersion.toInteger()
-        versionCode 1000
-        versionName "0.8.2"
-        manifestPlaceholders.TERMUX_GIT_REVISION = "git-" + gitRevision()
-
-        if (appVersionName) versionName = appVersionName
-        validateVersionName(versionName)
     }
 
-    signingConfigs {
-        debug {
-            storeFile file('testkey_untrusted.jks')
-            keyAlias 'alias'
-            storePassword 'xrj45yWGLbsO7W0v'
-            keyPassword 'xrj45yWGLbsO7W0v'
-        }
-    }
 
-    buildTypes {
-        release {
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
-
-        debug {
-            signingConfig signingConfigs.debug
-        }
-    }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            outputFileName = new File("termux-boot-app_" +
-                    (apkVersionTag ? apkVersionTag : "v" + versionName + "+" + variant.buildType.name) + ".apk")
-        }
-    }
 }
 
-def gitRevision() {
-    def given = System.getenv("TERMUX_GIT_REVISION") ?: project.findProperty("gitRevision")
-    if (given) {
-        given = given.toString().trim()
-        if (!java.util.regex.Pattern.matches("[0-9a-f]{7,40}(-dirty)?", given))
-            throw new GradleException("TERMUX_GIT_REVISION is not '<hex commit>[-dirty]': " + given)
-        return given
-    }
-    try {
-        def run = { List<String> args ->
-            def process = new ProcessBuilder(["git"] + args).directory(rootDir).redirectErrorStream(false).start()
-            def output = process.inputStream.text.trim()
-            if (process.waitFor() != 0) throw new IOException("git " + args)
-            return output
-        }
-        def head = run(["rev-parse", "HEAD"])
-        if (!java.util.regex.Pattern.matches("[0-9a-f]{40}", head)) return "unknown"
-        return run(["status", "--porcelain", "--untracked-files=no"]).isEmpty() ? head : head + "-dirty"
-    } catch (Exception ignored) {
-        return "unknown"
-    }
-}
 
 dependencies {
     implementation "androidx.annotation:annotation:1.7.0"
     testImplementation "junit:junit:4.13.2"
-}
-
-task versionName {
-    doLast {
-        print android.defaultConfig.versionName
-    }
-}
-
-def validateVersionName(String versionName) {
-    // https://semver.org/spec/v2.0.0.html#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
-    // ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
-    if (!java.util.regex.Pattern.matches("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?\$", versionName))
-        throw new GradleException("The versionName '" + versionName + "' is not a valid version as per semantic version '2.0.0' spec in the format 'major.minor.patch(-prerelease)(+buildmetadata)'. https://semver.org/spec/v2.0.0.html.")
 }

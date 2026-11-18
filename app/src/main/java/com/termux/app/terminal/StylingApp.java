@@ -26,7 +26,7 @@ public final class StylingApp {
     @NonNull
     public static Intent createIntent() {
         Intent intent = new Intent();
-        intent.setClassName(TermuxConstants.TERMUX_STYLING_PACKAGE_NAME, TermuxConstants.TERMUX_STYLING_APP.TERMUX_STYLING_ACTIVITY_NAME);
+        intent.setClassName(TermuxConstants.TERMUX_PACKAGE_NAME, TermuxConstants.TERMUX_STYLING_APP.TERMUX_STYLING_ACTIVITY_NAME);
         return intent;
     }
 
@@ -40,7 +40,7 @@ public final class StylingApp {
             if (info == null || info.activityInfo == null) return false;
             ActivityInfo activity = info.activityInfo;
             // Only the exact component counts, not a resolver or any other app.
-            return TermuxConstants.TERMUX_STYLING_PACKAGE_NAME.equals(activity.packageName)
+            return TermuxConstants.TERMUX_PACKAGE_NAME.equals(activity.packageName)
                 && TermuxConstants.TERMUX_STYLING_APP.TERMUX_STYLING_ACTIVITY_NAME.equals(activity.name);
         } catch (RuntimeException e) {
             // A failing package manager (for example a dead remote) must not break the menu: leave the entry out.

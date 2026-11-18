@@ -361,7 +361,7 @@ _Noreturn void exec_am_broadcast_v2(int argc, char** argv,
     child_argv[2] = "--user";
     child_argv[3] = "0";
     child_argv[4] = "-n";
-    child_argv[5] = "dev.pschmitt.termux.api/.TermuxApiReceiver";
+    child_argv[5] = "dev.pschmitt.termux/dev.pschmitt.termux.api.TermuxApiReceiver";
     child_argv[6] = "--es";
     // Input/output are reversed for the java process (our output is its input):
     child_argv[7] = "socket_input";

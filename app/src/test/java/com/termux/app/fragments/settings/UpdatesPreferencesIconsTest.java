@@ -45,7 +45,7 @@ public class UpdatesPreferencesIconsTest {
         UpdatesPreferencesFragment fragment = open(activity);
 
         for (String key : new String[]{"update_channel", "update_shizuku", "update_warning", "update_check",
-                "update_app_core", "update_app_api", "update_app_tasker"}) {
+                "update_app_core"}) {
             Preference preference = fragment.findPreference(key);
             Assert.assertNotNull(key, preference);
             Assert.assertNotNull(key + " has an icon", preference.getIcon());
@@ -57,7 +57,7 @@ public class UpdatesPreferencesIconsTest {
         SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
         UpdatesPreferencesFragment fragment = open(activity);
 
-        for (String key : new String[]{"update_app_core", "update_app_api", "update_app_tasker", "update_shizuku"}) {
+        for (String key : new String[]{"update_app_core", "update_shizuku"}) {
             Assert.assertEquals(key, R.layout.ui_preference_row_app, fragment.findPreference(key).getLayoutResource());
         }
         for (String key : new String[]{"update_channel", "update_warning", "update_check"}) {
@@ -66,15 +66,13 @@ public class UpdatesPreferencesIconsTest {
     }
 
     @Test
-    public void installedCompanionShowsItsOwnIconAndMissingOneAStandIn() {
+    public void installedCoreShowsItsOwnIconAndMissingOneAStandIn() {
         SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
-        install(activity, UpdateTarget.API);
+        install(activity, UpdateTarget.CORE);
 
-        Drawable installed = UpdatesPreferencesFragment.appIcon(activity, UpdateTarget.API, true);
+        Drawable installed = UpdatesPreferencesFragment.appIcon(activity, UpdateTarget.CORE, true);
         Assert.assertTrue("the application's own icon", installed instanceof ColorDrawable);
 
-        Drawable missing = UpdatesPreferencesFragment.appIcon(activity, UpdateTarget.TASKER, true);
-        Assert.assertTrue("a bundled stand-in", missing instanceof LayerDrawable);
         Assert.assertTrue(UpdatesPreferencesFragment.appIcon(activity, UpdateTarget.CORE, false)
             instanceof LayerDrawable);
     }

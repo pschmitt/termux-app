@@ -1,6 +1,6 @@
 package dev.pschmitt.termux.api;
 
-import android.app.Application;
+import android.content.Context;
 import android.content.Intent;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
@@ -34,7 +34,7 @@ public class SocketListener {
 
     private static final String LOG_TAG = "SocketListener";
 
-    public static void createSocketListener(Application app) {
+    public static void createSocketListener(Context context) {
         if (listener == null) {
             listener = new Thread(() -> {
                 try (LocalServerSocket listen = new LocalServerSocket(LISTEN_ADDRESS)) {
@@ -43,7 +43,7 @@ public class SocketListener {
                              DataInputStream in = new DataInputStream(con.getInputStream());
                              BufferedWriter out = new BufferedWriter(new OutputStreamWriter(con.getOutputStream()))) {
                             // only accept connections from Termux programs
-                            if (con.getPeerCredentials().getUid() != app.getApplicationInfo().uid) {
+                            if (con.getPeerCredentials().getUid() != context.getApplicationInfo().uid) {
                                 continue;
                             }
                             try {
@@ -53,7 +53,7 @@ public class SocketListener {
                                 in.readFully(b);
                                 String cmdline = new String(b, StandardCharsets.UTF_8);
                         
-                                Intent intent = new Intent(app.getApplicationContext(), TermuxApiReceiver.class);
+                                Intent intent = new Intent(context.getApplicationContext(), TermuxApiReceiver.class);
                                 //System.out.println(cmdline.replaceAll("--es socket_input \".*?\"","").replaceAll("--es socket_output \".*?\"",""));
                                 HashMap<String, String> stringExtras = new HashMap<>();
                                 HashMap<String, String[]> stringArrayExtras = new HashMap<>();
@@ -235,7 +235,7 @@ public class SocketListener {
                                 for (Map.Entry<String, long[]> e : longArrayExtras.entrySet()) {
                                     intent.putExtra(e.getKey(), e.getValue());
                                 }
-                                app.getApplicationContext().sendOrderedBroadcast(intent, null);
+                                context.getApplicationContext().sendOrderedBroadcast(intent, null);
                                 // send a null byte as a sign that the arguments have been successfully received, parsed and the broadcast receiver is called
                                 con.getOutputStream().write(0);
                                 con.getOutputStream().flush();

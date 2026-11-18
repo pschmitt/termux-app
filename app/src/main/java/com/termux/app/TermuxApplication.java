@@ -4,6 +4,10 @@ import android.app.Application;
 import android.content.Context;
 
 import com.termux.BuildConfig;
+import com.termux.widget.TermuxWidgetApplication;
+import com.termux.window.TermuxFloatApplication;
+import dev.pschmitt.termux.api.TermuxAPIApplication;
+import dev.pschmitt.termux.tasker.TermuxTaskerApplication;
 import dev.pschmitt.termux.shared.errors.Error;
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.TermuxBootstrap;
@@ -26,11 +30,18 @@ public class TermuxApplication extends Application {
 
         Context context = getApplicationContext();
 
+        TermuxCompanionPreferencesMigration.migrate(context);
+
         // Set crash handler for the app
         TermuxCrashUtils.setDefaultCrashHandler(this);
 
         // Set log config for the app
         setLogConfig(context);
+
+        TermuxAPIApplication.initialize(context);
+        TermuxTaskerApplication.initialize(context);
+        TermuxWidgetApplication.initialize(context);
+        TermuxFloatApplication.initialize(context);
 
         Logger.logDebug("Starting Application");
 

@@ -33,16 +33,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Runs checks and updates on explicit request from the Updates screen; nothing here is scheduled.
  *
- * <p>One check covers all installable targets; tapping an absent app checks its fork release for a
- * first install. One install covers one target: no unattended updates, no update-all, and nothing is promised about several apps being
- * installed together. Only one check or update runs at a time. The core and its companions share one
- * user id, so replacing any of them ends the processes of all of them, this one included.
+ * <p>One check covers the integrated TermuxPP application. No unattended updates run. Only one
+ * check or update runs at a time. Replacing the APK ends its processes, including terminal sessions
+ * and background Tasker actions.
  *
  * <p>An update goes through these gates, each of which ends it with a distinct {@link UpdateFailure}:
  * trusted source URL, Shizuku ready, enough free storage, download of the APK and of
- * {@code SHA256SUMS} from the target's fixed release, SHA-256 and size match, the archive parses, it
- * is that package with the shared user id and the installed signing certificates (the target's and
- * this app's), and for updates no lower version code, then the privileged install. The downloaded file lives in
+ * {@code SHA256SUMS} from the rolling release, SHA-256 and size match, the archive parses, it is
+ * the expected package with the shared user id and the installed signing certificates, and no
+ * lower version code, then the privileged install. The downloaded file lives in
  * the app's private cache and is wiped before each run, after the install and on every failure.
  */
 // The singleton only ever holds the application context.
@@ -146,8 +145,8 @@ public final class UpdateController {
     }
 
     /**
-     * Local only, no network: marks companions that are not installed and clears the marker of those
-     * that now are. Leaves targets that are checking, updating or have a result alone.
+     * Local only, no network: refreshes the integrated app's installed state. Leaves a target that
+     * is checking, updating or has a result alone.
      */
     @MainThread
     public void refreshInstalled() {
@@ -164,9 +163,7 @@ public final class UpdateController {
     }
 
     /**
-     * Asks GitHub whether a newer build of the channel exists for installed targets, and checks
-     * release availability for targets that can be installed from a first-install offer. Ignored
-     * while another run is busy.
+     * Asks GitHub whether a newer build of the channel exists. Ignored while another run is busy.
      */
     @MainThread
     public void checkAll(@NonNull UpdateChannel channel) {
@@ -179,7 +176,7 @@ public final class UpdateController {
         submit(() -> runChecks(channel));
     }
 
-    /** Checks one absent companion after its row is tapped, to offer a first install. */
+    /** Checks the core release when the app is not yet installed. */
     @MainThread
     public void checkOne(@NonNull UpdateTarget target, @NonNull UpdateChannel channel) {
         if (!target.isUpdatable() || isBusy() || ApkInspector.isInstalled(context, target)) return;
@@ -297,7 +294,7 @@ public final class UpdateController {
         return compareVerifiedAddonCandidate(target, result.offer);
     }
 
-    /** Core rolling releases require a commit identity; companions can use their fixed fork releases. */
+    /** Rolling releases require a known commit identity for safe comparison. */
     static boolean requiresKnownCommitToCheck(UpdateTarget target, InstalledBuild installed) {
         return target == UpdateTarget.CORE && !installed.isComparable();
     }

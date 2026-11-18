@@ -7,10 +7,8 @@ import androidx.annotation.Nullable;
 
 import dev.pschmitt.termux.shared.data.DataUtils;
 import dev.pschmitt.termux.shared.logger.Logger;
-import dev.pschmitt.termux.shared.android.PackageUtils;
 import dev.pschmitt.termux.shared.settings.preferences.AppSharedPreferences;
 import dev.pschmitt.termux.shared.settings.preferences.SharedPreferenceUtils;
-import dev.pschmitt.termux.shared.termux.TermuxUtils;
 import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_FLOAT_APP;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
 
@@ -41,7 +39,7 @@ public class TermuxFloatAppSharedPreferences extends AppSharedPreferences {
      */
     @Nullable
     public static TermuxFloatAppSharedPreferences build(@NonNull final Context context) {
-        Context termuxFloatPackageContext = PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_FLOAT_PACKAGE_NAME);
+        Context termuxFloatPackageContext = context;
         if (termuxFloatPackageContext == null)
             return null;
         else
@@ -58,7 +56,7 @@ public class TermuxFloatAppSharedPreferences extends AppSharedPreferences {
      * @return Returns the {@link TermuxFloatAppSharedPreferences}. This will {@code null} if an exception is raised.
      */
     public static TermuxFloatAppSharedPreferences build(@NonNull final Context context, final boolean exitAppOnError) {
-        Context termuxFloatPackageContext = TermuxUtils.getContextForPackageOrExitApp(context, TermuxConstants.TERMUX_FLOAT_PACKAGE_NAME, exitAppOnError);
+        Context termuxFloatPackageContext = context;
         if (termuxFloatPackageContext == null)
             return null;
         else

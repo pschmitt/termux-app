@@ -1,36 +1,27 @@
 package dev.pschmitt.termux.api;
 
-import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 
 import dev.pschmitt.termux.api.util.ResultReturner;
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
-import dev.pschmitt.termux.shared.termux.crash.TermuxCrashUtils;
 import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxAPIAppSharedPreferences;
 
 
-public class TermuxAPIApplication extends Application {
+public final class TermuxAPIApplication {
 
     public static final String LOG_TAG = "TermuxAPIApplication";
 
-    public void onCreate() {
-        super.onCreate();
+    private TermuxAPIApplication() {
+    }
 
+    public static void initialize(Context context) {
         Log.i(LOG_TAG, "AppInit");
 
-        Context context = getApplicationContext();
-
-        // Set crash handler for the app
-        TermuxCrashUtils.setCrashHandler(context);
-
-        ResultReturner.setContext(this);
-
-        // Set log config for the app
+        ResultReturner.setContext(context);
         setLogConfig(context, true);
-
-        SocketListener.createSocketListener(this);
+        SocketListener.createSocketListener(context);
     }
 
     public static void setLogConfig(Context context, boolean commitToFile) {

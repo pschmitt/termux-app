@@ -1,29 +1,22 @@
 package dev.pschmitt.termux.tasker;
 
-import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
-import dev.pschmitt.termux.shared.termux.crash.TermuxCrashUtils;
 import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
 
-public class TermuxTaskerApplication extends Application {
+public final class TermuxTaskerApplication {
 
     public static final String LOG_TAG = "TermuxTaskerApplication";
 
-    public void onCreate() {
-        super.onCreate();
+    private TermuxTaskerApplication() {
+    }
 
+    public static void initialize(Context context) {
         Log.i(LOG_TAG, "AppInit");
 
-        Context context = getApplicationContext();
-
-        // Set crash handler for the app
-        TermuxCrashUtils.setCrashHandler(context);
-
-        // Set log config for the app
         setLogConfig(context, true);
     }
 

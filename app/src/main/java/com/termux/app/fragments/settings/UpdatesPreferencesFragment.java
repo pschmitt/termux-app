@@ -377,12 +377,6 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
     @DrawableRes
     private static int fallbackGlyph(@NonNull UpdateTarget target) {
         switch (target) {
-            case API: return R.drawable.ui_ic_extension;
-            case TASKER: return R.drawable.ui_ic_bolt;
-            case FLOAT: return R.drawable.ui_ic_float;
-            case BOOT: return R.drawable.ui_ic_power;
-            case STYLING: return R.drawable.ui_ic_palette;
-            case WIDGET: return R.drawable.ui_ic_extension;
             case CORE:
             default: return R.drawable.ui_ic_terminal;
         }
@@ -391,12 +385,6 @@ public class UpdatesPreferencesFragment extends PreferenceFragmentCompat impleme
     @StringRes
     private static int appTitle(@NonNull UpdateTarget target) {
         switch (target) {
-            case API: return R.string.termux_update_app_api;
-            case TASKER: return R.string.termux_update_app_tasker;
-            case FLOAT: return R.string.termux_update_app_float;
-            case BOOT: return R.string.termux_update_app_boot;
-            case STYLING: return R.string.termux_update_app_styling;
-            case WIDGET: return R.string.termux_update_app_widget;
             case CORE:
             default: return R.string.termux_update_app_core;
         }

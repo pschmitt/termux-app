@@ -34,12 +34,6 @@
       bootstrapVersion = "2026.02.12-r1%2Bapt.android-7";
       gradleTasks = [
         ":app:assembleDebug"
-        ":termux-api:assembleDebug"
-        ":termux-tasker:assembleDebug"
-        ":termux-boot:assembleDebug"
-        ":termux-styling:assembleDebug"
-        ":termux-widget:assembleDebug"
-        ":termux-float:assembleDebug"
       ];
       bootstraps = {
         aarch64 = pkgs.fetchurl {
@@ -62,15 +56,7 @@
       apk = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
         pname = "termuxpp-debug-apk";
         version = "0.118.0";
-        outputs = [
-          "out"
-          "api"
-          "tasker"
-          "boot"
-          "styling"
-          "widget"
-          "float"
-        ];
+        outputs = [ "out" ];
         src = ./.;
         nativeBuildInputs = [
           gradle
@@ -112,14 +98,8 @@
           install -Dm644 ${bootstraps.x86_64} app/src/main/cpp/bootstrap-x86_64.zip
         '';
         installPhase = ''
-          mkdir -p "$out" "$api" "$tasker" "$boot" "$styling" "$widget" "$float"
+          mkdir -p "$out"
           cp app/build/outputs/apk/debug/termux-app_apt-android-7-debug_universal.apk "$out/termuxpp-debug.apk"
-          cp termux-api/app/build/outputs/apk/debug/*.apk "$api/"
-          cp termux-tasker/app/build/outputs/apk/debug/*.apk "$tasker/"
-          cp termux-boot/app/build/outputs/apk/debug/*.apk "$boot/"
-          cp termux-styling/app/build/outputs/apk/debug/*.apk "$styling/"
-          cp termux-widget/app/build/outputs/apk/debug/*.apk "$widget/"
-          cp termux-float/app/build/outputs/apk/debug/*.apk "$float/"
         '';
       });
       termuxAm = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
@@ -199,23 +179,11 @@
         '';
       deviceHelperDebs = helperDebs "termuxpp-helper-debs-device-aarch64" false;
       bootstrapHelperDebs = helperDebs "termuxpp-helper-debs-bootstrap-aarch64" true;
-      companionApk =
-        name: source:
-        pkgs.runCommand "termuxpp-${name}-debug-apk-${apk.version}" { } ''
-          mkdir -p "$out"
-          cp ${source}/*.apk "$out/"
-        '';
     in
     {
       packages.${system} = {
         default = apk;
         inherit apk;
-        api = companionApk "api" apk.api;
-        tasker = companionApk "tasker" apk.tasker;
-        boot = companionApk "boot" apk.boot;
-        styling = companionApk "styling" apk.styling;
-        widget = companionApk "widget" apk.widget;
-        float = companionApk "float" apk.float;
         termux-am-device =
           helperDeb "termuxpp-termux-am-device-deb-aarch64" deviceHelperDebs
             "termux-am_0.8.1+termuxpp1_all.deb";

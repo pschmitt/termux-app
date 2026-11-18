@@ -1,29 +1,22 @@
 package com.termux.window;
 
-import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
-import dev.pschmitt.termux.shared.termux.crash.TermuxCrashUtils;
 import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxFloatAppSharedPreferences;
 
-public class TermuxFloatApplication extends Application {
+public final class TermuxFloatApplication {
 
     public static final String LOG_TAG = "TermuxFloatApplication";
 
-    public void onCreate() {
-        super.onCreate();
+    private TermuxFloatApplication() {
+    }
 
+    public static void initialize(Context context) {
         Log.i(LOG_TAG, "AppInit");
 
-        Context context = getApplicationContext();
-
-        // Set crash handler for the app
-        TermuxCrashUtils.setCrashHandler(context);
-
-        // Set log config for the app
         setLogConfig(context, true);
     }
 

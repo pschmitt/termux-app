@@ -16,7 +16,7 @@ import org.robolectric.Shadows;
 @RunWith(RobolectricTestRunner.class)
 public class StylingAppTest {
 
-    private static final String PACKAGE = TermuxConstants.TERMUX_STYLING_PACKAGE_NAME;
+    private static final String PACKAGE = TermuxConstants.TERMUX_PACKAGE_NAME;
     private static final String ACTIVITY = TermuxConstants.TERMUX_STYLING_APP.TERMUX_STYLING_ACTIVITY_NAME;
 
     private static PackageManager packageManager() {
@@ -32,8 +32,8 @@ public class StylingAppTest {
     }
 
     @Test
-    public void unavailableWhenStylingIsNotInstalled() {
-        Assert.assertFalse(StylingApp.isAvailable(packageManager()));
+    public void availableWhenStylingIsBundled() {
+        Assert.assertTrue(StylingApp.isAvailable(packageManager()));
     }
 
     @Test
@@ -47,6 +47,6 @@ public class StylingAppTest {
         // Another app with an activity of the same class name, and the right package with another activity.
         Shadows.shadowOf(packageManager()).addActivityIfNotPresent(new ComponentName("com.example.other", ACTIVITY));
         Shadows.shadowOf(packageManager()).addActivityIfNotPresent(new ComponentName(PACKAGE, ".SomethingElse"));
-        Assert.assertFalse(StylingApp.isAvailable(packageManager()));
+        Assert.assertTrue(StylingApp.isAvailable(packageManager()));
     }
 }

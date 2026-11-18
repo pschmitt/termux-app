@@ -12,18 +12,12 @@ import java.util.Locale;
  * release source can be installed. Repository, package and asset names are constants here; nothing
  * a release or network response can add a target or change what an existing one points at.
  *
- * <p>All targets use the monorepo's rolling {@code latest} prerelease and commit comparison.
- * Package identities and fixed APK asset names are constants here, not supplied by the network.
+ * <p>The integrated app uses the monorepo's rolling {@code latest} prerelease and commit comparison.
+ * Package identity and APK asset names are constants here, not supplied by the network.
  */
 public enum UpdateTarget {
 
-    CORE("core", "pschmitt/termuxpp", "dev.pschmitt.termux", null, null),
-    API("api", "pschmitt/termuxpp", "dev.pschmitt.termux.api", "termux-api-app_debug.apk", null),
-    TASKER("tasker", "pschmitt/termuxpp", "dev.pschmitt.termux.tasker", "termux-tasker-app_debug.apk", null),
-    FLOAT("float", "pschmitt/termuxpp", "dev.pschmitt.termux.window", "termux-float-app_debug.apk", null),
-    BOOT("boot", "pschmitt/termuxpp", "dev.pschmitt.termux.boot", "termux-boot-app_debug.apk", null),
-    STYLING("styling", "pschmitt/termuxpp", "dev.pschmitt.termux.styling", "termux-styling-app_debug.apk", null),
-    WIDGET("widget", "pschmitt/termuxpp", "dev.pschmitt.termux.widget", "termux-widget-app_debug.apk", null);
+    CORE("core", "pschmitt/termuxpp", "dev.pschmitt.termux", null, null);
 
     /** The rolling prerelease every target follows. */
     public static final String LATEST_TAG = "latest";
@@ -31,14 +25,14 @@ public enum UpdateTarget {
     public static final String CHECKSUMS_ASSET = "SHA256SUMS";
 
     /**
-     * Manifest meta-data of a companion naming the commit it was built from, as
+     * Manifest meta-data naming the commit this app was built from, as
      * {@code git-<hex commit>[-dirty]} (the prefix keeps the value a string for the resource compiler).
      */
     public static final String REVISION_META_DATA = "dev.pschmitt.termux.GIT_REVISION";
 
     public static final String REVISION_PREFIX = "git-";
 
-    /** The shared user id of the core and both companions; an APK that lacks it is never installed. */
+    /** Shared user id used to reject APKs from incompatible Termux distributions. */
     public static final String SHARED_USER_ID = "dev.pschmitt.termux";
 
     /** Short stable name, used in preference keys. */
@@ -47,7 +41,7 @@ public enum UpdateTarget {
     public final String repository;
     /** Android application id the installed and the downloaded app must have. */
     public final String packageName;
-    /** Fixed APK asset name for each companion; null for core, which has variant-specific assets. */
+    /** Fixed APK asset name for single-APK targets; null for core, which has variant-specific assets. */
     @Nullable private final String fixedApkName;
     @Nullable public final String versionedApkPrefix;
 

@@ -177,7 +177,7 @@ public class TermuxUtils {
      * or disabled, otherwise {@code null}.
      */
     public static String isTermuxAPIAppInstalled(@NonNull final Context context) {
-        return PackageUtils.isAppInstalled(context, TermuxConstants.TERMUX_API_APP_NAME, TermuxConstants.TERMUX_API_PACKAGE_NAME);
+        return PackageUtils.isAppInstalled(context, TermuxConstants.TERMUX_APP_NAME, TermuxConstants.TERMUX_PACKAGE_NAME);
     }
 
     /**

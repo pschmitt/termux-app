@@ -1,49 +1,20 @@
-apply plugin: 'com.android.application'
+apply plugin: 'com.android.library'
 
 android {
     namespace "com.termux.widget"
 
     compileSdk project.properties.compileSdkVersion.toInteger()
-    def appVersionName = System.getenv("TERMUX_WIDGET_APP__BUILD__APP_VERSION_NAME") ?: ""
-    def apkVersionTag = System.getenv("TERMUX_WIDGET_APP__BUILD__APK_VERSION_TAG") ?: ""
 
     defaultConfig {
-        applicationId "dev.pschmitt.termux.widget"
         minSdk project.properties.minSdkVersion.toInteger()
         targetSdk project.properties.targetSdkVersion.toInteger()
-        versionCode 1001
-        versionName "0.15.1"
-
-        if (appVersionName) versionName = appVersionName
-        validateVersionName(versionName)
 
         manifestPlaceholders.TERMUX_PACKAGE_NAME = "dev.pschmitt.termux"
-        manifestPlaceholders.TERMUX_GIT_REVISION = "git-" + gitRevision()
         manifestPlaceholders.TERMUX_APP_NAME = "TermuxPP"
         manifestPlaceholders.TERMUX_WIDGET_APP_NAME = "TermuxPP:Widget"
     }
 
-    signingConfigs {
-        debug {
-            storeFile file('testkey_untrusted.jks')
-            keyAlias 'alias'
-            storePassword 'xrj45yWGLbsO7W0v'
-            keyPassword 'xrj45yWGLbsO7W0v'
-        }
-    }
 
-    buildTypes {
-        release {
-            minifyEnabled true
-            shrinkResources false // Reproducible builds
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
-
-        debug {
-            signingConfig signingConfigs.debug
-            zipAlignEnabled true
-        }
-    }
 
     compileOptions {
         coreLibraryDesugaringEnabled true
@@ -52,89 +23,10 @@ android {
         targetCompatibility JavaVersion.VERSION_11
     }
 
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            outputFileName = new File("termux-widget-app_" +
-                    (apkVersionTag ? apkVersionTag : "v" + versionName + "+" + variant.buildType.name) + ".apk")
-        }
-    }
 
-    packagingOptions {
-        // Remove terminal-emulator JNI libs added via termux-shared dependency
-        exclude 'lib/*/libtermux.so'
-    }
 }
 
-def gitRevision() {
-    def given = System.getenv("TERMUX_GIT_REVISION") ?: project.findProperty("gitRevision")
-    if (given) {
-        given = given.toString().trim()
-        if (!java.util.regex.Pattern.matches("[0-9a-f]{7,40}(-dirty)?", given))
-            throw new GradleException("TERMUX_GIT_REVISION is not '<hex commit>[-dirty]': " + given)
-        return given
-    }
-    try {
-        def run = { List<String> args ->
-            def process = new ProcessBuilder(["git"] + args).directory(rootDir).redirectErrorStream(false).start()
-            def output = process.inputStream.text.trim()
-            if (process.waitFor() != 0) throw new IOException("git " + args)
-            return output
-        }
-        def head = run(["rev-parse", "HEAD"])
-        if (!java.util.regex.Pattern.matches("[0-9a-f]{40}", head)) return "unknown"
-        return run(["status", "--porcelain", "--untracked-files=no"]).isEmpty() ? head : head + "-dirty"
-    } catch (Exception ignored) {
-        return "unknown"
-    }
-}
 
-tasks.register("verifyDebug16kAlignment") {
-    dependsOn "assembleDebug"
-    doLast {
-        def apk = file("$buildDir/outputs/apk/debug/termux-widget-app_v${android.defaultConfig.versionName}+debug.apk")
-        if (!apk.isFile()) throw new GradleException("Debug APK not found: $apk")
-
-        def zipalign = file("${android.sdkDirectory}/build-tools/36.0.0/zipalign")
-        if (!zipalign.isFile()) throw new GradleException("zipalign not found: $zipalign")
-        exec {
-            commandLine zipalign, "-c", "-P", "16", "-v", "4", apk
-        }
-
-        def pageSize = 16384L
-        def zip = new java.util.zip.ZipFile(apk)
-        try {
-            def libraries = zip.entries().findAll { it.name.endsWith(".so") }
-            if (libraries.isEmpty()) throw new GradleException("APK contains no native libraries to validate")
-            libraries.each { entry ->
-                byte[] data = zip.getInputStream(entry).bytes
-                def elf = java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-                if (data.length < 64 || elf.getInt(0) != 0x464c457f) {
-                    throw new GradleException("Invalid ELF library: ${entry.name}")
-                }
-                boolean is64Bit = (data[4] & 0xff) == 2
-                long phoff = is64Bit ? elf.getLong(32) : (elf.getInt(28) & 0xffffffffL)
-                int phentsize = elf.getShort(is64Bit ? 54 : 42) & 0xffff
-                int phnum = elf.getShort(is64Bit ? 56 : 44) & 0xffff
-                int loadCount = 0
-                for (int i = 0; i < phnum; i++) {
-                    int position = (int) (phoff + (long) i * phentsize)
-                    if (elf.getInt(position) != 1) continue
-                    long offset = is64Bit ? elf.getLong(position + 8) : (elf.getInt(position + 4) & 0xffffffffL)
-                    long vaddr = is64Bit ? elf.getLong(position + 16) : (elf.getInt(position + 8) & 0xffffffffL)
-                    long alignment = is64Bit ? elf.getLong(position + 48) : (elf.getInt(position + 28) & 0xffffffffL)
-                    loadCount++
-                    if (alignment < pageSize || (offset % pageSize) != (vaddr % pageSize)) {
-                        throw new GradleException("${entry.name} has a PT_LOAD segment incompatible with 16 KB pages (align=${alignment}, offset=${offset}, vaddr=${vaddr})")
-                    }
-                }
-                if (loadCount == 0) throw new GradleException("${entry.name} has no PT_LOAD segments")
-                logger.lifecycle("16 KB ELF alignment verified: ${entry.name}")
-            }
-        } finally {
-            zip.close()
-        }
-    }
-}
 
 dependencies {
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
@@ -154,17 +46,4 @@ dependencies {
     //implementation "com.termux:termux-shared:0.118.0"
 
     implementation "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"
-}
-
-task versionName {
-    doLast {
-        print android.defaultConfig.versionName
-    }
-}
-
-def validateVersionName(String versionName) {
-    // https://semver.org/spec/v2.0.0.html#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
-    // ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
-    if (!java.util.regex.Pattern.matches("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?\$", versionName))
-        throw new GradleException("The versionName '"  + versionName + "' is not a valid version as per semantic version '2.0.0' spec in the format 'major.minor.patch(-prerelease)(+buildmetadata)'. https://semver.org/spec/v2.0.0.html.")
 }

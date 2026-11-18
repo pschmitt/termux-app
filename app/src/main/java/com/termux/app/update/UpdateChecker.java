@@ -26,8 +26,7 @@ import java.util.regex.Pattern;
  * <li>Identical or behind: up to date (the install is at or past {@code latest}; nothing is ever
  * offered that would go backwards).</li>
  * <li>Diverged, or HTTP 404 (GitHub does not know the installed commit, a local build that was
- * never pushed): not eligible. Companions without a clean commit identity can reinstall from their
- * fixed fork release without a comparison; core builds remain commit-gated.</li>
+ * never pushed): not eligible.</li>
  * <li>Any other error: the check failed.</li>
  * </ul>
  * Version names and codes play no part in the decision; they only feed the install guard.
@@ -125,7 +124,7 @@ public final class UpdateChecker {
      *               the metadata comes from
      * @param installed the commit identity of the installed {@code target}
      * @param variant the package variant of the running core, e.g. {@code apt-android-7}: the core
-     *                APK installed must be the same variant (ignored for companions, which have one APK)
+     *                APK installed must be the same variant
      * @param supportedAbis the device's ABIs, most preferred first
      */
     @NonNull

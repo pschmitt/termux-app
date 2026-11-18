@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:sharedUserId="${TERMUX_PACKAGE_NAME}">
+    >
 
 
 
@@ -61,19 +61,7 @@
 
 
 
-    <application
-        android:name=".TermuxAPIApplication"
-        android:allowBackup="true"
-        android:icon="@drawable/ic_launcher"
-        android:label="@string/app_name"
-        android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light"
-        tools:ignore="GoogleAppIndexingWarning">
-
-        <!-- Read by the core app's Updates screen to compare this build with the published one. -->
-        <meta-data
-            android:name="dev.pschmitt.termux.GIT_REVISION"
-            android:value="${TERMUX_GIT_REVISION}" />
+    <application tools:ignore="GoogleAppIndexingWarning">
 
         <activity
             android:name=".activities.TermuxAPIMainActivity"

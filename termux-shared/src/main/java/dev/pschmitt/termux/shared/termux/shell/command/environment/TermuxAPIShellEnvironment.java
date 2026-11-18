@@ -14,7 +14,7 @@ import dev.pschmitt.termux.shared.termux.TermuxUtils;
 import java.util.HashMap;
 
 /**
- * Environment for {@link TermuxConstants#TERMUX_API_PACKAGE_NAME} app.
+ * Environment for the Termux:API features integrated into the main app.
  */
 public class TermuxAPIShellEnvironment {
 
@@ -29,7 +29,7 @@ public class TermuxAPIShellEnvironment {
     public static HashMap<String, String> getEnvironment(@NonNull Context currentPackageContext) {
         if (TermuxUtils.isTermuxAPIAppInstalled(currentPackageContext) != null) return null;
 
-        String packageName = TermuxConstants.TERMUX_API_PACKAGE_NAME;
+        String packageName = TermuxConstants.TERMUX_PACKAGE_NAME;
         PackageInfo packageInfo = PackageUtils.getPackageInfoForPackage(currentPackageContext, packageName);
         if (packageInfo == null) return null;
 

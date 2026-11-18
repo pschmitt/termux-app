@@ -18,7 +18,7 @@ import java.util.Set;
 
 /**
  * Reads package name, shared user id, version code and signing certificates from an installed app
- * and from an APK file, and the commit a companion declares in its manifest.
+ * and from an APK file, and the commit declared in its manifest.
  */
 public final class ApkInspector {
 
@@ -69,7 +69,7 @@ public final class ApkInspector {
     }
 
     /**
-     * The commit identity a companion declares in its manifest, as the installed package manager
+     * The commit identity declared in the manifest, as the installed package manager
      * reports it; non-comparable when absent or not in the {@code git-<hex>} form.
      */
     @NonNull

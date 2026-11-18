@@ -45,6 +45,12 @@ android {
 
         implementation project(":terminal-view")
         implementation project(":termux-shared")
+        implementation project(":termux-api")
+        implementation project(":termux-tasker")
+        implementation project(":termux-boot")
+        implementation project(":termux-styling")
+        implementation project(":termux-widget")
+        implementation project(":termux-float")
     }
 
     defaultConfig {

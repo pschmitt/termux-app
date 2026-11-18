@@ -42,10 +42,8 @@ public class UpdateTrustTest {
         String url = UpdateTrust.assetUrl(UpdateTarget.CORE, "SHA256SUMS");
         assertEquals("https://github.com/pschmitt/termuxpp/releases/download/latest/SHA256SUMS", url);
         assertTrue(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE, url));
-        assertEquals("https://github.com/pschmitt/termuxpp/releases/download/latest/termux-api-app_debug.apk",
-                UpdateTrust.assetUrl(UpdateTarget.API, "termux-api-app_debug.apk"));
         assertEquals("https://github.com/pschmitt/termuxpp/releases/download/latest/SHA256SUMS",
-                UpdateTrust.assetUrl(UpdateTarget.TASKER, "SHA256SUMS"));
+                UpdateTrust.assetUrl(UpdateTarget.CORE, "SHA256SUMS"));
     }
 
     @Test
@@ -66,7 +64,7 @@ public class UpdateTrustTest {
         // Prefix confusion: the canonical repository is not a prefix of another path segment.
         assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE,
                 "https://github.com/pschmitt/termuxpp-evil/releases/download/latest/x.apk"));
-        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.API,
+        assertFalse(UpdateTrust.isTrustedAssetUrl(UpdateTarget.CORE,
                 "https://github.com/pschmitt/termuxpp-api/releases/download/latest/x.apk"));
     }
 

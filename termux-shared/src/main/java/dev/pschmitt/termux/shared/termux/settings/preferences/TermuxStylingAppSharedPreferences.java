@@ -6,10 +6,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import dev.pschmitt.termux.shared.logger.Logger;
-import dev.pschmitt.termux.shared.android.PackageUtils;
 import dev.pschmitt.termux.shared.settings.preferences.AppSharedPreferences;
 import dev.pschmitt.termux.shared.settings.preferences.SharedPreferenceUtils;
-import dev.pschmitt.termux.shared.termux.TermuxUtils;
 import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_STYLING_APP;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
 
@@ -34,7 +32,7 @@ public class TermuxStylingAppSharedPreferences extends AppSharedPreferences {
      */
     @Nullable
     public static TermuxStylingAppSharedPreferences build(@NonNull final Context context) {
-        Context termuxStylingPackageContext = PackageUtils.getContextForPackage(context, TermuxConstants.TERMUX_STYLING_PACKAGE_NAME);
+        Context termuxStylingPackageContext = context;
         if (termuxStylingPackageContext == null)
             return null;
         else
@@ -51,7 +49,7 @@ public class TermuxStylingAppSharedPreferences extends AppSharedPreferences {
      * @return Returns the {@link TermuxStylingAppSharedPreferences}. This will {@code null} if an exception is raised.
      */
     public static TermuxStylingAppSharedPreferences build(@NonNull final Context context, final boolean exitAppOnError) {
-        Context termuxStylingPackageContext = TermuxUtils.getContextForPackageOrExitApp(context, TermuxConstants.TERMUX_STYLING_PACKAGE_NAME, exitAppOnError);
+        Context termuxStylingPackageContext = context;
         if (termuxStylingPackageContext == null)
             return null;
         else
