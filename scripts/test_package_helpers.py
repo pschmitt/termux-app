@@ -12,6 +12,31 @@ spec.loader.exec_module(bootstrap)
 
 
 class HelperPackageTests(unittest.TestCase):
+    def test_original_api_cli_scripts_are_packaged_with_fork_prefix(self):
+        api_source = Path(__file__).parent.parent / "termux-api-package"
+        files = helpers.api_cli_scripts(api_source)
+        self.assertGreaterEqual(len(files), 50)
+        self.assertIn("bin/termux-battery-status", files)
+        self.assertIn("bin/termux-share", files)
+
+        for bootstrap_mode in (False, True):
+            with self.subTest(bootstrap=bootstrap_mode), tempfile.TemporaryDirectory() as directory:
+                out = Path(directory)
+                helpers.package(out, "api", "1", "aarch64", "bash", files, bootstrap_mode)
+                deb = bootstrap.parse_ar((out / "api_1_aarch64.deb").read_bytes())
+                prefix = helpers.BOOTSTRAP_PREFIX if bootstrap_mode else helpers.PREFIX
+                with bootstrap.open_tar("data.tar.gz", deb["data.tar.gz"]) as archive:
+                    for relative, (expected, _, _) in files.items():
+                        member = archive.getmember(prefix + "/" + relative)
+                        self.assertEqual(member.mode, 0o755)
+                        self.assertEqual(archive.extractfile(member).read(), expected)
+                        shebangs = (
+                            ("#!" + "/" + helpers.PREFIX + "/bin/bash").encode(),
+                            ("#!" + "/" + helpers.PREFIX + "/bin/sh").encode(),
+                        )
+                        self.assertTrue(expected.startswith(shebangs))
+                        self.assertNotIn(b"@TERMUX_PREFIX@", expected)
+
     def test_bootstrap_package_roundtrip_and_reproducibility(self):
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory)

@@ -168,6 +168,7 @@
             ${pkgs.python3}/bin/python3 ${./scripts/package-helpers.py} \
               --am-source ${./termux-am} \
               --am-apk ${termuxAm}/termux-am-release-unsigned.apk \
+              --api-source ${./termux-api-package} \
               --api-prefix ${termuxApiNative}/data/data/dev.pschmitt.termux/files/usr \
               --out-dir "$out" ${pkgs.lib.optionalString bootstrap "--bootstrap"}
           '';

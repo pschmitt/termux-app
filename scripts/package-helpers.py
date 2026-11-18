@@ -6,10 +6,36 @@ import gzip
 import hashlib
 import io
 from pathlib import Path
+import re
 import tarfile
 
 PREFIX = "data/data/dev.pschmitt.termux/files/usr"
 BOOTSTRAP_PREFIX = "data/data/com.termux/files/usr"
+
+
+def api_cli_scripts(source):
+    cmake_lists = (source / "CMakeLists.txt").read_text()
+    match = re.search(r"(?ms)^set\(script_files\s*(.*?)^\)", cmake_lists)
+    if match is None:
+        raise ValueError("API source CMakeLists.txt has no script_files list")
+
+    files = {}
+    for line in match.group(1).splitlines():
+        relative = line.strip()
+        if not relative:
+            continue
+        if not relative.startswith("scripts/") or ".." in Path(relative).parts:
+            raise ValueError(f"Unexpected API script path: {relative}")
+
+        template = source / (relative + ".in")
+        data = template.read_bytes()
+        data = data.replace(b"@TERMUX_PREFIX@", ("/" + PREFIX).encode())
+        if b"@TERMUX_PREFIX@" in data:
+            raise ValueError(f"Unresolved TERMUX_PREFIX in {template}")
+        files["bin/" + Path(relative).name] = (data, 0o755, None)
+    if not files:
+        raise ValueError("API source CMakeLists.txt has no CLI scripts")
+    return files
 
 
 def tarball(files):
@@ -60,6 +86,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--am-source", type=Path, required=True)
     parser.add_argument("--am-apk", type=Path, required=True)
+    parser.add_argument("--api-source", type=Path, required=True,
+                        help="Termux API package source containing CMakeLists.txt and script templates")
     parser.add_argument("--api-prefix", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--bootstrap", action="store_true",
@@ -82,6 +110,7 @@ def main():
                 files[relative] = (b"", 0o777, str(path.readlink()))
             else:
                 files[relative] = (path.read_bytes(), path.stat().st_mode & 0o777, None)
+    files.update(api_cli_scripts(args.api_source))
     if "libexec/termux-api-broadcast" not in files or "libexec/termux-callback" not in files:
         parser.error("--api-prefix must contain the staged native API client and callback")
     package(args.out_dir, "termux-api", "0.60.0+termuxpp1", "aarch64",

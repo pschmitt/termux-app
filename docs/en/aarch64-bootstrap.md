@@ -146,6 +146,7 @@ DESTDIR="$PWD/termux-api-package/staging" \
 python3 -I scripts/package-helpers.py \
     --am-source termux-am \
     --am-apk termux-am/app/build/outputs/apk/release/termux-am-release-unsigned.apk \
+    --api-source termux-api-package \
     --api-prefix termux-api-package/staging/data/data/dev.pschmitt.termux/files/usr \
     --out-dir helper-debs --bootstrap
 ```

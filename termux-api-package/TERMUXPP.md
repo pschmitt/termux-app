@@ -20,8 +20,10 @@ Run compilation on a remote build worker. Install the staged prefix contents
 into TermuxPP using a package or controlled provisioning step. Do not install
 these tools into stock Termux or mix them with the upstream `termux-api` package.
 Use the monorepo's [`scripts/package-helpers.py`](../scripts/package-helpers.py)
-with the matching [TermuxAm helper](../termux-am/TERMUXPP.md) to generate device
-or bootstrap debs. After device installation, run
+with `--api-source termux-api-package` and the matching [TermuxAm helper](../termux-am/TERMUXPP.md)
+to generate device or bootstrap debs. The generated `termux-api` package includes
+the original `termux-*` command scripts with the fork prefix in their shebangs
+and API invocations. After device installation, run
 `apt-mark hold termux-am termux-api` to prevent upstream upgrades from
 overwriting the fork-specific helpers. See the core's [AArch64 bootstrap
 guide](../docs/en/aarch64-bootstrap.md) for the complete procedure.
