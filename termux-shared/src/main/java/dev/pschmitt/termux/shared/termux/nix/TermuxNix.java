@@ -16,7 +16,7 @@ import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConst
 
 /**
  * The full-Nix guest that a provisioning bootstrap ships: {@code $PREFIX/bin/nixpp} with its
- * embedded launcher, bootstrap seed and session manifest. {@code nixpp init}
+ * launcher, bootstrap seed and session manifest in {@code $PREFIX/share/nixpp}. {@code nixpp init}
  * sets up the runtime in {@link #RUNTIME_DIR_PATH}; {@code nixpp login} finishes an interrupted
  * setup and enters the guest.
  */
@@ -24,7 +24,6 @@ public final class TermuxNix {
 
     public static final String NIXPP_PATH = TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + "/nixpp";
     public static final String ASSETS_DIR_PATH = TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/share/nixpp";
-    private static final String SETUP_PATH = TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + "/nixpp-setup";
     /** nixpp's default runtime directory, {@code $HOME/.local/share/termuxpp-nix}. */
     public static final String RUNTIME_DIR_PATH = TermuxConstants.TERMUX_HOME_DIR_PATH + "/.local/share/termuxpp-nix";
 
@@ -32,14 +31,13 @@ public final class TermuxNix {
 
     private TermuxNix() {}
 
-    /** Whether the prefix contains a managed bootstrap, including older installations with separate assets. */
+    /** Whether the prefix can set up a Nix runtime: nixpp and all of its bundled assets are present. */
     public static boolean isProvisioned() {
-        return isProvisioned(new File(NIXPP_PATH), new File(SETUP_PATH), new File(ASSETS_DIR_PATH));
+        return isProvisioned(new File(NIXPP_PATH), new File(ASSETS_DIR_PATH));
     }
 
-    static boolean isProvisioned(@NonNull File nixpp, @NonNull File setup, @NonNull File assets) {
-        if (!nixpp.isFile() || !nixpp.canExecute()) return false;
-        if (setup.isFile() && setup.canExecute()) return true;
+    static boolean isProvisioned(@NonNull File nixpp, @NonNull File assets) {
+        if (!nixpp.canExecute()) return false;
         for (String asset : ASSETS)
             if (!new File(assets, asset).isFile()) return false;
         return true;

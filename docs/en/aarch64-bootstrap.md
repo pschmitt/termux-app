@@ -42,6 +42,7 @@ scripts/build-aarch64-bootstrap.py fetch \
 scripts/build-aarch64-bootstrap.py build \
     --deb-dir debs --lock debs/debs.lock.json \
     --nixpp /path/to/nixpp --nixpp-version 0.5.0 \
+    --nixpp-assets /path/to/seed/share/nixpp \
     -o out/bootstrap-aarch64.zip
 
 # 4. Build the app with it on a remote worker.
@@ -49,10 +50,6 @@ TERMUX_BOOTSTRAP_AARCH64_ZIP=$PWD/out/bootstrap-aarch64.zip \
 TERMUX_BOOTSTRAP_AARCH64_SHA256=$(cut -d' ' -f1 out/bootstrap-aarch64.zip.sha256) \
 ./gradlew assembleDebug
 ```
-
-The current native nixpp binary embeds its launcher, manifest and seed. For an
-older binary built with separate assets, pass the seed directory with
-`--nixpp-assets`.
 
 The `--nixpp` bootstrap includes the `nixpp-setup` command. Run it from a
 native TermuxPP session to enroll the device and clone its dotfiles. From an

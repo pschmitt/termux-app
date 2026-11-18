@@ -21,34 +21,21 @@ public class TermuxNixTest {
     public TemporaryFolder folder = new TemporaryFolder();
 
     @Test
-    public void detectsLegacyBootstrapWhenAllAssetsArePresent() throws IOException {
+    public void provisionedNeedsNixppAndEveryAsset() throws IOException {
         File nixpp = folder.newFile("nixpp");
         File assets = folder.newFolder("share", "nixpp");
-        File setup = new File(folder.getRoot(), "nixpp-setup");
-        assertFalse(TermuxNix.isProvisioned(nixpp, setup, assets));
+        assertFalse(TermuxNix.isProvisioned(nixpp, assets));
 
         assertTrue(nixpp.setExecutable(true));
         for (String asset : new String[]{"launcher", "bootstrap-aarch64.zip"})
             Files.write(new File(assets, asset).toPath(), new byte[]{1});
-        assertFalse("the manifest is missing", TermuxNix.isProvisioned(nixpp, setup, assets));
+        assertFalse("the manifest is missing", TermuxNix.isProvisioned(nixpp, assets));
 
         Files.write(new File(assets, "manifest.json").toPath(), new byte[]{'{', '}'});
-        assertTrue(TermuxNix.isProvisioned(nixpp, setup, assets));
+        assertTrue(TermuxNix.isProvisioned(nixpp, assets));
 
         assertTrue(nixpp.setExecutable(false));
-        assertFalse(TermuxNix.isProvisioned(nixpp, setup, assets));
-    }
-
-    @Test
-    public void detectsEmbeddedBootstrapWithoutExternalAssets() throws IOException {
-        File nixpp = folder.newFile("nixpp");
-        File setup = folder.newFile("nixpp-setup");
-        File assets = new File(folder.getRoot(), "missing-assets");
-
-        assertTrue(setup.setExecutable(true));
-        assertFalse(TermuxNix.isProvisioned(nixpp, setup, assets));
-        assertTrue(nixpp.setExecutable(true));
-        assertTrue(TermuxNix.isProvisioned(nixpp, setup, assets));
+        assertFalse(TermuxNix.isProvisioned(nixpp, assets));
     }
 
     @Test
