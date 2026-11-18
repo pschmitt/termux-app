@@ -141,7 +141,6 @@ public class AdbShellAuthorizationsPreferencesFragmentTest {
             screen.findPreference("adb_shell_status").getSummary().toString());
         String connection = screen.findPreference("adb_shell_connection").getSummary().toString();
         assertTrue(connection, connection.contains(String.valueOf(AdbShellService.PORT)));
-        assertTrue(connection, connection.contains(String.valueOf(AdbShellService.TLS_PORT)));
         String enrollment = screen.findPreference("adb_shell_enrollment").getSummary().toString();
         assertTrue(enrollment, enrollment.contains("fingerprint"));
         assertTrue(enrollment, enrollment.contains("PIN and face unlock are not accepted"));

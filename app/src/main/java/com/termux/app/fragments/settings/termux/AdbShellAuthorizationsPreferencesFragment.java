@@ -53,7 +53,7 @@ public class AdbShellAuthorizationsPreferencesFragment extends AdbShellSettingsF
         Preference connection = findPreference(KEY_CONNECTION);
         if (connection != null) {
             connection.setSummary(getString(R.string.adb_shell_connection_summary,
-                AdbShellService.PORT, AdbShellService.TLS_PORT));
+                AdbShellService.PORT));
         }
 
         PreferenceCategory clients = findPreference(KEY_CLIENTS);

@@ -180,7 +180,7 @@
                 <string name="adb_shell_token_copied">Token copied to clipboard</string>
                 <string name="adb_shell_notification_channel">ADB shell access</string>
                 <string name="adb_shell_notification_title">ADB shell is enabled</string>
-                <string name="adb_shell_notification_text">Listening on loopback ports 8022 and 8023 (mTLS shell)</string>
+                <string name="adb_shell_notification_text">ADB shell listening on loopback port %1$d</string>
                 <string name="adb_shell_stop">Stop</string>
                 <string name="adb_shell_authorizations_title">ADB shell authorizations</string>
                 <string name="adb_shell_authorizations_summary">Review and revoke individual clients</string>
@@ -189,7 +189,7 @@
                 <string name="adb_shell_status_enabled">Enabled. Approved clients can open a shell.</string>
                 <string name="adb_shell_status_disabled">Disabled. No client can connect, even if it is authorized. Turn on ADB shell access in Debugging to accept connections.</string>
                 <string name="adb_shell_connection_title">Connection</string>
-                <string name="adb_shell_connection_summary">Listens on loopback ports %1$d and %2$d only. Reach them from a host through ADB port forwarding.</string>
+                <string name="adb_shell_connection_summary">Connect from a host through ADB forwarding to loopback port %1$d.</string>
                 <string name="adb_shell_enrollment_title">Enrolling a client</string>
                 <string name="adb_shell_enrollment_summary">Run the host helper with --provision and enter the access token shown when ADB shell access is turned on. Each new client must then be approved on this device by comparing its SHA-256 certificate fingerprint and authenticating with an enrolled fingerprint. PIN and face unlock are not accepted.</string>
                 <string name="adb_shell_clients_header">Authorized clients</string>

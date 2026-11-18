@@ -70,8 +70,9 @@ public class SettingsActivity extends AppCompatActivity
         destination.setArguments(preference.getExtras());
         // Preserve the caller relationship for preference fragments expecting a target fragment.
         destination.setTargetFragment(caller, 0);
+        CharSequence title = preference.getTitle();
         getSupportFragmentManager().beginTransaction()
-                .replace(R.id.settings, destination, preference.getTitle().toString())
+                .replace(R.id.settings, destination, title == null ? null : title.toString())
                 .addToBackStack(null)
                 .commit();
         return true;
@@ -80,7 +81,12 @@ public class SettingsActivity extends AppCompatActivity
     private void updateNavigation() {
         clearSearch();
         Fragment screen = getSupportFragmentManager().findFragmentById(R.id.settings);
-        String title = screen == null ? null : screen.getTag();
+        CharSequence title = null;
+        if (screen instanceof PreferenceFragmentCompat) {
+            PreferenceGroup preferences = ((PreferenceFragmentCompat) screen).getPreferenceScreen();
+            if (preferences != null) title = preferences.getTitle();
+        }
+        if (title == null && screen != null) title = screen.getTag();
         setTitle(title == null ? getString(R.string.title_activity_termux_settings) : title);
         invalidateOptionsMenu();
     }

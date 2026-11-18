@@ -58,7 +58,6 @@ import javax.crypto.spec.PSource;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
 
 /** Opt-in, mutually authenticated loopback PTY endpoint for adb forward. */
@@ -70,8 +69,8 @@ public final class AdbShellService extends Service {
     public static final String PREFS_NAME = "adb_shell";
     public static final String PREF_ENABLED = "enabled";
     public static final String PREF_TOKEN = "token";
-    public static final int PORT = 8022;
-    public static final int TLS_PORT = 8023;
+    public static final int PORT = 5522;
+    private static final String TLS_PREFACE = "TERMUXPP/TLS/1";
 
     private static final String CHANNEL_ID = "adb_shell";
     private static final int NOTIFICATION_ID = 8022;
@@ -82,17 +81,18 @@ public final class AdbShellService extends Service {
     private volatile boolean stopping;
     /** Identifies the current listener run; threads of an older run must not touch shared state. */
     private final java.util.concurrent.atomic.AtomicInteger generation = new java.util.concurrent.atomic.AtomicInteger();
-    private volatile ServerSocket bootstrapServerSocket;
-    private volatile SSLServerSocket tlsServerSocket;
-    private volatile Socket bootstrapClientSocket;
+    private volatile ServerSocket serverSocket;
+    private final java.util.Set<Socket> connections = java.util.Collections.newSetFromMap(
+        new java.util.concurrent.ConcurrentHashMap<Socket, Boolean>());
+    private final java.util.concurrent.atomic.AtomicBoolean enrollmentInProgress =
+        new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.Set<SSLSocket> tlsClients = java.util.Collections.newSetFromMap(
         new java.util.concurrent.ConcurrentHashMap<SSLSocket, Boolean>());
     private final java.util.concurrent.ConcurrentMap<SSLSocket, String> clientIdentities =
         new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ExecutorService clients = new java.util.concurrent.ThreadPoolExecutor(
         0, 4, 30, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.SynchronousQueue<>());
-    private Thread bootstrapThread;
-    private Thread tlsThread;
+    private Thread serverThread;
 
     public static String createAccessToken(android.content.Context context) {
         byte[] tokenBytes = new byte[32];
@@ -127,39 +127,32 @@ public final class AdbShellService extends Service {
         if (intent != null && ACTION_AUTHORIZATIONS_CHANGED.equals(intent.getAction())) {
             closeTlsClients();
         }
-        ensureServers();
+        ensureServer();
         return START_STICKY;
     }
 
-    private synchronized void ensureServers() {
-        if (!stopping && bootstrapThread != null && bootstrapThread.isAlive() &&
-            tlsThread != null && tlsThread.isAlive()) {
-            return;
-        }
-        // Never keep a half-live endpoint: tear down whatever is left before starting a fresh pair.
+    private synchronized void ensureServer() {
+        if (!stopping && serverThread != null && serverThread.isAlive()) return;
         stopServer();
         stopping = false;
         final int run = generation.incrementAndGet();
-        bootstrapThread = new Thread(() -> serveBootstrap(run), "TermuxAdbShellBootstrap");
-        tlsThread = new Thread(() -> serveTls(run), "TermuxAdbShellTls");
-        bootstrapThread.start();
-        tlsThread.start();
+        serverThread = new Thread(() -> serve(run), "TermuxAdbShell");
+        serverThread.start();
     }
 
     private boolean isCurrent(int run) {
         return !stopping && generation.get() == run;
     }
 
-    /** A listener could not be bound: stop everything (and the service) instead of serving half the endpoint. */
-    private void failServer(int run, String what, Exception error) {
+    private synchronized void failServer(int run, Exception error) {
         if (!isCurrent(run)) return;
-        Logger.logError(LOG_TAG, "Unable to listen for the ADB shell (" + what + "): " +
+        Logger.logError(LOG_TAG, "Unable to listen for the ADB shell: " +
             error.getClass().getSimpleName());
         stopServer();
         stopSelf();
     }
 
-    private ServerSocket bindBootstrap(int run) throws IOException {
+    private ServerSocket bindServer(int run) throws IOException {
         IOException last = null;
         for (int attempt = 0; attempt < BIND_ATTEMPTS && isCurrent(run); attempt++) {
             try {
@@ -171,13 +164,6 @@ public final class AdbShellService extends Service {
         }
         if (last != null) throw last;
         return null;
-    }
-
-    /** Thrown when the TLS port cannot be bound, as opposed to missing or invalid certificate material. */
-    private static final class BindFailure extends IOException {
-        BindFailure(Throwable cause) {
-            super("Unable to bind TLS port", cause);
-        }
     }
 
     @Nullable
@@ -194,44 +180,74 @@ public final class AdbShellService extends Service {
         super.onDestroy();
     }
 
-    private void serveBootstrap(int run) {
+    private void serve(int run) {
         ServerSocket listener = null;
         try {
-            listener = bindBootstrap(run);
-            if (listener == null) return;
-            bootstrapServerSocket = listener;
+            listener = bindServer(run);
+            synchronized (this) {
+                if (listener == null || !isCurrent(run)) return;
+                serverSocket = listener;
+            }
             while (isCurrent(run)) {
-                Socket socket = null;
-                try {
-                    socket = listener.accept();
-                    bootstrapClientSocket = socket;
-                    socket.setSoTimeout(10_000);
-                    handleBootstrap(socket);
-                } catch (Exception error) {
-                    // Do not log authentication data or peer-controlled input.
-                    if (listener.isClosed()) {
-                        if (isCurrent(run)) failServer(run, "bootstrap", error);
+                Socket socket = listener.accept();
+                synchronized (this) {
+                    if (!isCurrent(run)) {
+                        closeQuietly(socket);
                         break;
                     }
-                } finally {
-                    bootstrapClientSocket = null;
+                    connections.add(socket);
+                }
+                try {
+                    clients.execute(() -> handleConnection(socket, run));
+                } catch (java.util.concurrent.RejectedExecutionException full) {
+                    connections.remove(socket);
                     closeQuietly(socket);
                 }
             }
-        } catch (IOException error) {
-            failServer(run, "bootstrap", error);
-        } catch (RuntimeException error) {
-            failServer(run, "bootstrap", error);
+        } catch (IOException | RuntimeException error) {
+            failServer(run, error);
         } finally {
             closeQuietly(listener);
-            if (bootstrapServerSocket == listener) bootstrapServerSocket = null;
+            synchronized (this) {
+                if (serverSocket == listener) serverSocket = null;
+            }
         }
     }
 
-    private void handleBootstrap(Socket socket) throws Exception {
-        byte[] line = readLine(socket.getInputStream(), 512);
-        if (line == null) return;
-        String[] fields = new String(line, StandardCharsets.US_ASCII).split(" ", 3);
+    private void handleConnection(Socket socket, int run) {
+        try {
+            if (!isCurrent(run)) return;
+            socket.setSoTimeout(10_000);
+            byte[] line = readLine(socket.getInputStream(), 512);
+            if (line == null) return;
+            String preface = new String(line, StandardCharsets.US_ASCII);
+            if (TLS_PREFACE.equals(preface)) {
+                if (!hasTlsMaterial()) return;
+                try (SSLSocket tls = wrapTls(socket)) {
+                    synchronized (this) {
+                        if (!isCurrent(run)) return;
+                        tlsClients.add(tls);
+                    }
+                    handleTlsClient(tls);
+                }
+            } else if (preface.startsWith("TERMUXPP/BOOT/3 PROVISION ")
+                    && enrollmentInProgress.compareAndSet(false, true)) {
+                try {
+                    if (isCurrent(run)) handleBootstrap(socket, preface, run);
+                } finally {
+                    enrollmentInProgress.set(false);
+                }
+            }
+        } catch (Exception ignored) {
+            // Never log credentials or peer-controlled input.
+        } finally {
+            connections.remove(socket);
+            closeQuietly(socket);
+        }
+    }
+
+    private void handleBootstrap(Socket socket, String preface, int run) throws Exception {
+        String[] fields = preface.split(" ", 3);
         if (fields.length != 3 || !"TERMUXPP/BOOT/3".equals(fields[0]) ||
             !"PROVISION".equals(fields[1])) return;
         byte[] clientNonce = Base64.decode(fields[2], Base64.NO_WRAP);
@@ -279,14 +295,14 @@ public final class AdbShellService extends Service {
             validateClientCertificate(certificate);
             String name = new String(clientName, StandardCharsets.UTF_8);
             AdbShellAuthorizations.validateName(name);
-            if (!AdbShellApprovalActivity.request(this, certificate, name) || stopping ||
+            if (!isCurrent(run) || !AdbShellApprovalActivity.request(this, certificate, name) || !isCurrent(run) ||
                 !getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(PREF_ENABLED, false) ||
                 !isValidToken(token)) {
                 writeLine(socket, "ERR_APPROVAL");
                 return;
             }
             synchronized (AdbShellService.class) {
-                if (stopping || !isValidToken(token) ||
+                if (!isCurrent(run) || !isValidToken(token) ||
                     !getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(PREF_ENABLED, false)) return;
                 if (!hasTlsMaterial()) {
                     byte[] serverKey = decryptProvisionedServerKey(encryptedServerKey);
@@ -321,44 +337,6 @@ public final class AdbShellService extends Service {
         mac.init(new SecretKeySpec(token.getBytes(StandardCharsets.US_ASCII), "HmacSHA256"));
         mac.update((role + "\0").getBytes(StandardCharsets.US_ASCII));
         return mac.doFinal(transcript);
-    }
-
-    private void serveTls(int run) {
-        try {
-            while (isCurrent(run)) {
-                if (!hasTlsMaterial()) {
-                    sleepBriefly();
-                    continue;
-                }
-
-                SSLServerSocket listener = null;
-                try {
-                    listener = createTlsServerSocket(run);
-                    tlsServerSocket = listener;
-                    while (isCurrent(run)) {
-                        SSLSocket socket = (SSLSocket) listener.accept();
-                        tlsClients.add(socket);
-                        try {
-                            clients.execute(() -> handleTlsClient(socket));
-                        } catch (java.util.concurrent.RejectedExecutionException full) {
-                            tlsClients.remove(socket);
-                            closeQuietly(socket);
-                        }
-                    }
-                } catch (BindFailure error) {
-                    failServer(run, "TLS", error);
-                    return;
-                } catch (Exception ignored) {
-                    // Certificate setup problems are retried and intentionally not logged.
-                    if (isCurrent(run)) sleepBriefly();
-                } finally {
-                    closeQuietly(listener);
-                    if (tlsServerSocket == listener) tlsServerSocket = null;
-                }
-            }
-        } catch (RuntimeException error) {
-            failServer(run, "TLS", error);
-        }
     }
 
     private void handleTlsClient(SSLSocket socket) {
@@ -491,7 +469,7 @@ public final class AdbShellService extends Service {
         }
     }
 
-    private SSLServerSocket createTlsServerSocket(int run) throws Exception {
+    private SSLSocket wrapTls(Socket socket) throws Exception {
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
         X509Certificate serverCertificate;
         X509Certificate clientCaCertificate;
@@ -538,33 +516,22 @@ public final class AdbShellService extends Service {
         };
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(keyManagerFactory.getKeyManagers(), new javax.net.ssl.TrustManager[]{clients}, SECURE_RANDOM);
-        SSLServerSocket listener = null;
-        IOException bindError = null;
-        for (int attempt = 0; attempt < BIND_ATTEMPTS && listener == null && isCurrent(run); attempt++) {
-            try {
-                listener = (SSLServerSocket) sslContext.getServerSocketFactory()
-                    .createServerSocket(TLS_PORT, 1, InetAddress.getByName("127.0.0.1"));
-            } catch (IOException error) {
-                bindError = error;
-                sleepBriefly();
+        SSLSocket tls = (SSLSocket) sslContext.getSocketFactory()
+            .createSocket(socket, "127.0.0.1", socket.getPort(), true);
+        try {
+            tls.setUseClientMode(false);
+            tls.setNeedClientAuth(true);
+            List<String> protocols = new ArrayList<>();
+            for (String protocol : tls.getSupportedProtocols()) {
+                if ("TLSv1.2".equals(protocol) || "TLSv1.3".equals(protocol)) protocols.add(protocol);
             }
+            if (protocols.isEmpty()) throw new IOException("No supported TLS 1.2+ protocol");
+            tls.setEnabledProtocols(protocols.toArray(new String[0]));
+            return tls;
+        } catch (IOException | RuntimeException error) {
+            closeQuietly(tls);
+            throw error;
         }
-        if (listener == null) {
-            if (bindError != null) throw new BindFailure(bindError);
-            throw new IOException("TLS listener superseded");
-        }
-        listener.setNeedClientAuth(true);
-        String[] supported = listener.getSupportedProtocols();
-        List<String> protocols = new ArrayList<>();
-        for (String protocol : supported) {
-            if ("TLSv1.2".equals(protocol) || "TLSv1.3".equals(protocol)) protocols.add(protocol);
-        }
-        if (protocols.isEmpty()) {
-            listener.close();
-            throw new IOException("No supported TLS 1.2+ protocol");
-        }
-        listener.setEnabledProtocols(protocols.toArray(new String[0]));
-        return listener;
     }
 
     private void validateClientIdentity(SSLSocket socket) throws Exception {
@@ -665,7 +632,7 @@ public final class AdbShellService extends Service {
 
     private byte[] readLine(InputStream input, int maxLength) throws IOException {
         ByteArrayOutputStream line = new ByteArrayOutputStream();
-        while (line.size() <= maxLength) {
+        for (int count = 0; count <= maxLength; count++) {
             int value = input.read();
             if (value < 0) return null;
             if (value == '\n') return line.toByteArray();
@@ -855,13 +822,12 @@ public final class AdbShellService extends Service {
         }
     }
 
-    private void stopServer() {
+    private synchronized void stopServer() {
         stopping = true;
         generation.incrementAndGet();
         AdbShellApprovalActivity.cancelPending();
-        closeQuietly(bootstrapServerSocket);
-        closeQuietly(tlsServerSocket);
-        closeQuietly(bootstrapClientSocket);
+        closeQuietly(serverSocket);
+        for (Socket socket : connections) closeQuietly(socket);
         closeTlsClients();
     }
 
@@ -881,7 +847,7 @@ public final class AdbShellService extends Service {
             ? new Notification.Builder(this, CHANNEL_ID) : new Notification.Builder(this);
         return builder.setSmallIcon(R.drawable.ic_service_notification)
             .setContentTitle(getString(R.string.adb_shell_notification_title))
-            .setContentText(getString(R.string.adb_shell_notification_text))
+            .setContentText(getString(R.string.adb_shell_notification_text, PORT))
             .setOngoing(true)
             .addAction(R.drawable.ic_service_notification, getString(R.string.adb_shell_stop), stopPendingIntent)
             .build();
