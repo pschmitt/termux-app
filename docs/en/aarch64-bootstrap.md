@@ -41,7 +41,8 @@ scripts/build-aarch64-bootstrap.py fetch \
 # 3. Build. --nixpp is an AArch64 Android/Bionic executable using only Android system libraries.
 scripts/build-aarch64-bootstrap.py build \
     --deb-dir debs --lock debs/debs.lock.json \
-    --nixpp /path/to/nixpp --nixpp-version 0.4.0 \
+    --nixpp /path/to/nixpp --nixpp-version 0.5.0 \
+    --nixpp-assets /path/to/seed/share/nixpp \
     -o out/bootstrap-aarch64.zip
 
 # 4. Build the app with it on a remote worker.

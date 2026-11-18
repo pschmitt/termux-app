@@ -306,6 +306,23 @@ class BuildTests(Base):
         self.assertIn(b'--nixpp "$@"', launcher)
         self.assertIn("bin/nixpp-setup", t.package_files("nixpp"))
         self.assertEqual(bab.verify_tree(t, ["nixpp"]), [])
+        assets = os.path.join(self.d, "seed")
+        os.mkdir(assets)
+        for name, content in (
+            ("launcher", elf(pad=b"launcher")),
+            ("manifest.json", b"{}"),
+            ("bootstrap-aarch64.zip", b"seed"),
+        ):
+            with open(os.path.join(assets, name), "wb") as output:
+                output.write(content)
+        self.assertEqual(self.build(*deps, "--nixpp", n, "--nixpp-assets", assets), 0)
+        t = self.tree()
+        self.assertEqual(t.files["share/nixpp/launcher"][1], 0o700)
+        self.assertEqual(t.files["share/nixpp/manifest.json"][1], 0o644)
+        self.assertIn("share/nixpp/bootstrap-aarch64.zip", t.package_files("nixpp"))
+        self.assertEqual(bab.verify_tree(t, ["nixpp"]), [])
+        os.unlink(os.path.join(assets, "manifest.json"))
+        self.assertEqual(self.build(*deps, "--nixpp", n, "--nixpp-assets", assets), 1)
         with open(n, "wb") as f:
             f.write(elf(machine=62))  # x86_64
         self.assertEqual(self.build("--nixpp", n), 1)

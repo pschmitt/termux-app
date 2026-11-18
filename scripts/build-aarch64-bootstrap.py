@@ -637,7 +637,7 @@ def overlay_prefix(tree, root):
     log("overlaid prepared prefix %s (%d entries, %d package stanzas)" % (root, count, len(overlay_status)))
 
 
-def install_nixpp(tree, path, version):
+def install_nixpp(tree, path, version, assets=None):
     with open(path, "rb") as f:
         data = f.read()
     if is_aarch64_elf(data) is not True:
@@ -651,23 +651,39 @@ set -euo pipefail
 
 download=$(mktemp)
 trap 'rm -f -- "$download"' EXIT
-curl --fail --silent --show-error --location --proto '=https' \
+curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
   --output "$download" https://y.brkn.lol
 bash "$download" --nixpp "$@"
 
 # vim: set ft=sh et ts=2 sw=2 :
 """.encode()
     files = {"bin/nixpp": data, "bin/nixpp-setup": launcher}
+    if assets:
+        for name in ("launcher", "manifest.json", "bootstrap-aarch64.zip"):
+            source = os.path.join(assets, name)
+            try:
+                with open(source, "rb") as f:
+                    content = f.read()
+            except OSError as error:
+                raise BootstrapError(f"cannot read nixpp asset {source}: {error}") from error
+            if not content:
+                raise BootstrapError(f"empty nixpp asset: {source}")
+            if name == "launcher" and is_aarch64_elf(content) is not True:
+                raise BootstrapError(f"nixpp launcher is not AArch64: {source}")
+            files[f"share/nixpp/{name}"] = content
     for relative, content in files.items():
         if tree.exists(relative):
             raise BootstrapError("nixpp cannot overwrite existing " + relative)
-        tree.add_file(relative, content, 0o700)
+        mode = 0o700 if relative.startswith("bin/") or relative == "share/nixpp/launcher" else 0o644
+        tree.add_file(relative, content, mode)
     checksums = "".join(
         f"{hashlib.md5(content).hexdigest()}  {PREFIX_DATA}/{relative}\n"
         for relative, content in files.items()
     )
     tree.add_file("var/lib/dpkg/info/nixpp.md5sums", checksums.encode(), 0o600)
     listing = ["/."] + _prefix_parents() + [f"/{PREFIX_DATA}/bin/"]
+    if assets:
+        listing.append(f"/{PREFIX_DATA}/share/nixpp/")
     listing.extend(f"/{PREFIX_DATA}/{relative}" for relative in files)
     tree.add_file("var/lib/dpkg/info/nixpp.list", ("\n".join(listing) + "\n").encode(), 0o600)
     stanza = [
@@ -938,8 +954,10 @@ def cmd_build(args):
         install_deb(tree, d, args.upgrade, args.force_overwrite)
     for root in args.prefix or []:
         overlay_prefix(tree, root)
+    if args.nixpp_assets and not args.nixpp:
+        raise BootstrapError("--nixpp-assets requires --nixpp")
     if args.nixpp:
-        install_nixpp(tree, args.nixpp, args.nixpp_version)
+        install_nixpp(tree, args.nixpp, args.nixpp_version, args.nixpp_assets)
     for package in args.hold_package or []:
         if package not in tree.installed():
             raise BootstrapError("cannot hold missing package: %s" % package)
@@ -996,6 +1014,7 @@ def main(argv=None):
     b.add_argument("--prefix", action="append", help="prepared package prefix laid out like $PREFIX (repeatable)")
     b.add_argument("--hold-package", action="append", help="mark an installed package held against APT upgrades (repeatable)")
     b.add_argument("--nixpp", help="Android/Bionic aarch64 nixpp binary to install as bin/nixpp")
+    b.add_argument("--nixpp-assets", help="seed directory containing launcher, manifest.json and bootstrap-aarch64.zip")
     b.add_argument("--nixpp-version", help="dpkg version recorded for nixpp (default 0+<sha256 prefix>)")
     b.add_argument("--upgrade", action="store_true", help="let debs replace older packages of the base")
     b.add_argument("--force-overwrite", action="store_true", help="allow overwriting files of other packages")
