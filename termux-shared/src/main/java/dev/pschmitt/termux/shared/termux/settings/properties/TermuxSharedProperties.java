@@ -13,6 +13,8 @@ import dev.pschmitt.termux.shared.termux.TermuxConstants;
 import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysColorParser;
 import dev.pschmitt.termux.shared.termux.extrakeys.TerminalKeySequence;
 
+import dev.pschmitt.termux.shared.termux.nix.TermuxNix;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +44,10 @@ public abstract class TermuxSharedProperties {
         loadTermuxPropertiesFromDisk();
     }
 
+    protected List<String> getPropertiesFilePaths() {
+        return mPropertiesFilePaths;
+    }
+
     /**
      * Reload the termux properties from disk into an in-memory cache.
      */
@@ -49,7 +55,7 @@ public abstract class TermuxSharedProperties {
         // Properties files must be searched everytime since no file may exist when constructor is
         // called or a higher priority file may have been created afterward. Otherwise, if no file
         // was found, then default props would keep loading, since mSharedProperties would be null. #2836
-        mPropertiesFile = SharedProperties.getPropertiesFileFromList(mPropertiesFilePaths, LOG_TAG);
+        mPropertiesFile = SharedProperties.getPropertiesFileFromList(getPropertiesFilePaths(), LOG_TAG);
         mSharedProperties = null;
         mSharedProperties = new SharedProperties(mContext, mPropertiesFile, mPropertiesList, mSharedPropertiesParser);
 
@@ -194,7 +200,7 @@ public abstract class TermuxSharedProperties {
      */
     public static Object getTermuxInternalPropertyValue(Context context, String key) {
         return SharedProperties.getInternalProperty(context,
-            SharedProperties.getPropertiesFileFromList(TermuxConstants.TERMUX_PROPERTIES_FILE_PATHS_LIST, LOG_TAG),
+            SharedProperties.getPropertiesFileFromList(TermuxNix.configPaths(TermuxConstants.TERMUX_PROPERTIES_FILE_PATHS_LIST), LOG_TAG),
             key, new SharedPropertiesParserClient());
     }
 

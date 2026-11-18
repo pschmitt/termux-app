@@ -3,6 +3,7 @@ package com.termux.app.settings;
 import android.util.AtomicFile;
 
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.nix.TermuxNix;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
@@ -26,7 +27,11 @@ public final class TermuxPropertiesEditor {
     private final List<String> paths;
 
     public TermuxPropertiesEditor() {
-        this(TermuxConstants.TERMUX_PROPERTIES_PRIMARY_FILE, TermuxConstants.TERMUX_PROPERTIES_FILE_PATHS_LIST);
+        this(TermuxNix.configPaths(TermuxConstants.TERMUX_PROPERTIES_FILE_PATHS_LIST));
+    }
+
+    private TermuxPropertiesEditor(List<String> paths) {
+        this(new File(paths.get(0)), paths);
     }
 
     public TermuxPropertiesEditor(File target, List<String> paths) {

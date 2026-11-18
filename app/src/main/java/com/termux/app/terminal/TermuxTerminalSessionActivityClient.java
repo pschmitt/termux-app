@@ -24,6 +24,7 @@ import com.termux.app.TermuxActivity;
 import dev.pschmitt.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
 import dev.pschmitt.termux.shared.termux.TermuxConfigDirs;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.nix.TermuxNix;
 import com.termux.app.TermuxService;
 import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 import dev.pschmitt.termux.shared.termux.terminal.io.BellHandler;
@@ -496,7 +497,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void checkForFontAndColors() {
         try {
             // Looked up per file: ~/.config/termuxpp, then ~/.config/termux, then ~/.termux
-            final List<String> configDirs = TermuxConstants.TERMUX_CONFIG_DIR_PATHS_LIST;
+            final List<String> configDirs = TermuxNix.configPaths(TermuxConstants.TERMUX_CONFIG_DIR_PATHS_LIST);
             File colorsFile = TermuxConfigDirs.resolveFile(configDirs, "colors.properties", false);
             File fontFile = TermuxConfigDirs.resolveFile(configDirs, "font.ttf", true);
 

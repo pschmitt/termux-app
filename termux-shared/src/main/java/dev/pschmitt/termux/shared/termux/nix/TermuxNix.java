@@ -3,7 +3,12 @@ package dev.pschmitt.termux.shared.termux.nix;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
 import dev.pschmitt.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
@@ -41,6 +46,51 @@ public final class TermuxNix {
     /** Whether the runtime finished its setup. */
     public static boolean isReady() {
         return new File(RUNTIME_DIR_PATH, "ready").isFile();
+    }
+
+    /** Prefer the app configuration in the ready guest's actual home. */
+    @NonNull
+    public static List<String> configPaths(@NonNull List<String> nativePaths) {
+        File guest = guestHome(new File(RUNTIME_DIR_PATH));
+        if (guest == null) return nativePaths;
+        List<String> paths = new ArrayList<>(nativePaths.size() * 2);
+        String nativeHome = TermuxConstants.TERMUX_HOME_DIR_PATH + "/";
+        try {
+            String guestPrefix = guest.getCanonicalPath() + "/";
+            for (String path : nativePaths) {
+                if (!path.startsWith(nativeHome)) return nativePaths;
+                File candidate = new File(guest, path.substring(nativeHome.length()));
+                if (candidate.getCanonicalPath().startsWith(guestPrefix)) paths.add(candidate.getPath());
+                else return nativePaths;
+            }
+        } catch (IOException e) {
+            return nativePaths;
+        }
+        paths.addAll(nativePaths);
+        return paths;
+    }
+
+    @Nullable
+    static File guestHome(@NonNull File runtime) {
+        File session = new File(runtime, "session.env");
+        if (!new File(runtime, "ready").isFile() || !session.isFile() || session.length() > 16384)
+            return null;
+        try (BufferedReader reader = new BufferedReader(new FileReader(session))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith("SESSION_HOME=")) continue;
+                String home = line.substring("SESSION_HOME=".length());
+                if (!home.matches("/home/[a-z_][a-z0-9_-]*")) return null;
+                File homes = new File(runtime, "root/home");
+                File guest = new File(homes, home.substring("/home/".length()));
+                if (guest.isDirectory() && guest.getCanonicalFile().getParentFile().equals(homes.getCanonicalFile()))
+                    return guest;
+                return null;
+            }
+        } catch (IOException e) {
+            return null;
+        }
+        return null;
     }
 
     /** Whether new default sessions enter the guest: provisioned and not opted out with {@code nix-session=false}. */

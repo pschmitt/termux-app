@@ -5,6 +5,9 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.nix.TermuxNix;
+
+import java.util.List;
 
 public class TermuxAppSharedProperties extends TermuxSharedProperties {
 
@@ -15,6 +18,11 @@ public class TermuxAppSharedProperties extends TermuxSharedProperties {
         super(context, TermuxConstants.TERMUX_APP_NAME,
             TermuxConstants.TERMUX_PROPERTIES_FILE_PATHS_LIST, TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST,
             new TermuxSharedProperties.SharedPropertiesParserClient());
+    }
+
+    @Override
+    protected List<String> getPropertiesFilePaths() {
+        return TermuxNix.configPaths(super.getPropertiesFilePaths());
     }
 
     /**

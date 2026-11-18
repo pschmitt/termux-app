@@ -1,12 +1,15 @@
 package dev.pschmitt.termux.shared.termux.nix;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -33,6 +36,18 @@ public class TermuxNixTest {
 
         assertTrue(nixpp.setExecutable(false));
         assertFalse(TermuxNix.isProvisioned(nixpp, assets));
+    }
+
+    @Test
+    public void guestHomeRequiresReadyRuntimeAndSafeHome() throws IOException {
+        File home = folder.newFolder("root", "home", "guest");
+        File session = folder.newFile("session.env");
+        Files.write(session.toPath(), "SESSION_HOME=/home/guest\n".getBytes(StandardCharsets.UTF_8));
+        assertNull(TermuxNix.guestHome(folder.getRoot()));
+        folder.newFile("ready");
+        assertEquals(home, TermuxNix.guestHome(folder.getRoot()));
+        Files.write(session.toPath(), "SESSION_HOME=/home/../guest\n".getBytes(StandardCharsets.UTF_8));
+        assertNull(TermuxNix.guestHome(folder.getRoot()));
     }
 
     @Test
