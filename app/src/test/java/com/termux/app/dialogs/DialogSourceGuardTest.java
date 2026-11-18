@@ -97,7 +97,8 @@ public class DialogSourceGuardTest {
         Assert.assertTrue("named session input", activity.contains("TextInputDialogUtils.textInput("));
 
         String installer = source(app + "TermuxInstaller.java");
-        Assert.assertTrue("bootstrap progress", installer.contains("DialogUtils.showProgress("));
+        // The first-start progress is a card over the terminal area, not a dialog.
+        Assert.assertTrue("bootstrap progress", installer.contains("BootstrapProgressOverlay.show("));
         Assert.assertTrue("bootstrap error", installer.contains("DialogUtils.builder("));
         Assert.assertTrue("bootstrap messages", installer.contains("MessageDialogUtils.showMessage(")
             && installer.contains("MessageDialogUtils.exitAppWithErrorMessage("));

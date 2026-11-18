@@ -1,7 +1,6 @@
 package com.termux.app;
 
 import android.app.Activity;
-import androidx.appcompat.app.AlertDialog;
 import android.content.Context;
 import android.os.Build;
 import android.os.Environment;
@@ -111,7 +110,8 @@ final class TermuxInstaller {
             Logger.logInfo(LOG_TAG, "The termux prefix directory \"" + TERMUX_PREFIX_DIR_PATH + "\" does not exist but another file exists at its destination.");
         }
 
-        final AlertDialog progress = DialogUtils.showProgress(activity, activity.getString(R.string.bootstrap_installer_body));
+        final TermuxAppSharedProperties properties = TermuxAppSharedProperties.getProperties();
+        final BootstrapProgressOverlay progress = BootstrapProgressOverlay.show(activity);
         new Thread() {
             @Override
             public void run() {
@@ -127,6 +127,7 @@ final class TermuxInstaller {
                         adapter = TermuxBootstrapAdapter.load(TermuxConstants.TERMUX_PACKAGE_NAME, helperIdentityValues());
                     } catch (java.io.IOException e) {
                         Logger.logError(LOG_TAG, "Refusing to install the bootstrap: " + e.getMessage());
+                        activity.runOnUiThread(() -> progress.dismiss(null));
                         showBootstrapErrorDialog(activity, whenDone, "The bootstrap was not installed and nothing was changed: "
                             + e.getMessage());
                         return;
@@ -135,6 +136,7 @@ final class TermuxInstaller {
                     // Delete prefix staging directory or any file at its destination
                     error = FileUtils.deleteFile("termux prefix staging directory", TERMUX_STAGING_PREFIX_DIR_PATH, true);
                     if (error != null) {
+                        activity.runOnUiThread(() -> progress.dismiss(null));
                         showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
                         return;
                     }
@@ -142,6 +144,7 @@ final class TermuxInstaller {
                     // Delete prefix directory or any file at its destination
                     error = FileUtils.deleteFile("termux prefix directory", TERMUX_PREFIX_DIR_PATH, true);
                     if (error != null) {
+                        activity.runOnUiThread(() -> progress.dismiss(null));
                         showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
                         return;
                     }
@@ -149,6 +152,7 @@ final class TermuxInstaller {
                     // Create prefix staging directory if it does not already exist and set required permissions
                     error = TermuxFileUtils.isTermuxPrefixStagingDirectoryAccessible(true, true);
                     if (error != null) {
+                        activity.runOnUiThread(() -> progress.dismiss(null));
                         showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
                         return;
                     }
@@ -156,6 +160,7 @@ final class TermuxInstaller {
                     // Create prefix directory if it does not already exist and set required permissions
                     error = TermuxFileUtils.isTermuxPrefixDirectoryAccessible(true, true);
                     if (error != null) {
+                        activity.runOnUiThread(() -> progress.dismiss(null));
                         showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
                         return;
                     }
@@ -207,77 +212,47 @@ final class TermuxInstaller {
                     // Recreate env file since termux prefix was wiped earlier
                     TermuxShellEnvironment.writeEnvironmentToFile(activity);
 
-                    // A provisioning bootstrap: set up the Nix guest while the dialog reports its progress, so
+                    // A provisioning bootstrap: set up the Nix guest while the card reports its progress, so
                     // the first session enters it right away. If this does not finish, nixpp login resumes it.
-                    TermuxAppSharedProperties properties = TermuxAppSharedProperties.getProperties();
                     if (TermuxNix.shouldEnterGuest(properties)) {
                         // Sessions start nixpp, not the native login shell whose profile.d fallback would
                         // run the bootstrap second stage (postinst scripts, SSH host keys): run it here.
-                        activity.runOnUiThread(() -> showProgressMessage(progress,
-                            activity.getString(R.string.nix_setup_second_stage)));
+                        activity.runOnUiThread(() -> {
+                            progress.addNixSteps();
+                            progress.note(activity.getString(R.string.bootstrap_note_extracted,
+                                extracted.symlinks.size(), extracted.adaptedFiles.size()));
+                            progress.step(BootstrapProgressOverlay.Step.CONFIGURE);
+                        });
                         TermuxNixSetup.runSecondStage(activity);
                         TermuxNixSetup.run(activity, TermuxNix.user(properties),
-                            status -> activity.runOnUiThread(() -> showNixStatus(activity, progress, status)));
+                            status -> activity.runOnUiThread(() -> showNixStatus(progress, status)));
                     }
 
-                    activity.runOnUiThread(whenDone);
+                    activity.runOnUiThread(() -> progress.finish(whenDone));
 
                 } catch (final Exception e) {
+                    activity.runOnUiThread(() -> progress.dismiss(null));
                     showBootstrapErrorDialog(activity, whenDone, Logger.getStackTracesMarkdownString(null, Logger.getStackTracesStringArray(e)));
-
-                } finally {
-                    activity.runOnUiThread(() -> {
-                        try {
-                            progress.dismiss();
-                        } catch (RuntimeException e) {
-                            // Activity already dismissed - ignore.
-                        }
-                    });
                 }
             }
         }.start();
     }
 
-    private static void showProgressMessage(AlertDialog progress, String message) {
-        try {
-            android.widget.TextView text = progress.findViewById(dev.pschmitt.termux.shared.R.id.dialog_progress_message);
-            if (text != null) text.setText(message);
-        } catch (RuntimeException e) {
-            // The dialog is gone (activity finished): nothing to show.
-        }
-    }
-
-    /** Show one Nix setup step in the bootstrap dialog; package steps get determinate progress. */
-    private static void showNixStatus(Activity activity, AlertDialog progress, TermuxNixSetup.Status status) {
-        String message;
+    /** Show one Nix setup step on the first-start card. */
+    private static void showNixStatus(BootstrapProgressOverlay progress, TermuxNixSetup.Status status) {
         switch (status.stage) {
-            case EXTRACT: message = activity.getString(R.string.nix_setup_extract); break;
-            case PREPARED: message = activity.getString(R.string.nix_setup_prepared); break;
-            case PACKAGE:
-                String name = status.name == null ? "" : status.name;
-                message = status.detail == null || status.detail.equals(name)
-                    ? activity.getString(R.string.nix_setup_package, status.index, status.total, name)
-                    : activity.getString(R.string.nix_setup_package_copy, status.index, status.total, name, status.detail);
+            case EXTRACT:
+            case PREPARED:
+                progress.step(BootstrapProgressOverlay.Step.NIX_PREPARE);
                 break;
-            case CHECK: message = activity.getString(R.string.nix_setup_check); break;
-            default: message = activity.getString(R.string.nix_setup_ready); break;
-        }
-        try {
-            android.widget.TextView text = progress.findViewById(dev.pschmitt.termux.shared.R.id.dialog_progress_message);
-            if (text != null) text.setText(message);
-            com.google.android.material.progressindicator.CircularProgressIndicator indicator =
-                progress.findViewById(dev.pschmitt.termux.shared.R.id.dialog_progress_indicator);
-            if (indicator != null) {
-                if (status.total > 0) {
-                    indicator.setIndeterminate(false);
-                    indicator.setMax(status.total);
-                    indicator.setProgressCompat(status.index, true);
-                } else if (status.stage != TermuxNixSetup.Status.Stage.READY) {
-                    indicator.setIndeterminate(true);
-                }
-            }
-        } catch (RuntimeException e) {
-            // The dialog is gone (activity finished): nothing to show.
+            case PACKAGE:
+                progress.packages(status.index, status.total, status.name, status.detail);
+                break;
+            case CHECK:
+                progress.step(BootstrapProgressOverlay.Step.NIX_CHECK);
+                break;
+            default:
+                break;
         }
     }
 

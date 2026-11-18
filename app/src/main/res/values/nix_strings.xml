@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- First-start setup of the full-Nix guest, shown in the bootstrap dialog -->
-    <string name="nix_setup_second_stage">Configuring bootstrap packages…</string>
-    <string name="nix_setup_extract">Unpacking the Nix bootstrap…</string>
-    <string name="nix_setup_prepared">Preparing the Nix environment…</string>
-    <string name="nix_setup_package">Installing Nix packages (%1$d of %2$d)\n%3$s</string>
-    <string name="nix_setup_package_copy">Installing Nix packages (%1$d of %2$d)\n%3$s\n%4$s</string>
-    <string name="nix_setup_check">Checking the Nix environment…</string>
+    <!-- First-start setup of the full-Nix guest -->
     <string name="nix_setup_ready">Nix is ready.</string>
+    <!-- First-start overlay -->
+    <string name="bootstrap_overlay_title">Setting up TermuxPP</string>
+    <string name="bootstrap_overlay_title_done">Ready</string>
+    <string name="bootstrap_step_extract">Unpack the bootstrap</string>
+    <string name="bootstrap_step_configure">Configure the bootstrap packages</string>
+    <string name="bootstrap_step_nix_prepare">Prepare the Nix store</string>
+    <string name="bootstrap_step_nix_packages">Install the Nix packages</string>
+    <string name="bootstrap_step_nix_check">Check the Nix environment</string>
+    <string name="bootstrap_step_count">%1$d / %2$d</string>
+    <string name="bootstrap_note_extracting">unpacking the bootstrap archive</string>
+    <string name="bootstrap_note_extracted">unpacked: %1$d links, %2$d files adapted to TermuxPP</string>
 </resources>

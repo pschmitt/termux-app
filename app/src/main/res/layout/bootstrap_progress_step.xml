@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:minHeight="32dp"
+    android:orientation="horizontal">
+
+    <FrameLayout
+        android:layout_width="22dp"
+        android:layout_height="22dp">
+
+        <ImageView
+            android:id="@+id/bootstrap_step_icon"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ui_ic_circle_outline"
+            app:tint="@color/ui_outline" />
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/bootstrap_step_spinner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:indeterminate="true"
+            android:visibility="gone"
+            app:indicatorColor="@color/ui_primary"
+            app:indicatorSize="18dp"
+            app:trackThickness="2.5dp" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/bootstrap_step_label"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_weight="1"
+        android:textAppearance="@style/TextAppearance.TermuxPP.Body"
+        android:textColor="@color/ui_on_surface_variant" />
+
+    <TextView
+        android:id="@+id/bootstrap_step_count"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textAppearance="@style/TextAppearance.TermuxPP.Body"
+        android:textColor="@color/ui_primary"
+        android:visibility="gone" />
+</LinearLayout>

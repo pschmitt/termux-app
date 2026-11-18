@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The log "code block" of the first-start overlay: a terminal look in both themes. -->
+    <color name="bootstrap_code_background">#1B1722</color>
+    <color name="bootstrap_code_text">#E8E0EE</color>
+    <color name="bootstrap_code_dim">#958E9F</color>
+    <color name="bootstrap_code_accent">#D8B4FE</color>
+</resources>

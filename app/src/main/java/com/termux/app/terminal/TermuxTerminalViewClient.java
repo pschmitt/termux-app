@@ -902,7 +902,8 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
 
         // Do not force show soft keyboard if termux-reload-settings command was run with hardware keyboard
         // or soft keyboard is to be hidden or is disabled
-        if (!isReloadTermuxProperties && !noShowKeyboard) {
+        if (!isReloadTermuxProperties && !noShowKeyboard
+            && mActivity.findViewById(R.id.bootstrap_overlay) == null) {
             // Request focus for TerminalView
             // Also show the keyboard, since onFocusChange will not be called if TerminalView already
             // had focus on startup to show the keyboard, like when opening url with context menu
@@ -917,6 +918,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     private Runnable getShowSoftKeyboardRunnable() {
         if (mShowSoftKeyboardRunnable == null) {
             mShowSoftKeyboardRunnable = () -> {
+                if (mActivity.findViewById(R.id.bootstrap_overlay) != null) return;
                 KeyboardUtils.showSoftKeyboard(mActivity, mActivity.getTerminalView());
             };
         }
