@@ -12,7 +12,6 @@ import android.widget.Toast;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
@@ -34,6 +33,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import dev.pschmitt.termux.shared.interact.DialogUtils;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
 import dev.pschmitt.termux.shared.termux.nix.TermuxNix;
 import dev.pschmitt.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
@@ -137,7 +137,7 @@ public class ServicesPreferencesFragment extends PreferenceFragmentCompat {
             getString(R.string.nix_services_restart),
             getString(R.string.nix_services_logs)
         };
-        new AlertDialog.Builder(context)
+        DialogUtils.builder(context)
             .setTitle(service.name)
             .setItems(actions, (dialog, which) -> {
                 String action = new String[]{"start", "stop", "restart", "logs"}[which];
@@ -242,7 +242,7 @@ public class ServicesPreferencesFragment extends PreferenceFragmentCompat {
         view.setPadding(padding, padding, padding, padding);
         ScrollView scrollView = new ScrollView(requireContext());
         scrollView.addView(view);
-        new AlertDialog.Builder(requireContext())
+        DialogUtils.builder(requireContext())
             .setTitle(title)
             .setView(scrollView)
             .setPositiveButton(android.R.string.ok, null)
