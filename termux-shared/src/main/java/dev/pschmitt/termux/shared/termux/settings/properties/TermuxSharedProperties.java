@@ -325,6 +325,8 @@ public abstract class TermuxSharedProperties {
                 return (String) getBackKeyBehaviourInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_DEFAULT_WORKING_DIRECTORY:
                 return (String) getDefaultWorkingDirectoryInternalPropertyValueFromValue(value);
+            case TermuxPropertyConstants.KEY_NIX_USER:
+                return (String) getNixUserInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_EXTRA_KEYS:
                 return (String) getExtraKeysInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_STYLE:
@@ -540,6 +542,15 @@ public abstract class TermuxSharedProperties {
      * @param path The {@link String} path to check.
      * @return Returns the internal value for value.
      */
+    /** A valid guest user name (as nixpp accepts it), else {@link TermuxPropertyConstants#DEFAULT_IVALUE_NIX_USER}. */
+    public static String getNixUserInternalPropertyValueFromValue(String value) {
+        if (value != null && value.matches("[a-z_][a-z0-9_-]{0,31}")) return value;
+        if (value != null && !value.isEmpty())
+            Logger.logError(LOG_TAG, "Invalid value \"" + value + "\" for the key \"" + TermuxPropertyConstants.KEY_NIX_USER
+                + "\". Using default value \"" + TermuxPropertyConstants.DEFAULT_IVALUE_NIX_USER + "\" instead.");
+        return TermuxPropertyConstants.DEFAULT_IVALUE_NIX_USER;
+    }
+
     public static String getDefaultWorkingDirectoryInternalPropertyValueFromValue(String path) {
         if (path == null || path.isEmpty()) return TermuxPropertyConstants.DEFAULT_IVALUE_DEFAULT_WORKING_DIRECTORY;
         File workDir = new File(path);
@@ -999,6 +1010,14 @@ public abstract class TermuxSharedProperties {
 
     public boolean isBackKeyTheEscapeKey() {
         return (boolean) TermuxPropertyConstants.IVALUE_BACK_KEY_BEHAVIOUR_ESCAPE.equals(getInternalPropertyValue(TermuxPropertyConstants.KEY_BACK_KEY_BEHAVIOUR, true));
+    }
+
+    public boolean shouldStartNixSession() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_NIX_SESSION, true);
+    }
+
+    public String getNixUser() {
+        return (String) getInternalPropertyValue(TermuxPropertyConstants.KEY_NIX_USER, true);
     }
 
     public String getDefaultWorkingDirectory() {

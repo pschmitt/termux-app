@@ -71,6 +71,10 @@ public final class PropertyInputSpec {
                 return bool(key, "Show the text of the extra keys buttons in capital letters.");
             case TermuxPropertyConstants.KEY_HIDE_SOFT_KEYBOARD_ON_STARTUP:
                 return bool(key, "Do not show the soft keyboard when the app starts.");
+            case TermuxPropertyConstants.KEY_NIX_SESSION:
+                return bool(key, "Start new sessions in the Nix environment when the bootstrap provides it."
+                    + " Turn it off to start the native Termux shell. The failsafe session always starts the"
+                    + " native shell.");
             case TermuxPropertyConstants.KEY_RUN_TERMUX_AM_SOCKET_SERVER:
                 return bool(key, "Run the socket server of the faster \"am\" command at app start. Turn it off"
                     + " only if you do not use that command.");
@@ -203,6 +207,11 @@ public final class PropertyInputSpec {
                 return "The directory in which new sessions start. Format: the full path of an existing directory"
                     + " that can be read, like " + TermuxConstants.TERMUX_HOME_DIR_PATH + "/projects. Default: "
                     + TermuxPropertyConstants.DEFAULT_IVALUE_DEFAULT_WORKING_DIRECTORY + " (the home directory).";
+            case TermuxPropertyConstants.KEY_NIX_USER:
+                return "The user name in the Nix environment. It is used only when the Nix environment is set"
+                    + " up, so change it before the first start or after you remove the environment. Format: a"
+                    + " lowercase letter or _, then up to 31 lowercase letters, digits, _ or -. Default: "
+                    + TermuxPropertyConstants.DEFAULT_IVALUE_NIX_USER + ".";
             case TermuxPropertyConstants.KEY_EXTRA_KEYS:
                 return "The buttons of the extra keys toolbar. Format: a JSON array of rows, each row an array of"
                     + " keys. A key is a name like \"ESC\" or \"TAB\", a character like \"/\", or an object like"
@@ -333,6 +342,9 @@ public final class PropertyInputSpec {
                 return directory.isDirectory() && directory.canRead() ? null
                     : "Expected the full path of an existing directory that can be read";
             }
+            case TermuxPropertyConstants.KEY_NIX_USER:
+                return value.matches("[a-z_][a-z0-9_-]{0,31}") ? null
+                    : "Expected a lowercase letter or _, then up to 31 lowercase letters, digits, _ or -";
             case TermuxPropertyConstants.KEY_EXTRA_KEYS:
                 return extraKeys(value);
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_STYLE:

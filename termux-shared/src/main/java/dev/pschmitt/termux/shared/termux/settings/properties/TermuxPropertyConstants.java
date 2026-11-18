@@ -148,6 +148,12 @@ public final class TermuxPropertyConstants {
 
 
 
+    /** Defines the key for whether new default sessions enter the Nix guest (`nixpp login`) when the
+     * bootstrap provides it. The failsafe session always starts the native shell. */
+    public static final String KEY_NIX_SESSION =  "nix-session"; // Default: "nix-session"
+
+
+
     /** Defines the key for whether url links in terminal transcript will automatically open on click or on tap */
     public static final String KEY_TERMINAL_ONCLICK_URL_OPEN =  "terminal-onclick-url-open"; // Default: "terminal-onclick-url-open"
 
@@ -327,6 +333,13 @@ public final class TermuxPropertyConstants {
 
 
 
+    /** Defines the key for the guest user name of a new Nix runtime */
+    public static final String KEY_NIX_USER =  "nix-user"; // Default: "nix-user"
+
+    public static final String DEFAULT_IVALUE_NIX_USER = "nix";
+
+
+
     /** Defines the key for the default working directory */
     public static final String KEY_DEFAULT_WORKING_DIRECTORY =  "default-working-directory"; // Default: "default-working-directory"
     /** Defines the default working directory */
@@ -489,6 +502,7 @@ public final class TermuxPropertyConstants {
         KEY_ENFORCE_CHAR_BASED_INPUT,
         KEY_EXTRA_KEYS_TEXT_ALL_CAPS,
         KEY_HIDE_SOFT_KEYBOARD_ON_STARTUP,
+        KEY_NIX_SESSION,
         KEY_RUN_TERMUX_AM_SOCKET_SERVER,
         KEY_TERMINAL_ONCLICK_URL_OPEN,
         KEY_USE_CTRL_SPACE_WORKAROUND,
@@ -540,6 +554,7 @@ public final class TermuxPropertyConstants {
         /* String */
         KEY_BACK_KEY_BEHAVIOUR,
         KEY_DEFAULT_WORKING_DIRECTORY,
+        KEY_NIX_USER,
         KEY_EXTRA_KEYS,
         KEY_EXTRA_KEYS_STYLE,
         KEY_NIGHT_MODE,
@@ -573,6 +588,7 @@ public final class TermuxPropertyConstants {
      */
     public static final Set<String> TERMUX_DEFAULT_TRUE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST = new HashSet<>(Arrays.asList(
         KEY_EXTRA_KEYS_TEXT_ALL_CAPS,
+        KEY_NIX_SESSION,
         KEY_RUN_TERMUX_AM_SOCKET_SERVER
     ));
 

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- First-start setup of the full-Nix guest, shown in the bootstrap dialog -->
+    <string name="nix_setup_second_stage">Configuring bootstrap packages…</string>
+    <string name="nix_setup_extract">Unpacking the Nix bootstrap…</string>
+    <string name="nix_setup_prepared">Preparing the Nix environment…</string>
+    <string name="nix_setup_package">Installing Nix packages (%1$d of %2$d)\n%3$s</string>
+    <string name="nix_setup_package_copy">Installing Nix packages (%1$d of %2$d)\n%3$s\n%4$s</string>
+    <string name="nix_setup_check">Checking the Nix environment…</string>
+    <string name="nix_setup_ready">Nix is ready.</string>
+</resources>

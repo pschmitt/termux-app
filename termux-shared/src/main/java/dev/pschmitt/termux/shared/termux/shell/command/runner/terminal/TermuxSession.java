@@ -16,6 +16,8 @@ import dev.pschmitt.termux.shared.errors.Errno;
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.shell.command.environment.IShellEnvironment;
 import dev.pschmitt.termux.shared.shell.ShellUtils;
+import dev.pschmitt.termux.shared.termux.nix.TermuxNix;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 
@@ -91,6 +93,16 @@ public class TermuxSession {
             defaultBinPath = "/system/bin";
 
         boolean isLoginShell = false;
+        if (executionCommand.executable == null && !executionCommand.isFailsafe
+            && (executionCommand.arguments == null || executionCommand.arguments.length == 0)) {
+            // A provisioning bootstrap: enter the Nix guest. nixpp finishes an interrupted setup first
+            // and falls back to the native shell itself when the guest cannot start.
+            TermuxAppSharedProperties properties = TermuxAppSharedProperties.getProperties();
+            if (TermuxNix.shouldEnterGuest(properties)) {
+                executionCommand.executable = TermuxNix.NIXPP_PATH;
+                executionCommand.arguments = TermuxNix.loginArguments(TermuxNix.user(properties));
+            }
+        }
         if (executionCommand.executable == null) {
             if (!executionCommand.isFailsafe) {
                 for (String shellBinary : UnixShellEnvironment.LOGIN_SHELL_BINARIES) {
