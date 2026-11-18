@@ -61,6 +61,8 @@ public final class PropertyInputSpec {
             case TermuxPropertyConstants.KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS:
                 return bool(key, "Turn off the Ctrl+Alt keyboard shortcuts of a hardware keyboard, like creating or"
                     + " switching sessions, so that those keys reach the terminal programs.");
+            case TermuxPropertyConstants.KEY_CREATE_SESSION_ON_SINGLE_SESSION_SWITCH:
+                return "Open a new terminal when previous or next session is invoked with only one open. Default: disabled.";
             case TermuxPropertyConstants.KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST:
                 return bool(key, "Do not show the short message with the session number and name when you switch to"
                     + " another terminal session.");

@@ -124,6 +124,7 @@ public final class TermuxPropertyConstants {
 
 
     /** Defines the key for whether a toast will be shown when user changes the terminal session */
+    public static final String KEY_CREATE_SESSION_ON_SINGLE_SESSION_SWITCH = "create-session-on-single-session-switch";
     public static final String KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST =  "disable-terminal-session-change-toast"; // Default: "disable-terminal-session-change-toast"
 
 
@@ -498,6 +499,7 @@ public final class TermuxPropertyConstants {
         KEY_DISABLE_FILE_SHARE_RECEIVER,
         KEY_DISABLE_FILE_VIEW_RECEIVER,
         KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS,
+        KEY_CREATE_SESSION_ON_SINGLE_SESSION_SWITCH,
         KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST,
         KEY_ENFORCE_CHAR_BASED_INPUT,
         KEY_EXTRA_KEYS_TEXT_ALL_CAPS,
@@ -571,6 +573,7 @@ public final class TermuxPropertyConstants {
         KEY_DISABLE_FILE_SHARE_RECEIVER,
         KEY_DISABLE_FILE_VIEW_RECEIVER,
         KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS,
+        KEY_CREATE_SESSION_ON_SINGLE_SESSION_SWITCH,
         KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST,
         KEY_ENFORCE_CHAR_BASED_INPUT,
         KEY_HIDE_SOFT_KEYBOARD_ON_STARTUP,

@@ -320,9 +320,16 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
+        int size = service.getTermuxSessionsSize();
+        if (size == 1) {
+            if (mActivity.getProperties().shouldCreateSessionOnSingleSessionSwitch()) {
+                addNewSession(false, null);
+            }
+            return;
+        }
+
         TerminalSession currentTerminalSession = mActivity.getCurrentSession();
         int index = service.getIndexOfSession(currentTerminalSession);
-        int size = service.getTermuxSessionsSize();
         if (forward) {
             if (++index >= size) index = 0;
         } else {

@@ -282,3 +282,7 @@ interface with argument vectors; service names are validated before use. If the
 guest has not been provisioned or is unavailable, the page reports that state and
 offers a refresh. Sources: [services settings](../../app/src/main/java/com/termux/app/fragments/settings/termux/ServicesPreferencesFragment.java)
 and [preferences entry](../../app/src/main/res/xml/termux_preferences.xml).
+
+Set `create-session-on-single-session-switch=true` in `termuxpp.properties` to
+create and open a new terminal when previous or next session is invoked with
+only one terminal open. The default is to keep the current session.

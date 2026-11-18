@@ -739,6 +739,10 @@ public abstract class TermuxSharedProperties {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS, true);
     }
 
+    public boolean shouldCreateSessionOnSingleSessionSwitch() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_CREATE_SESSION_ON_SINGLE_SESSION_SWITCH, true);
+    }
+
     public boolean areTerminalSessionChangeToastsDisabled() {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST, true);
     }
