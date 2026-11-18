@@ -25,8 +25,8 @@ import dev.pschmitt.termux.shared.termux.shell.command.runner.terminal.TermuxSes
 import dev.pschmitt.termux.tasker.FireReceiver;
 import dev.pschmitt.termux.tasker.PluginResultsService;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxSharedProperties;
 import dev.pschmitt.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
-import dev.pschmitt.termux.shared.settings.properties.SharedProperties;
 import dev.pschmitt.termux.tasker.R;
 
 import java.util.regex.Pattern;
@@ -519,9 +519,7 @@ public class PluginUtils {
         String errmsg = null;
 
         if (!FileUtils.isPathInDirPaths(executable, TermuxConstants.TERMUX_TASKER_SCRIPTS_DIR_PATHS_LIST, true) &&
-                !SharedProperties.isPropertyValueTrue(context,
-                        SharedProperties.getPropertiesFileFromList(TermuxConstants.TERMUX_PROPERTIES_FILE_PATHS_LIST, LOG_TAG),
-                        TermuxConstants.PROP_ALLOW_EXTERNAL_APPS, true)) {
+                !allowsExternalApps(context)) {
             errmsg = context.getString(R.string.error_allow_external_apps_ungranted_warning);
         }
 
@@ -536,10 +534,13 @@ public class PluginUtils {
      * @return Returns the {@code errmsg} if the property is not {@code true}, otherwise {@code null}.
      */
     public static String checkIfAllowExternalAppsPropertyIsUnset(final Context context) {
-        if (SharedProperties.isPropertyValueTrue(context,
-                SharedProperties.getPropertiesFileFromList(TermuxConstants.TERMUX_PROPERTIES_FILE_PATHS_LIST, LOG_TAG),
-                TermuxConstants.PROP_ALLOW_EXTERNAL_APPS, true)) return null;
+        if (allowsExternalApps(context)) return null;
         return context.getString(R.string.error_allow_external_apps_ungranted_warning);
+    }
+
+    private static boolean allowsExternalApps(Context context) {
+        return Boolean.TRUE.equals(TermuxSharedProperties.getTermuxInternalPropertyValue(
+                context, TermuxConstants.PROP_ALLOW_EXTERNAL_APPS));
     }
 
     /**
