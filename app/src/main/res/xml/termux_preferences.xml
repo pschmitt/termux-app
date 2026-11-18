@@ -8,6 +8,13 @@
         app:fragment="com.termux.app.fragments.settings.termux.PropertiesPreferencesFragment" />
 
     <Preference
+        app:key="termux_services"
+        app:icon="@drawable/ui_ic_settings"
+        app:title="@string/nix_services_title"
+        app:summary="@string/nix_services_summary"
+        app:fragment="com.termux.app.fragments.settings.termux.ServicesPreferencesFragment" />
+
+    <Preference
         app:icon="@drawable/ui_ic_palette"
         app:key="termux_styling"
         app:title="@string/action_style_terminal"

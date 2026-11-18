@@ -271,3 +271,13 @@ and companions. Stock Termux packages, APKs, and Android helpers remain a
 separate family. The path redirect and unchanged Tasker protocol preserve
 specific compatibility points; neither makes the two app identities
 interchangeable.
+
+## Nix guest services settings
+
+When the managed Nix guest is available, **Settings > TermuxPP > Services** lists
+its declared services and their enabled and running state. The page can start,
+stop, restart and view bounded logs for a service. Actions call the guest's `svc`
+interface with argument vectors; service names are validated before use. If the
+guest has not been provisioned or is unavailable, the page reports that state and
+offers a refresh. Sources: [services settings](../../app/src/main/java/com/termux/app/fragments/settings/termux/ServicesPreferencesFragment.java)
+and [preferences entry](../../app/src/main/res/xml/termux_preferences.xml).
