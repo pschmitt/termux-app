@@ -45,6 +45,16 @@ public class TermuxApplication extends Application {
 
         Logger.logDebug("Starting Application");
 
+        // Everything below owns app-wide state: the termux-am socket (one path; a second
+        // server takes it over), the ADB shell listener, the nixpp watchdog and the shell
+        // environment. Only the main process may run it. The ":background" process hosts the
+        // Tasker plugin receiver, which only forwards intents to TermuxService; Android freezes
+        // it while cached, so a socket server there stalls every termux-am and Termux:API call.
+        if (!isMainProcess()) {
+            Logger.logInfo(LOG_TAG, "Not the main process (" + processName() + "): skipping app-wide setup");
+            return;
+        }
+
         // Bring back an ADB shell listener that was already enabled (process restarted, app updated).
         // Never enables access or creates a token.
         AdbShellRecovery.recover(context, "application start");
@@ -91,6 +101,26 @@ public class TermuxApplication extends Application {
 
         if (isTermuxFilesDirectoryAccessible) {
             TermuxShellEnvironment.writeEnvironmentToFile(this);
+        }
+    }
+
+    private boolean isMainProcess() {
+        String name = processName();
+        return name == null || name.equals(getPackageName());
+    }
+
+    /** This process's name, or null when unknown (then treated as the main process). */
+    @androidx.annotation.Nullable
+    private static String processName() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P)
+            return Application.getProcessName();
+        try {
+            byte[] raw = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("/proc/self/cmdline"));
+            int end = 0;
+            while (end < raw.length && raw[end] != 0) end++;
+            return end == 0 ? null : new String(raw, 0, end, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException | RuntimeException e) {
+            return null;
         }
     }
 
