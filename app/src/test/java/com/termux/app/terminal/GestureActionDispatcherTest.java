@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 
 import dev.pschmitt.termux.shared.termux.extrakeys.TerminalKeySequence;
 import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.settings.properties.GestureCommandContext;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -23,6 +24,8 @@ public class GestureActionDispatcherTest {
         int visibilityQueries;
         final List<String> calls = new ArrayList<>();
         final List<TerminalKeySequence.Step> sent = new ArrayList<>();
+        String command;
+        GestureCommandContext commandContext;
 
         @Override public int getSessionCount() { return sessionCount; }
         @Override public void switchSession(boolean forward) { calls.add(forward ? "next" : "previous"); }
@@ -36,6 +39,11 @@ public class GestureActionDispatcherTest {
         @Override public void sendKeys(@NonNull TerminalKeySequence keys) {
             calls.add("keys");
             keys.send((key, ctrl, alt, shift, fn) -> sent.add(new TerminalKeySequence.Step(key, ctrl, alt, shift, fn)));
+        }
+        @Override public void runCommand(@NonNull String command, @NonNull GestureCommandContext context) {
+            this.command = command;
+            this.commandContext = context;
+            calls.add("command");
         }
     }
 
@@ -186,6 +194,24 @@ public class GestureActionDispatcherTest {
         GestureActionDispatcher.perform(TerminalGestureAction.SEND_KEYS, mTarget);
         assertTrue(mTarget.calls.isEmpty());
         assertTrue(mTarget.sent.isEmpty());
+    }
+
+    @Test
+    public void runCommandPassesTextAndContextOnce() {
+        GestureActionDispatcher.perform(TerminalGestureAction.RUN_COMMAND, null,
+            "printf '%s' 'two words'", GestureCommandContext.NIX, mTarget);
+        assertEquals(java.util.Collections.singletonList("command"), mTarget.calls);
+        assertEquals("printf '%s' 'two words'", mTarget.command);
+        assertEquals(GestureCommandContext.NIX, mTarget.commandContext);
+    }
+
+    @Test
+    public void runCommandWithoutTextDoesNothing() {
+        GestureActionDispatcher.perform(TerminalGestureAction.RUN_COMMAND, null, null,
+            GestureCommandContext.SESSION, mTarget);
+        GestureActionDispatcher.perform(TerminalGestureAction.RUN_COMMAND, null, "  ",
+            GestureCommandContext.SESSION, mTarget);
+        assertTrue(mTarget.calls.isEmpty());
     }
 
     @Test

@@ -112,6 +112,19 @@ public class PropertyInputSpecTest {
         invalid("soft-keyboard-toggle-behaviour", "show", "enable-disable");
         valid("volume-keys", "virtual", "volume");
         invalid("volume-keys", "mute");
+        valid(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT, "session", "nix", "outer");
+        invalid(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT, "native", "guest");
+        valid(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION, "run-command");
+        invalid(TermuxPropertyConstants.KEY_VOLUME_UP_ACTION, "run-command");
+        invalid(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND, "  ", "\t");
+    }
+
+    @Test
+    public void gestureCommandContextIsOfferedInSettings() {
+        assertArrayEquals(new String[] {"session", "nix", "outer"},
+            PropertyInputSpec.choices(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT));
+        assertTrue(PropertyInputSpec.help(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND)
+            .contains("new visible terminal session"));
     }
 
     @Test
@@ -239,8 +252,10 @@ public class PropertyInputSpecTest {
     public void choicesOnlyForExtraKeysStyle() {
         assertArrayEquals(new String[] {"default", "arrows-only", "arrows-all", "all", "none"},
             PropertyInputSpec.choices("extra-keys-style"));
+        assertArrayEquals(new String[] {"session", "nix", "outer"},
+            PropertyInputSpec.choices(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT));
         for (String key : TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST) {
-            if (key.equals("extra-keys-style")) continue;
+            if (key.equals("extra-keys-style") || key.equals(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT)) continue;
             assertEquals(key, 0, PropertyInputSpec.choices(key).length);
         }
         assertEquals(0, PropertyInputSpec.choices(null).length);

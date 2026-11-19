@@ -13,7 +13,8 @@ import java.util.Locale;
  * {@link TermuxPropertyConstants#KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION} properties of
  * {@code termux.properties}, and that a volume button can be mapped to with the
  * {@link TermuxPropertyConstants#KEY_VOLUME_UP_ACTION} and
- * {@link TermuxPropertyConstants#KEY_VOLUME_DOWN_ACTION} properties.
+ * {@link TermuxPropertyConstants#KEY_VOLUME_DOWN_ACTION} properties. {@link #RUN_COMMAND} is
+ * only supported for taps and extra-keys swipes, not volume buttons.
  *
  * This is pure policy without any Android dependency, so that it can be unit tested.
  */
@@ -48,6 +49,9 @@ public enum TerminalGestureAction {
 
     /** Decrease the font size of the terminal by one step, like pinching in does. */
     FONT_SIZE_DOWN("font-size-down"),
+
+    /** Run the command configured for the gesture in a new terminal session. */
+    RUN_COMMAND("run-command"),
 
     /**
      * Send keys to the terminal, like Escape or Ctrl+L, given by the {@code *-keys} property of the
@@ -128,15 +132,24 @@ public enum TerminalGestureAction {
 
     /**
      * The action that is really performed for a configured action. {@link #SEND_KEYS} without
-     * usable keys (missing, blank or invalid in the properties file) is {@link #NONE}, so that a
-     * broken configuration is a no-op that neither animates, consumes a swipe nor delays taps.
+     * usable keys or {@link #RUN_COMMAND} without a configured command is {@link #NONE}, so that
+     * a broken configuration is a no-op that neither animates, consumes a swipe nor delays taps.
      *
      * @param configured The action configured for the gesture.
      * @param hasUsableKeys Whether the {@code *-keys} property of the gesture is a valid sequence.
      */
     @NonNull
     public static TerminalGestureAction effective(@NonNull TerminalGestureAction configured, boolean hasUsableKeys) {
+        if (configured == RUN_COMMAND) return NONE;
         return configured == SEND_KEYS && !hasUsableKeys ? NONE : configured;
+    }
+
+    /** Returns {@link #NONE} when the configured command is missing or blank. */
+    @NonNull
+    public static TerminalGestureAction effective(@NonNull TerminalGestureAction configured,
+                                                  boolean hasUsableKeys, boolean hasCommand) {
+        if (configured == RUN_COMMAND) return hasCommand ? RUN_COMMAND : NONE;
+        return effective(configured, hasUsableKeys);
     }
 
     /**

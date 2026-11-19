@@ -283,6 +283,18 @@ guest has not been provisioned or is unavailable, the page reports that state an
 offers a refresh. Sources: [services settings](../../app/src/main/java/com/termux/app/fragments/settings/termux/ServicesPreferencesFragment.java)
 and [preferences entry](../../app/src/main/res/xml/termux_preferences.xml).
 
+## Command actions for taps and extra keys
+
+The TermuxPP Properties editor can assign `run-command` to single, double or triple taps and to
+the extra-keys row swipe. It can also run commands from individual extra-key JSON objects using a
+`command` field. Each action opens a new visible terminal session and runs the configured text as
+one shell `-c` argument, preserving the current session. `gesture-command-context` selects the
+normal `nix-session` behavior, always enters the managed Nix guest, or uses the outer Termux prefix.
+Command strings are redacted from property and execution logs. Sources: [gesture dispatcher](../../app/src/main/java/com/termux/app/terminal/GestureActionDispatcher.java),
+[extra-key parser](../../termux-shared/src/main/java/dev/pschmitt/termux/shared/termux/extrakeys/ExtraKeyButton.java),
+[properties editor](../../app/src/main/java/com/termux/app/fragments/settings/termux/PropertiesPreferencesFragment.java),
+and [gesture documentation](tap-gestures.md).
+
 Set `create-session-on-single-session-switch=true` in `termuxpp.properties` to
 create and open a new terminal when previous or next session is invoked with
 only one terminal open. This applies to keyboard shortcuts and configured

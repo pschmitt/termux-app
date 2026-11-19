@@ -5,9 +5,9 @@ page_ref: /docs/apps/termux/tap-gestures.html
 # Terminal Tap and Extra Keys Swipe Actions
 
 TermuxPP can run an action for a single, a double and a triple tap on the terminal, and for a
-swipe on the extra keys row. They are configured only in the text file
-`~/.config/termuxpp/termux.properties`, the same file as every other TermuxPP and Termux setting
-(see [config-dir.md](config-dir.md) for the legacy locations that are still read). There is no entry in the Android settings screens.
+swipe on the extra keys row. Configure them in **Settings > TermuxPP > Properties** or in the text
+file `~/.config/termuxpp/termux.properties`, the same file as every other TermuxPP and Termux
+setting (see [config-dir.md](config-dir.md) for the legacy locations that are still read).
 
 | Key | Gesture | Default |
 | --- | --- | --- |
@@ -15,6 +15,7 @@ swipe on the extra keys row. They are configured only in the text file
 | `terminal-double-tap-action` | Two quick taps in a row | `none` |
 | `terminal-triple-tap-action` | Three quick taps in a row | `none` |
 | `extra-keys-swipe-left-action` | Swipe on the normal extra keys row (see below) | `none` |
+| `gesture-command-context` | Shell environment for configured command actions | `session` |
 
 The four keys are independent and active at the same time. Valid values, case-insensitive:
 
@@ -30,6 +31,7 @@ The four keys are independent and active at the same time. Valid values, case-in
 | `font-size-up` | Increase the terminal font size by one step, like pinching out. It never touches the soft keyboard. |
 | `font-size-down` | Decrease the terminal font size by one step, like pinching in. It never touches the soft keyboard. |
 | `send-keys` | Send keys to the terminal, like Escape or Ctrl+L, given by the matching `*-keys` key (see below). |
+| `run-command` | Run the matching `*-command` text in a new visible terminal session. See [Running commands](#running-commands). |
 
 A missing or empty key uses its default. A value that is not listed is logged and the default is
 used. The soft keyboard flags that disable the keyboard always win: `show-keyboard` and
@@ -46,6 +48,45 @@ gesture has its own key that says which keys to send:
 | Double tap | `terminal-double-tap-action` | `terminal-double-tap-keys` |
 | Triple tap | `terminal-triple-tap-action` | `terminal-triple-tap-keys` |
 | Extra keys swipe | `extra-keys-swipe-left-action` | `extra-keys-swipe-left-keys` |
+
+## Running commands
+
+Select `run-command` for a tap or extra-keys swipe, then set its matching command property:
+
+| Gesture | Command property |
+| --- | --- |
+| Single tap | `terminal-single-tap-command` |
+| Double tap | `terminal-double-tap-command` |
+| Triple tap | `terminal-triple-tap-command` |
+| Extra keys swipe | `extra-keys-swipe-left-command` |
+
+Commands open a new visible terminal session and leave the current program alone. The command is
+interpreted by the selected shell, then the session stays open at a shell prompt so you can inspect
+output and continue working. Arguments are passed as separate process arguments up to the shell;
+the command text itself is one shell `-c` argument, so quoted spaces and shell syntax are kept
+intact.
+
+`gesture-command-context` selects the shell environment:
+
+* `session` follows `nix-session`, the setting used by ordinary new terminal sessions.
+* `nix` always enters the managed Nix guest. If it is not provisioned, the app reports that and
+  does not silently run the command in the outer shell.
+* `outer` runs in the native Termux prefix.
+
+An unset or blank command makes its `run-command` action do nothing. Commands are trusted shell
+code stored in `termux.properties`; do not put credentials or other secrets in command text. The
+app redacts command values from its property and execution logs. Use a script that reads runtime
+secrets when a command needs them.
+
+Extra-key buttons can run commands too. Use a command object instead of `key` or `macro` in the
+`extra-keys` JSON, with an optional label:
+
+```properties
+extra-keys = [["ESC", {"command": "nix develop", "display": "DEV"}]]
+```
+
+The same `gesture-command-context` applies. A command button cannot also send a key or macro; it
+can be used as a popup button in the same way as a regular key.
 
 The keys are written exactly like the `macro` of an extra keys button in `extra-keys`, so what works
 there works here:
@@ -126,8 +167,9 @@ same file:
 | `volume-down-keys` | The keys that volume down sends with `send-keys` | none |
 
 The two buttons are independent. Valid values of the action keys, case-insensitive, are `modifier`
-and every action of the table above (`none`, `show-keyboard`, `toggle-keyboard`, `next-session`,
-`previous-session`, `open-sidebar`, `open-menu`, `font-size-up`, `font-size-down`, `send-keys`).
+and every action of the table above except `run-command` (`none`, `show-keyboard`, `toggle-keyboard`,
+`next-session`, `previous-session`, `open-sidebar`, `open-menu`, `font-size-up`, `font-size-down`,
+`send-keys`).
 The `*-keys` keys are written as described in "Sending keys".
 
 * `modifier` is the default and the behaviour without any configuration: while the button is held,

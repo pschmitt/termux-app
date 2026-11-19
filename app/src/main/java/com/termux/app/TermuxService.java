@@ -22,6 +22,7 @@ import com.termux.R;
 import com.termux.app.event.SystemEventReceiver;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalSessionServiceClient;
+import com.termux.app.terminal.GestureCommandLaunch;
 import dev.pschmitt.termux.shared.termux.plugins.TermuxPluginUtils;
 import dev.pschmitt.termux.shared.data.IntentUtils;
 import dev.pschmitt.termux.shared.net.uri.UriUtils;
@@ -29,6 +30,8 @@ import dev.pschmitt.termux.shared.errors.Errno;
 import dev.pschmitt.termux.shared.shell.ShellUtils;
 import dev.pschmitt.termux.shared.shell.command.runner.app.AppShell;
 import dev.pschmitt.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
+import dev.pschmitt.termux.shared.termux.settings.properties.GestureCommandContext;
+import dev.pschmitt.termux.shared.termux.nix.TermuxNix;
 import dev.pschmitt.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
 import dev.pschmitt.termux.shared.termux.shell.TermuxShellUtils;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
@@ -581,6 +584,39 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         handleSessionAction(DataUtils.getIntFromString(executionCommand.sessionAction,
             TERMUX_SERVICE.VALUE_EXTRA_SESSION_ACTION_SWITCH_TO_NEW_SESSION_AND_OPEN_ACTIVITY),
             newTermuxSession.getTerminalSession());
+    }
+
+    /** Start user-configured gesture shell text in a new visible session without logging it. */
+    public void executeGestureCommand(@Nullable String command, @NonNull GestureCommandContext context) {
+        if (command == null || command.trim().isEmpty() || mWantsToStop) return;
+        mHandler.post(() -> {
+            if (mWantsToStop) return;
+
+            boolean nixIsProvisioned = TermuxNix.isProvisioned();
+            boolean sessionStartsInNix = TermuxNix.shouldEnterGuest(mProperties);
+            GestureCommandLaunch launch = GestureCommandLaunch.create(command, context,
+                sessionStartsInNix, nixIsProvisioned, TermuxNix.NIXPP_PATH,
+                TermuxConstants.TERMUX_PREFIX_DIR_PATH, mProperties.getNixUser());
+            if (launch == null) {
+                if (context == GestureCommandContext.NIX && !nixIsProvisioned)
+                    Logger.showToast(this, "The Nix environment is not provisioned", true);
+                return;
+            }
+
+            ExecutionCommand executionCommand = new ExecutionCommand(TermuxShellManager.getNextShellId(),
+                launch.executable, launch.arguments, null, null, Runner.TERMINAL_SESSION.getName(), false);
+            executionCommand.shellName = "Gesture command";
+            executionCommand.commandLabel = "Gesture command";
+            executionCommand.redactArgumentsInLogs = true;
+            executionCommand.shellCreateMode = ShellCreateMode.ALWAYS.getMode();
+            executionCommand.sessionAction = String.valueOf(
+                TERMUX_SERVICE.VALUE_EXTRA_SESSION_ACTION_SWITCH_TO_NEW_SESSION_AND_OPEN_ACTIVITY);
+
+            TermuxSession session = createTermuxSession(executionCommand);
+            if (session != null)
+                handleSessionAction(TERMUX_SERVICE.VALUE_EXTRA_SESSION_ACTION_SWITCH_TO_NEW_SESSION_AND_OPEN_ACTIVITY,
+                    session.getTerminalSession());
+        });
     }
 
     /**

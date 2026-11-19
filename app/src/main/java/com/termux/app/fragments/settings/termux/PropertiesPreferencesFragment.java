@@ -141,7 +141,9 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
     }
 
     private int categoryFor(String key) {
-        if (key.startsWith("extra-keys") || key.endsWith("-action") || key.endsWith("-keys")) return R.string.properties_gestures;
+        if (key.startsWith("extra-keys") || key.endsWith("-action") || key.endsWith("-keys")
+            || key.endsWith("-command") || key.equals(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT))
+            return R.string.properties_gestures;
         if (key.contains("keyboard") || key.startsWith("shortcut.") || key.equals("back-key")
             || key.equals("volume-keys") || key.equals("ctrl-space-workaround")
             || key.equals("enforce-char-based-input")) return R.string.properties_keyboard;
@@ -185,8 +187,12 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
             case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION:
             case TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION:
                 Set<String> actions = new LinkedHashSet<>();
-                if (key.startsWith("volume-")) actions.add(TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER);
-                for (TerminalGestureAction action : TerminalGestureAction.values()) actions.add(action.getValue());
+                boolean volumeAction = key.startsWith("volume-");
+                if (volumeAction) actions.add(TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER);
+                for (TerminalGestureAction action : TerminalGestureAction.values()) {
+                    if (volumeAction && action == TerminalGestureAction.RUN_COMMAND) continue;
+                    actions.add(action.getValue());
+                }
                 return actions;
             default: return Collections.emptySet();
         }

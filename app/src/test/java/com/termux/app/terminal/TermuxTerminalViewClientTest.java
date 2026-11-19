@@ -83,7 +83,7 @@ public class TermuxTerminalViewClientTest {
     @Test
     public void configuredVolumeKeyActionRunsOnTheInitialKeyDown() {
         for (TerminalGestureAction action : TerminalGestureAction.values()) {
-            if (action == TerminalGestureAction.NONE) continue;
+            if (action == TerminalGestureAction.NONE || action == TerminalGestureAction.RUN_COMMAND) continue;
             Assert.assertEquals(action.getValue(), PERFORM, TermuxTerminalViewClient.resolveVolumeKey(action, true, 0));
         }
     }
@@ -92,7 +92,7 @@ public class TermuxTerminalViewClientTest {
     public void configuredVolumeKeyActionIsConsumedButNotRunOnKeyUp() {
         // Neither fired again nor leaking to the system volume.
         for (TerminalGestureAction action : TerminalGestureAction.values()) {
-            if (action == TerminalGestureAction.NONE) continue;
+            if (action == TerminalGestureAction.NONE || action == TerminalGestureAction.RUN_COMMAND) continue;
             Assert.assertEquals(action.getValue(), CONSUME, TermuxTerminalViewClient.resolveVolumeKey(action, false, 0));
         }
     }
@@ -100,11 +100,18 @@ public class TermuxTerminalViewClientTest {
     @Test
     public void onlyFontSizeActionsRepeatWhileTheKeyIsHeld() {
         for (TerminalGestureAction action : TerminalGestureAction.values()) {
-            if (action == TerminalGestureAction.NONE) continue;
+            if (action == TerminalGestureAction.NONE || action == TerminalGestureAction.RUN_COMMAND) continue;
             boolean font = action == TerminalGestureAction.FONT_SIZE_UP || action == TerminalGestureAction.FONT_SIZE_DOWN;
             Assert.assertEquals(action.getValue(), font ? PERFORM : CONSUME,
                 TermuxTerminalViewClient.resolveVolumeKey(action, true, 4));
         }
+    }
+
+    @Test
+    public void runCommandIsNotAllowedForVolumeButtons() {
+        for (boolean down : new boolean[] {true, false})
+            Assert.assertEquals(MODIFIER,
+                TermuxTerminalViewClient.resolveVolumeKey(TerminalGestureAction.RUN_COMMAND, down, 0));
     }
 
     @Test

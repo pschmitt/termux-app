@@ -395,6 +395,22 @@ public final class TermuxPropertyConstants {
     public static final String KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION =  "extra-keys-swipe-left-action"; // Default: "extra-keys-swipe-left-action"
     public static final TerminalGestureAction DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION = TerminalGestureAction.NONE;
 
+    /** Defines the shell context used when a gesture or extra-key command starts a session. */
+    public static final String KEY_GESTURE_COMMAND_CONTEXT = "gesture-command-context";
+    public static final GestureCommandContext DEFAULT_GESTURE_COMMAND_CONTEXT = GestureCommandContext.SESSION;
+
+    /** Defines the shell command for a single terminal tap action. */
+    public static final String KEY_TERMINAL_SINGLE_TAP_COMMAND = "terminal-single-tap-command";
+
+    /** Defines the shell command for a double terminal tap action. */
+    public static final String KEY_TERMINAL_DOUBLE_TAP_COMMAND = "terminal-double-tap-command";
+
+    /** Defines the shell command for a triple terminal tap action. */
+    public static final String KEY_TERMINAL_TRIPLE_TAP_COMMAND = "terminal-triple-tap-command";
+
+    /** Defines the shell command for a left swipe on the extra keys row. */
+    public static final String KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND = "extra-keys-swipe-left-command";
+
 
 
     /* Volume key action (never null) */
@@ -532,6 +548,13 @@ public final class TermuxPropertyConstants {
         KEY_TERMINAL_DOUBLE_TAP_ACTION,
         KEY_TERMINAL_SINGLE_TAP_ACTION,
         KEY_TERMINAL_TRIPLE_TAP_ACTION,
+
+        /* gesture command configuration */
+        KEY_GESTURE_COMMAND_CONTEXT,
+        KEY_TERMINAL_SINGLE_TAP_COMMAND,
+        KEY_TERMINAL_DOUBLE_TAP_COMMAND,
+        KEY_TERMINAL_TRIPLE_TAP_COMMAND,
+        KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND,
 
         /* Volume key action: VOLUME_KEY_ACTION_MODIFIER or a TerminalGestureAction */
         KEY_VOLUME_DOWN_ACTION,

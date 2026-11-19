@@ -302,6 +302,10 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
                 return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION).getValue();
 
+            /* GestureCommandContext, stored as its String value since SharedProperties caches primitives and Strings */
+            case TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT:
+                return getGestureCommandContextInternalPropertyValueFromValue(value).getValue();
+
             /* Volume key action (never null): "modifier" or a TerminalGestureAction value */
             case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION:
             case TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION:
@@ -315,6 +319,13 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_VOLUME_UP_KEYS:
             case TermuxPropertyConstants.KEY_VOLUME_DOWN_KEYS:
                 return getKeySequenceInternalPropertyValueFromValue(key, value);
+
+            /* Gesture command String (may be null) */
+            case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_COMMAND:
+            case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND:
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND:
+                return getGestureCommandInternalPropertyValueFromValue(value);
 
             /* Integer (may be null) */
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_BUTTON_ACTIVE_BACKGROUND_COLOR:
@@ -557,6 +568,19 @@ public abstract class TermuxSharedProperties {
         return TermuxPropertyConstants.DEFAULT_IVALUE_NIX_USER;
     }
 
+    /** Returns the command verbatim, but treats a blank command as unset. */
+    @Nullable
+    public static String getGestureCommandInternalPropertyValueFromValue(String value) {
+        return value == null || value.trim().isEmpty() ? null : value;
+    }
+
+    /** Returns a valid gesture command context, defaulting to the normal new-session setting. */
+    @NonNull
+    public static GestureCommandContext getGestureCommandContextInternalPropertyValueFromValue(String value) {
+        return GestureCommandContext.parseOrDefault(value,
+            TermuxPropertyConstants.DEFAULT_GESTURE_COMMAND_CONTEXT);
+    }
+
     public static String getDefaultWorkingDirectoryInternalPropertyValueFromValue(String path) {
         if (path == null || path.isEmpty()) return TermuxPropertyConstants.DEFAULT_IVALUE_DEFAULT_WORKING_DIRECTORY;
         File workDir = new File(path);
@@ -651,8 +675,8 @@ public abstract class TermuxSharedProperties {
         if (TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER.equals(normalized))
             return TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER;
         TerminalGestureAction action = TerminalGestureAction.parse(value);
-        if (action == null) {
-            Logger.logError(LOG_TAG, "The value \"" + value + "\" for the key \"" + key + "\" is invalid. Expected one of: " + TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER + ", " + TerminalGestureAction.getValidValues() + ". Using the default \"" + TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER + "\" instead.");
+        if (action == null || action == TerminalGestureAction.RUN_COMMAND) {
+            Logger.logError(LOG_TAG, "The value \"" + value + "\" for the key \"" + key + "\" is invalid. Expected one of: " + TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER + ", " + TerminalGestureAction.getValidValues().replace(", run-command", "") + ". Using the default \"" + TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER + "\" instead.");
             return TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER;
         }
         return action.getValue();
@@ -783,6 +807,18 @@ public abstract class TermuxSharedProperties {
         }
     }
 
+    /** The property key containing a command for a gesture action property, or {@code null}. */
+    @Nullable
+    private static String getCommandKeyOfGestureActionKey(String actionKey) {
+        switch (actionKey) {
+            case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_COMMAND;
+            case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND;
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND;
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND;
+            default: return null;
+        }
+    }
+
     /**
      * Get the cached {@link TerminalGestureAction} of a volume key action key as configured, or
      * {@code null} for the virtual modifier (the default, also for an invalid value).
@@ -818,7 +854,11 @@ public abstract class TermuxSharedProperties {
     @NonNull
     private TerminalGestureAction getGestureAction(String key) {
         TerminalGestureAction action = getConfiguredGestureAction(key);
-        return TerminalGestureAction.effective(action, getKeySequence(getKeysKeyOfGestureActionKey(key)) != null);
+        String commandKey = getCommandKeyOfGestureActionKey(key);
+        Object command = commandKey == null ? null : getInternalPropertyValue(commandKey, true);
+        boolean hasCommand = command instanceof String && !((String) command).trim().isEmpty();
+        return TerminalGestureAction.effective(action,
+            getKeySequence(getKeysKeyOfGestureActionKey(key)) != null, hasCommand);
     }
 
     /** Logs the gestures whose action is {@code send-keys} but that have no usable keys. */
@@ -841,6 +881,20 @@ public abstract class TermuxSharedProperties {
             if (getInternalPropertyValue(keysKey, true) == null)
                 Logger.logError(LOG_TAG, "The action of the key \"" + actionKey + "\" is \"" + TerminalGestureAction.SEND_KEYS.getValue() + "\" but the key \"" + keysKey + "\" is not set or not valid. The action will do nothing.");
         }
+
+        String[] commandActionKeys = {
+            TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION
+        };
+        for (String actionKey : commandActionKeys) {
+            if (getConfiguredGestureAction(actionKey) != TerminalGestureAction.RUN_COMMAND) continue;
+            String commandKey = getCommandKeyOfGestureActionKey(actionKey);
+            Object command = commandKey == null ? null : getInternalPropertyValue(commandKey, true);
+            if (!(command instanceof String) || ((String) command).trim().isEmpty())
+                Logger.logError(LOG_TAG, "The action of the key \"" + actionKey + "\" is \"" + TerminalGestureAction.RUN_COMMAND.getValue() + "\" but its command property is missing or blank. The action will do nothing.");
+        }
     }
 
     /**
@@ -857,6 +911,35 @@ public abstract class TermuxSharedProperties {
             case 3: return getKeySequence(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS);
             default: return null;
         }
+    }
+
+    /** The shell command configured for a terminal tap, or {@code null} if unset. */
+    @Nullable
+    public String getTerminalTapCommand(int tapCount) {
+        String key;
+        switch (tapCount) {
+            case 1: key = TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_COMMAND; break;
+            case 2: key = TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND; break;
+            case 3: key = TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND; break;
+            default: return null;
+        }
+        Object value = getInternalPropertyValue(key, true);
+        return value instanceof String ? (String) value : null;
+    }
+
+    /** The shell command configured for the left extra-keys swipe, or {@code null} if unset. */
+    @Nullable
+    public String getExtraKeysSwipeLeftCommand() {
+        Object value = getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND, true);
+        return value instanceof String ? (String) value : null;
+    }
+
+    /** The configured command environment; defaults to the standard new-session behavior. */
+    @NonNull
+    public GestureCommandContext getGestureCommandContext() {
+        Object value = getInternalPropertyValue(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT, true);
+        return GestureCommandContext.parseOrDefault(value instanceof String ? (String) value : null,
+            TermuxPropertyConstants.DEFAULT_GESTURE_COMMAND_CONTEXT);
     }
 
     /** The keys that {@link TerminalGestureAction#SEND_KEYS} sends for the swipe on the normal extra keys row, or {@code null}. */
@@ -1063,7 +1146,8 @@ public abstract class TermuxSharedProperties {
         propertiesDump.append(mLabel).append(" Termux Properties:");
         if (properties != null) {
             for (String key : properties.stringPropertyNames()) {
-                propertiesDump.append("\n").append(key).append(": `").append(properties.get(key)).append("`");
+                propertiesDump.append("\n").append(key).append(": `")
+                    .append(getPropertyValueForLog(key, String.valueOf(properties.get(key)))).append("`");
             }
         } else {
             propertiesDump.append(" null");
@@ -1079,11 +1163,26 @@ public abstract class TermuxSharedProperties {
         internalPropertiesDump.append(mLabel).append(" Internal Properties:");
         if (internalProperties != null) {
             for (String key : internalProperties.keySet()) {
-                internalPropertiesDump.append("\n").append(key).append(": `").append(internalProperties.get(key)).append("`");
+                internalPropertiesDump.append("\n").append(key).append(": `")
+                    .append(getPropertyValueForLog(key, String.valueOf(internalProperties.get(key)))).append("`");
             }
         }
 
         Logger.logVerbose(LOG_TAG, internalPropertiesDump.toString());
+    }
+
+    /** Keep configured command text out of property dumps and logs. */
+    @NonNull
+    public static String getPropertyValueForLog(@NonNull String key, @Nullable String value) {
+        if (key.equals(TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_COMMAND)
+            || key.equals(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND)
+            || key.equals(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND)
+            || key.equals(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND))
+            return "[redacted]";
+        if (key.equals(TermuxPropertyConstants.KEY_EXTRA_KEYS) && value != null
+            && value.matches("(?s).*['\\\"]?command['\\\"]?\\s*:.*"))
+            return "[redacted]";
+        return value == null ? "null" : value;
     }
 
 }

@@ -25,6 +25,9 @@ public class ExtraKeyButton {
     /** The key name for the nested dict to define popup extra key info if using a dict to define the extra key. {popup: {key: name, ...}, ...} */
     public static final String KEY_POPUP = "popup";
 
+    /** The shell command run by the button instead of sending a key or macro. */
+    public static final String KEY_COMMAND = "command";
+
 
     /**
      * The key that will be sent to the terminal, either a control character, like defined in
@@ -41,6 +44,10 @@ public class ExtraKeyButton {
      * The text that will be displayed on the button.
      */
     private final String display;
+
+    /** Optional command to run in a new terminal session instead of sending terminal input. */
+    @Nullable
+    private final String command;
 
     /**
      * The {@link ExtraKeyButton} containing the information of the popup button (triggered by swipe up).
@@ -81,8 +88,15 @@ public class ExtraKeyButton {
                           @NonNull ExtraKeysConstants.ExtraKeyDisplayMap extraKeyAliasMap) throws JSONException {
         String keyFromConfig = getStringFromJson(config, KEY_KEY_NAME);
         String macroFromConfig = getStringFromJson(config, KEY_MACRO);
+        String commandFromConfig = getStringFromJson(config, KEY_COMMAND);
         String[] keys;
-        if (keyFromConfig != null && macroFromConfig != null) {
+        if (commandFromConfig != null && (keyFromConfig != null || macroFromConfig != null)) {
+            throw new JSONException("Command cannot be combined with key or macro");
+        } else if (commandFromConfig != null) {
+            if (commandFromConfig.trim().isEmpty()) throw new JSONException("Command cannot be blank");
+            keys = new String[0];
+            this.macro = false;
+        } else if (keyFromConfig != null && macroFromConfig != null) {
             throw new JSONException("Both key and macro can't be set for the same key. key: \"" + keyFromConfig + "\", macro: \"" + macroFromConfig + "\"");
         } else if (keyFromConfig != null) {
             keys = new String[]{keyFromConfig};
@@ -99,10 +113,13 @@ public class ExtraKeyButton {
         }
 
         this.key = TextUtils.join(" ", keys);
+        this.command = commandFromConfig;
 
         String displayFromConfig = getStringFromJson(config, KEY_DISPLAY_NAME);
         if (displayFromConfig != null) {
             this.display = displayFromConfig;
+        } else if (commandFromConfig != null) {
+            this.display = "CMD";
         } else {
             this.display = Arrays.stream(keys)
                 .map(key -> extraKeyDisplayMap.get(key, key))
@@ -133,6 +150,12 @@ public class ExtraKeyButton {
     /** Get {@link #display}. */
     public String getDisplay() {
         return display;
+    }
+
+    /** Get the command, or {@code null} if this button sends terminal input. */
+    @Nullable
+    public String getCommand() {
+        return command;
     }
 
     /** Get {@link #popup}. */

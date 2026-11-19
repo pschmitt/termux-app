@@ -35,6 +35,9 @@ import org.json.JSONObject;
  * In advance json dict mode, the key can also have a custom display name that can be used as the
  * text to display on the button by defining the `display` key. The syntax is `{display: 'DISPLAY'}`.
  * For example {display: 'Custom name', ...}.
+ * A button object may instead use `command` to start a command in a new terminal session, for
+ * example `{command: 'nix develop', display: 'DEV'}`. A command cannot be combined with `key` or
+ * `macro`. Commands are trusted shell text and are not included in command logs.
  *
  * Examples:
  * {@code

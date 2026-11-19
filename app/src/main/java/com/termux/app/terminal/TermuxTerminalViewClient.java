@@ -34,6 +34,7 @@ import dev.pschmitt.termux.shared.interact.ShareUtils;
 import dev.pschmitt.termux.shared.shell.ShellUtils;
 import dev.pschmitt.termux.shared.termux.TermuxBootstrap;
 import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.settings.properties.GestureCommandContext;
 import dev.pschmitt.termux.shared.termux.settings.properties.TermuxSharedProperties;
 import dev.pschmitt.termux.shared.termux.terminal.TermuxTerminalViewClientBase;
 import dev.pschmitt.termux.shared.termux.extrakeys.SpecialButton;
@@ -214,7 +215,9 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         // not report anything.
         TerminalGestureAction singleTapAction = mActivity.getProperties().getTerminalSingleTapAction();
         if (shouldActOnSingleTapUp(e, getMaxTapActionCount(), singleTapAction))
-            performGestureAction(singleTapAction, mActivity.getProperties().getTerminalTapKeys(1));
+            performGestureAction(singleTapAction, mActivity.getProperties().getTerminalTapKeys(1),
+                mActivity.getProperties().getTerminalTapCommand(1),
+                mActivity.getProperties().getGestureCommandContext());
     }
 
     /** How many rows above and below a tapped row are searched for the rest of a URL that was broken over rows. */
@@ -335,7 +338,9 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     @Override
     public void onTapCount(int tapCount) {
         performGestureAction(mActivity.getProperties().getTerminalTapAction(tapCount),
-            mActivity.getProperties().getTerminalTapKeys(tapCount));
+            mActivity.getProperties().getTerminalTapKeys(tapCount),
+            mActivity.getProperties().getTerminalTapCommand(tapCount),
+            mActivity.getProperties().getGestureCommandContext());
     }
 
     /**
@@ -352,7 +357,13 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
      * @param keys The keys to send for {@link TerminalGestureAction#SEND_KEYS}.
      */
     public void performGestureAction(@NonNull TerminalGestureAction action, @Nullable TerminalKeySequence keys) {
-        GestureActionDispatcher.perform(action, keys, new GestureActionDispatcher.Target() {
+        performGestureAction(action, keys, null, GestureCommandContext.SESSION);
+    }
+
+    /** Carries out an action configured for a tap or swipe, including its command context. */
+    public void performGestureAction(@NonNull TerminalGestureAction action, @Nullable TerminalKeySequence keys,
+                                     @Nullable String command, @NonNull GestureCommandContext commandContext) {
+        GestureActionDispatcher.perform(action, keys, command, commandContext, new GestureActionDispatcher.Target() {
             @Override
             public int getSessionCount() {
                 TermuxService service = mActivity.getTermuxService();
@@ -425,7 +436,18 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
                     Logger.logStackTraceWithMessage(LOG_TAG, "Failed to send the keys \"" + keys.getNormalizedValue() + "\" of the gesture", e);
                 }
             }
+
+            @Override
+            public void runCommand(@NonNull String command, @NonNull GestureCommandContext context) {
+                TermuxTerminalViewClient.this.runGestureCommand(command, context);
+            }
         });
+    }
+
+    /** Start a configured command in a new session, leaving the currently running process alone. */
+    public void runGestureCommand(@NonNull String command, @NonNull GestureCommandContext context) {
+        TermuxService service = mActivity.getTermuxService();
+        if (service != null) service.executeGestureCommand(command, context);
     }
 
     @Override
@@ -543,7 +565,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
      * @param repeatCount {@link KeyEvent#getRepeatCount()}, above 0 while a held button auto repeats.
      */
     static VolumeKeyOutcome resolveVolumeKey(@Nullable TerminalGestureAction action, boolean down, int repeatCount) {
-        if (action == null) return VolumeKeyOutcome.MODIFIER;
+        if (action == null || action == TerminalGestureAction.RUN_COMMAND) return VolumeKeyOutcome.MODIFIER;
         if (action == TerminalGestureAction.NONE) return VolumeKeyOutcome.PASS_THROUGH;
         // An action runs on the press and never on the release, and only the font size actions
         // run again for every auto repeat of a held button.

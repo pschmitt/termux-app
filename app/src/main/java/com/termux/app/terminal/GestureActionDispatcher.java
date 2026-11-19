@@ -5,6 +5,7 @@ import androidx.annotation.Nullable;
 
 import dev.pschmitt.termux.shared.termux.extrakeys.TerminalKeySequence;
 import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.settings.properties.GestureCommandContext;
 
 /**
  * Carries out a {@link TerminalGestureAction} that a tap or a swipe was mapped to, on a
@@ -41,6 +42,9 @@ public final class GestureActionDispatcher {
 
         /** Send the keys to the current terminal session. */
         void sendKeys(@NonNull TerminalKeySequence keys);
+
+        /** Open a new terminal session and run the configured command in the chosen context. */
+        void runCommand(@NonNull String command, @NonNull GestureCommandContext context);
     }
 
     private GestureActionDispatcher() {
@@ -58,9 +62,20 @@ public final class GestureActionDispatcher {
      *             action does nothing without keys.
      */
     public static void perform(@NonNull TerminalGestureAction action, @Nullable TerminalKeySequence keys, @NonNull Target target) {
+        perform(action, keys, null, GestureCommandContext.SESSION, target);
+    }
+
+    /** Carries out an action, including command text and environment when applicable. */
+    public static void perform(@NonNull TerminalGestureAction action, @Nullable TerminalKeySequence keys,
+                               @Nullable String command, @NonNull GestureCommandContext context,
+                               @NonNull Target target) {
         switch (action) {
             case SEND_KEYS:
                 if (keys != null) target.sendKeys(keys);
+                break;
+
+            case RUN_COMMAND:
+                if (command != null && !command.trim().isEmpty()) target.runCommand(command, context);
                 break;
 
             case NEXT_SESSION:

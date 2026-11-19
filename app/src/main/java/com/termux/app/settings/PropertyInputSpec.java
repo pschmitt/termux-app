@@ -12,6 +12,7 @@ import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysConstants;
 import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysInfo;
 import dev.pschmitt.termux.shared.termux.extrakeys.TerminalKeySequence;
 import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction;
+import dev.pschmitt.termux.shared.termux.settings.properties.GestureCommandContext;
 import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 
 import com.google.common.collect.BiMap;
@@ -159,6 +160,19 @@ public final class PropertyInputSpec {
                 return gesture("a swipe to the left on the extra keys", TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS,
                     TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION);
 
+            case TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT:
+                return "Where commands assigned to taps, extra-key swipes, and extra-key buttons run. "
+                    + "session follows nix-session, nix always enters the managed guest, and outer uses the native Termux prefix. "
+                    + "Default: session.";
+            case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_COMMAND:
+                return commandHelp("a single tap");
+            case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND:
+                return commandHelp("a double tap");
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND:
+                return commandHelp("a triple tap");
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND:
+                return commandHelp("a left swipe on the extra keys row");
+
             /* Volume key action */
             case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION:
                 return volume("volume up", "the virtual Fn key while it is held", TermuxPropertyConstants.KEY_VOLUME_UP_KEYS);
@@ -219,7 +233,9 @@ public final class PropertyInputSpec {
                     + " keys. A key is a name like \"ESC\" or \"TAB\", a character like \"/\", or an object like"
                     + " {key: '-', popup: '|'} (a popup is sent when you swipe up on the button). An object can"
                     + " also have display (the label) and macro (several space separated keys sent together, like"
-                    + " \"CTRL f\") instead of key. Default: " + TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS;
+                    + " \"CTRL f\") instead of key. Use {command: '...', display: 'CMD'} to start a new terminal"
+                    + " session with a shell command; command cannot be combined with key or macro. Commands are trusted"
+                    + " shell text. Default: " + TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS;
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_STYLE:
                 return "How the names of the extra keys are shown, for example whether LEFT is shown as an arrow."
                     + " Values: " + join(EXTRA_KEYS_STYLES) + ". Default: "
@@ -275,6 +291,13 @@ public final class PropertyInputSpec {
                 return inMap(TermuxPropertyConstants.MAP_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR, value);
             case TermuxPropertyConstants.KEY_VOLUME_KEYS_BEHAVIOUR:
                 return inMap(TermuxPropertyConstants.MAP_VOLUME_KEYS_BEHAVIOUR, value);
+            case TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT:
+                return GestureCommandContext.parse(value) != null ? null : "Expected one of: session, nix, outer";
+            case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_COMMAND:
+            case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND:
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND:
+                return value.trim().isEmpty() ? "Command cannot be blank" : null;
 
             case TermuxPropertyConstants.KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT:
                 return intInRange(value,
@@ -313,10 +336,11 @@ public final class PropertyInputSpec {
                     : "Expected one of: " + TerminalGestureAction.getValidValues();
             case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION:
             case TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION:
+                TerminalGestureAction volumeAction = TerminalGestureAction.parse(value);
                 return TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER.equals(SharedProperties.toLowerCase(value.trim()))
-                    || TerminalGestureAction.parse(value) != null ? null
+                    || (volumeAction != null && volumeAction != TerminalGestureAction.RUN_COMMAND) ? null
                     : "Expected one of: " + TermuxPropertyConstants.VOLUME_KEY_ACTION_MODIFIER + ", "
-                        + TerminalGestureAction.getValidValues();
+                        + TerminalGestureAction.getValidValues().replace(", run-command", "");
 
             case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_KEYS:
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_KEYS:
@@ -396,7 +420,14 @@ public final class PropertyInputSpec {
     @NonNull
     public static String[] choices(@Nullable String key) {
         if (TermuxPropertyConstants.KEY_EXTRA_KEYS_STYLE.equals(key)) return EXTRA_KEYS_STYLES.clone();
+        if (TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT.equals(key)) return new String[] {"session", "nix", "outer"};
         return new String[0];
+    }
+
+    private static String commandHelp(String gesture) {
+        return "Shell command run in a new visible terminal session when " + gesture + " occurs. "
+            + "The command is interpreted by the selected shell context; it is trusted shell code. "
+            + "Command text is stored in termux.properties and is not written to command logs. Leave empty to unset.";
     }
 
     private static boolean isBoolean(String key) {

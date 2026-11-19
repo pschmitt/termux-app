@@ -3,12 +3,14 @@ package dev.pschmitt.termux.shared.termux.settings.properties;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction.KeyboardOperation;
 import dev.pschmitt.termux.shared.termux.settings.properties.TerminalGestureAction.SessionSwitch;
+import dev.pschmitt.termux.shared.termux.settings.properties.GestureCommandContext;
 
 public class TerminalGestureActionTest {
 
@@ -31,9 +33,31 @@ public class TerminalGestureActionTest {
     }
 
     @Test
+    public void runCommandWithoutConfiguredTextIsNone() {
+        assertSame(TerminalGestureAction.NONE,
+            TerminalGestureAction.effective(TerminalGestureAction.RUN_COMMAND, false, false));
+        assertSame(TerminalGestureAction.RUN_COMMAND,
+            TerminalGestureAction.effective(TerminalGestureAction.RUN_COMMAND, false, true));
+    }
+
+    @Test
+    public void runCommandParsesAndIsAcceptedForGestureActionProperties() {
+        assertSame(TerminalGestureAction.RUN_COMMAND, TerminalGestureAction.parse("run-command"));
+        for (String key : new String[] {
+            TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION}) {
+            assertSame(TerminalGestureAction.RUN_COMMAND,
+                TermuxSharedProperties.getGestureActionInternalPropertyValueFromValue(key, "run-command",
+                    TerminalGestureAction.NONE));
+        }
+    }
+
+    @Test
     public void otherActionsDoNotDependOnKeys() {
         for (TerminalGestureAction action : TerminalGestureAction.values()) {
-            if (action == TerminalGestureAction.SEND_KEYS) continue;
+            if (action == TerminalGestureAction.SEND_KEYS || action == TerminalGestureAction.RUN_COMMAND) continue;
             assertSame(action, TerminalGestureAction.effective(action, false));
             assertSame(action, TerminalGestureAction.effective(action, true));
         }
@@ -94,8 +118,36 @@ public class TerminalGestureActionTest {
 
     @Test
     public void validValuesListsEveryValue() {
-        assertEquals("none, show-keyboard, toggle-keyboard, next-session, previous-session, open-sidebar, open-menu, font-size-up, font-size-down, send-keys",
+        assertEquals("none, show-keyboard, toggle-keyboard, next-session, previous-session, open-sidebar, open-menu, font-size-up, font-size-down, run-command, send-keys",
             TerminalGestureAction.getValidValues());
+    }
+
+    @Test
+    public void commandContextParsingAndSessionInheritance() {
+        assertSame(GestureCommandContext.NIX, GestureCommandContext.parse(" NIX "));
+        assertSame(GestureCommandContext.SESSION,
+            GestureCommandContext.parseOrDefault("invalid", GestureCommandContext.SESSION));
+        assertTrue(GestureCommandContext.SESSION.shouldEnterNix(true));
+        assertFalse(GestureCommandContext.SESSION.shouldEnterNix(false));
+        assertTrue(GestureCommandContext.NIX.shouldEnterNix(false));
+        assertFalse(GestureCommandContext.OUTER.shouldEnterNix(true));
+    }
+
+    @Test
+    public void commandTextIsPreservedAndBlankTextIsUnset() {
+        assertEquals("printf '%s' 'two words'", TermuxSharedProperties.getGestureCommandInternalPropertyValueFromValue(
+            "printf '%s' 'two words'"));
+        assertNull(TermuxSharedProperties.getGestureCommandInternalPropertyValueFromValue(" \t"));
+    }
+
+    @Test
+    public void commandPropertiesAreRedactedFromPropertyDumps() {
+        assertEquals("[redacted]", TermuxSharedProperties.getPropertyValueForLog(
+            TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND, "secret command"));
+        assertEquals("[redacted]", TermuxSharedProperties.getPropertyValueForLog(
+            TermuxPropertyConstants.KEY_EXTRA_KEYS, "[[{\"command\":\"secret command\"}]]"));
+        assertEquals("[[ESC,TAB]]", TermuxSharedProperties.getPropertyValueForLog(
+            TermuxPropertyConstants.KEY_EXTRA_KEYS, "[[ESC,TAB]]"));
     }
 
     @Test

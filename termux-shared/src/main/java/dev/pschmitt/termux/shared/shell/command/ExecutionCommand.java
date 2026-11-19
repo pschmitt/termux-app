@@ -198,6 +198,9 @@ public class ExecutionCommand {
     /** Whether to set {@link ExecutionCommand} shell environment. */
     public boolean setShellCommandShellEnvironment;
 
+    /** Whether command arguments contain user-authored shell text that must be redacted from logs. */
+    public boolean redactArgumentsInLogs;
+
 
 
 
@@ -556,6 +559,7 @@ public class ExecutionCommand {
     }
 
     public String getArgumentsLogString() {
+        if (redactArgumentsInLogs) return "Arguments: [redacted]";
         return getArgumentsLogString("Arguments", arguments);
     }
 

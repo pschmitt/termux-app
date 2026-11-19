@@ -6,6 +6,7 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.drawerlayout.widget.DrawerLayout;
+import com.google.android.material.button.MaterialButton;
 
 import com.termux.app.TermuxActivity;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
@@ -13,6 +14,7 @@ import com.termux.app.terminal.TermuxTerminalViewClient;
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysConstants;
 import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeysInfo;
+import dev.pschmitt.termux.shared.termux.extrakeys.ExtraKeyButton;
 import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 import dev.pschmitt.termux.shared.termux.settings.properties.TermuxSharedProperties;
 import dev.pschmitt.termux.shared.termux.terminal.io.TerminalExtraKeys;
@@ -79,6 +81,16 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
 
     public ExtraKeysInfo getExtraKeysInfo() {
         return mExtraKeysInfo;
+    }
+
+    @Override
+    public void onExtraKeyButtonClick(View view, ExtraKeyButton buttonInfo, MaterialButton button) {
+        if (buttonInfo.getCommand() != null) {
+            mTermuxTerminalViewClient.runGestureCommand(buttonInfo.getCommand(),
+                mActivity.getProperties().getGestureCommandContext());
+            return;
+        }
+        super.onExtraKeyButtonClick(view, buttonInfo, button);
     }
 
     @SuppressLint("RtlHardcoded")

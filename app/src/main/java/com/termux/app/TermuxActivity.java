@@ -540,7 +540,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 @Override
                 public void onSwipeLeft() {
                     if (mTermuxTerminalViewClient != null && mProperties != null)
-                        mTermuxTerminalViewClient.performGestureAction(mProperties.getExtraKeysSwipeLeftAction(), mProperties.getExtraKeysSwipeLeftKeys());
+                        mTermuxTerminalViewClient.performGestureAction(mProperties.getExtraKeysSwipeLeftAction(),
+                            mProperties.getExtraKeysSwipeLeftKeys(), mProperties.getExtraKeysSwipeLeftCommand(),
+                            mProperties.getGestureCommandContext());
                 }
             });
         }
