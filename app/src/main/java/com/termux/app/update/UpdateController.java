@@ -185,6 +185,18 @@ public final class UpdateController {
         submit(() -> publishCheckResult(target, performCheck(target, channel)));
     }
 
+    /**
+     * Checks one target, installed or not (the command-line self-update). Ignored while another run
+     * is busy.
+     */
+    @MainThread
+    public void checkTarget(@NonNull UpdateTarget target, @NonNull UpdateChannel channel) {
+        if (!target.isUpdatable() || isBusy()) return;
+        cancelRequested.set(false);
+        publish(target, UpdateState.of(UpdateState.Phase.CHECKING, null));
+        submit(() -> publishCheckResult(target, performCheck(target, channel)));
+    }
+
     private void runChecks(UpdateChannel channel) {
         List<UpdateTarget> targets = new ArrayList<>();
         for (UpdateTarget target : UpdateTarget.values()) {

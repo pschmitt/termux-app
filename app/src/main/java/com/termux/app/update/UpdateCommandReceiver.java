@@ -3,6 +3,7 @@ package com.termux.app.update;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 
 import androidx.annotation.MainThread;
@@ -49,14 +50,14 @@ public final class UpdateCommandReceiver extends BroadcastReceiver {
         UpdateTarget target = UpdateTarget.CORE;
         if ("check".equals(command)) {
             installWhenAvailable = false;
-            controller.checkOne(target, UpdateChannel.LATEST);
+            controller.checkTarget(target, UpdateChannel.LATEST);
         } else if ("update".equals(command)) {
             if (controller.getState(target).phase == UpdateState.Phase.AVAILABLE) {
                 installWhenAvailable = false;
                 controller.startUpdate(target);
             } else {
                 installWhenAvailable = true;
-                controller.checkOne(target, UpdateChannel.LATEST);
+                controller.checkTarget(target, UpdateChannel.LATEST);
             }
         } else if ("cancel".equals(command)) {
             installWhenAvailable = false;
@@ -96,7 +97,7 @@ public final class UpdateCommandReceiver extends BroadcastReceiver {
         try {
             JSONObject status = new JSONObject();
             status.put("updated", System.currentTimeMillis() / 1000);
-            status.put("installed", installedVersion(context));
+            putInstalled(context, status);
             status.put("phase", state.phase.name());
             if (command != null) status.put("command", command);
             if (state.offer != null) {
@@ -122,13 +123,27 @@ public final class UpdateCommandReceiver extends BroadcastReceiver {
         }
     }
 
-    @NonNull
-    private static String installedVersion(@NonNull Context context) {
+    /**
+     * The installed build: version name plus commit, and the install time, which changes with
+     * every install even when the version name does not.
+     */
+    private static void putInstalled(@NonNull Context context, @NonNull JSONObject status) throws JSONException {
+        String version = "";
+        long installedAt = 0;
         try {
-            String name = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName;
-            return name == null ? "" : name;
-        } catch (PackageManager.NameNotFoundException e) {
-            return "";
+            PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            if (info.versionName != null) version = info.versionName;
+            installedAt = info.lastUpdateTime / 1000;
+        } catch (PackageManager.NameNotFoundException ignored) {
         }
+        // The identity the updater compares (UpdateController.performCheck).
+        InstalledBuild build = InstalledBuild.parse(com.termux.BuildConfig.GIT_REVISION);
+        if (build.isComparable()) {
+            String commit = build.commit;
+            version += " (" + commit.substring(0, Math.min(12, commit.length())) + ")";
+            status.put("commit", commit);
+        }
+        status.put("installed", version.trim());
+        status.put("installedAt", installedAt);
     }
 }
