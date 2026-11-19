@@ -100,6 +100,7 @@
 
         <activity android:name=".apis.FingerprintAPI$FingerprintActivity"
             android:theme="@style/TransparentTheme"
+            android:taskAffinity=""
             android:noHistory="true"
             android:excludeFromRecents="true"
             android:exported="false" />

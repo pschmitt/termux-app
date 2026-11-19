@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
@@ -33,7 +34,7 @@ public class FingerprintAPI {
     protected static final String KEYSTORE_NAME   = "AndroidKeyStore";
 
     // milliseconds to wait before canceling
-    protected static final int SENSOR_TIMEOUT = 10000;
+    protected static final int SENSOR_TIMEOUT = 30000;
 
     // maximum authentication attempts before locked out
     protected static final int MAX_ATTEMPTS   = 5;
@@ -58,8 +59,9 @@ public class FingerprintAPI {
     // store result of fingerprint initialization / authentication
     protected static FingerprintResult fingerprintResult = new FingerprintResult();
 
-    // have we posted our result back?
-    protected static boolean postedResult = false;
+    // have we posted our result back? The timeout cancels the prompt, which
+    // reports an error of its own: only the first result may be returned.
+    protected static final AtomicBoolean postedResult = new AtomicBoolean(false);
 
 
     private static final String LOG_TAG = "FingerprintAPI";
@@ -88,6 +90,10 @@ public class FingerprintAPI {
      * Writes the result of our fingerprint result to the console
      */
     protected static void postFingerprintResult(Context context, Intent intent, final FingerprintResult result) {
+        if (!postedResult.compareAndSet(false, true)) {
+            Logger.logDebug(LOG_TAG, "Fingerprint result already returned, ignoring " + result.errors);
+            return;
+        }
         ResultReturner.returnData(context, intent, new ResultReturner.ResultJsonWriter() {
             @Override
             public void writeJson(JsonWriter out) throws Exception {
@@ -107,7 +113,6 @@ public class FingerprintAPI {
 
                 out.flush();
                 out.close();
-                postedResult = true;
             }
         });
     }
@@ -164,6 +169,11 @@ public class FingerprintAPI {
             BiometricPrompt biometricPrompt = new BiometricPrompt(context, executor, new BiometricPrompt.AuthenticationCallback() {
                 @Override
                 public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                    Logger.logError(LOG_TAG, "Authentication error " + errorName(errorCode) + ": " + errString);
+                    if (postedResult.get()) {
+                        return;
+                    }
+                    appendFingerprintError(errorName(errorCode) + ": " + errString);
                     if (errorCode == BiometricPrompt.ERROR_LOCKOUT) {
                         appendFingerprintError(ERROR_LOCKOUT);
 
@@ -174,13 +184,14 @@ public class FingerprintAPI {
                     }
                     setAuthResult(AUTH_RESULT_FAILURE);
                     postFingerprintResult(context, intent, fingerprintResult);
-                    Logger.logError(LOG_TAG, errString.toString());
+                    finishPrompt(context);
                 }
 
                 @Override
                 public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                     setAuthResult(AUTH_RESULT_SUCCESS);
                     postFingerprintResult(context, intent, fingerprintResult);
+                    finishPrompt(context);
                 }
 
                 @Override
@@ -209,15 +220,25 @@ public class FingerprintAPI {
          * Adds a timeout for our fingerprint sensor which will force a result return if we
          * haven't already received one
          */
-        protected static void addSensorTimeout(final Context context, final Intent intent, final BiometricPrompt biometricPrompt) {
+        protected static void addSensorTimeout(final FragmentActivity context, final Intent intent, final BiometricPrompt biometricPrompt) {
             final Handler timeoutHandler = new Handler(Looper.getMainLooper());
             timeoutHandler.postDelayed(() -> {
-                if (!postedResult) {
+                if (!postedResult.get()) {
                     appendFingerprintError(ERROR_TIMEOUT);
-                    biometricPrompt.cancelAuthentication();
+                    setAuthResult(AUTH_RESULT_FAILURE);
+                    // Return first: cancelling reports ERROR_CANCELED, which
+                    // must not replace the timeout.
                     postFingerprintResult(context, intent, fingerprintResult);
+                    biometricPrompt.cancelAuthentication();
+                    finishPrompt(context);
                 }
             }, SENSOR_TIMEOUT);
+        }
+
+        protected static void finishPrompt(final FragmentActivity context) {
+            context.runOnUiThread(() -> {
+                if (!context.isFinishing()) context.finish();
+            });
         }
     }
 
@@ -226,7 +247,30 @@ public class FingerprintAPI {
      */
     protected static void resetFingerprintResult() {
         fingerprintResult = new FingerprintResult();
-        postedResult = false;
+        postedResult.set(false);
+    }
+
+    /**
+     * Name a BiometricPrompt error code, so callers see why it failed.
+     */
+    protected static String errorName(int errorCode) {
+        switch (errorCode) {
+            case BiometricPrompt.ERROR_HW_UNAVAILABLE: return "ERROR_HW_UNAVAILABLE";
+            case BiometricPrompt.ERROR_UNABLE_TO_PROCESS: return "ERROR_UNABLE_TO_PROCESS";
+            case BiometricPrompt.ERROR_TIMEOUT: return "ERROR_SENSOR_TIMEOUT";
+            case BiometricPrompt.ERROR_NO_SPACE: return "ERROR_NO_SPACE";
+            case BiometricPrompt.ERROR_CANCELED: return "ERROR_CANCELED";
+            case BiometricPrompt.ERROR_LOCKOUT: return "ERROR_LOCKOUT";
+            case BiometricPrompt.ERROR_VENDOR: return "ERROR_VENDOR";
+            case BiometricPrompt.ERROR_LOCKOUT_PERMANENT: return "ERROR_LOCKOUT_PERMANENT";
+            case BiometricPrompt.ERROR_USER_CANCELED: return "ERROR_USER_CANCELED";
+            case BiometricPrompt.ERROR_NO_BIOMETRICS: return "ERROR_NO_BIOMETRICS";
+            case BiometricPrompt.ERROR_HW_NOT_PRESENT: return "ERROR_HW_NOT_PRESENT";
+            case BiometricPrompt.ERROR_NEGATIVE_BUTTON: return "ERROR_NEGATIVE_BUTTON";
+            case BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL: return "ERROR_NO_DEVICE_CREDENTIAL";
+            case BiometricPrompt.ERROR_SECURITY_UPDATE_REQUIRED: return "ERROR_SECURITY_UPDATE_REQUIRED";
+            default: return "ERROR_" + errorCode;
+        }
     }
 
     /**
