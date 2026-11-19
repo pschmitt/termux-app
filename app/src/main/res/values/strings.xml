@@ -180,7 +180,8 @@
                 <string name="adb_shell_token_copied">Token copied to clipboard</string>
                 <string name="adb_shell_notification_channel">ADB shell access</string>
                 <string name="adb_shell_notification_title">ADB shell is enabled</string>
-                <string name="adb_shell_notification_text">ADB shell listening on loopback port %1$d</string>
+                <string name="adb_shell_waiting_for_network">Waiting for an allowed Wi-Fi network</string>
+    <string name="adb_shell_notification_text">ADB shell listening on loopback port %1$d</string>
                 <string name="adb_shell_stop">Stop</string>
                 <string name="adb_shell_authorizations_title">ADB shell authorizations</string>
                 <string name="adb_shell_authorizations_summary">Review and revoke individual clients</string>

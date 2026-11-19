@@ -151,6 +151,10 @@ public final class PropertyInputSpec {
             case TermuxPropertyConstants.KEY_TERMINAL_TOAST_POSITION:
                 return "Where terminal feedback appears, including session-switch indicators. Default: top-center.";
 
+            case TermuxPropertyConstants.KEY_ADB_SHELL_ALLOWED_SSIDS:
+                return "Restrict the ADB shell service to these Wi-Fi networks. Enter exact, comma-separated SSIDs. "
+                    + "Leave empty to allow any network. Android must allow TermuxPP to read the connected SSID.";
+
             case TermuxPropertyConstants.KEY_GESTURE_ANIMATIONS:
                 return "Show visual feedback for custom taps, extra-key swipes, and volume button actions. Enabled by default.";
 

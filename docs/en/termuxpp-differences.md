@@ -328,3 +328,6 @@ Set `create-session-on-single-session-switch=true` in `termuxpp.properties` to
 create and open a new terminal when previous or next session is invoked with
 only one terminal open. This applies to keyboard shortcuts and configured
 gestures, including the extra-keys swipe. The default is to keep the current session.
+
+The ADB shell listener optionally restricts its availability to configured
+Wi-Fi SSIDs. See [ADB shell Wi-Fi restriction](integrations.md#adb-shell-wi-fi-restriction).

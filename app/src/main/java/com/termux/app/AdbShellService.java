@@ -5,17 +5,29 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.wifi.SupplicantState;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Base64;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import com.termux.R;
 import com.termux.terminal.PtyProcess;
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxSharedProperties;
 import dev.pschmitt.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
 
 import java.io.BufferedInputStream;
@@ -93,6 +105,16 @@ public final class AdbShellService extends Service {
     private final java.util.concurrent.ExecutorService clients = new java.util.concurrent.ThreadPoolExecutor(
         0, 4, 30, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.SynchronousQueue<>());
     private Thread serverThread;
+    private static final long NETWORK_RECHECK_MS = 2000;
+    private final Handler networkHandler = new Handler(Looper.getMainLooper());
+    private final Runnable networkCheck = this::updateNetworkAccess;
+    private boolean waitingForNetwork;
+    private final BroadcastReceiver wifiChanges = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            updateNetworkAccess();
+        }
+    };
 
     public static String createAccessToken(android.content.Context context) {
         byte[] tokenBytes = new byte[32];
@@ -106,7 +128,11 @@ public final class AdbShellService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
+        waitingForNetwork = !networkAllowsAccess();
         startForeground(NOTIFICATION_ID, buildNotification());
+        IntentFilter filter = new IntentFilter(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+        filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
+        ContextCompat.registerReceiver(this, wifiChanges, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
     @Override
@@ -127,8 +153,58 @@ public final class AdbShellService extends Service {
         if (intent != null && ACTION_AUTHORIZATIONS_CHANGED.equals(intent.getAction())) {
             closeTlsClients();
         }
-        ensureServer();
+        updateNetworkAccess();
         return START_STICKY;
+    }
+
+    private void updateNetworkAccess() {
+        networkHandler.removeCallbacks(networkCheck);
+        if (!getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(PREF_ENABLED, false)) return;
+
+        boolean allowed = networkAllowsAccess();
+        if (allowed) {
+            ensureServer();
+        } else if (!stopping) {
+            stopServer();
+        }
+        if (waitingForNetwork == allowed) {
+            waitingForNetwork = !allowed;
+            getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, buildNotification());
+        }
+        // Permission or location changes may redact the SSID without a Wi-Fi broadcast.
+        networkHandler.postDelayed(networkCheck, NETWORK_RECHECK_MS);
+    }
+
+    private boolean networkAllowsAccess() {
+        TermuxSharedProperties properties = TermuxAppSharedProperties.getProperties();
+        if (properties == null) return false;
+        String configured = properties.getPropertyValue(
+            TermuxPropertyConstants.KEY_ADB_SHELL_ALLOWED_SSIDS, "", true);
+        if (configured.trim().isEmpty()) return true;
+        try {
+            WifiManager wifi = getApplicationContext().getSystemService(WifiManager.class);
+            if (wifi == null || !wifi.isWifiEnabled()) return false;
+            WifiInfo current = wifi.getConnectionInfo();
+            if (current == null || current.getNetworkId() < 0
+                || current.getSupplicantState() != SupplicantState.COMPLETED) return false;
+            return permitsSsid(configured, current.getSSID());
+        } catch (SecurityException e) {
+            return false;
+        }
+    }
+
+    static boolean permitsSsid(String configured, @Nullable String reported) {
+        if (configured.trim().isEmpty()) return true;
+        if (reported == null || reported.isEmpty() || WifiManager.UNKNOWN_SSID.equals(reported)) return false;
+
+        // Android wraps a UTF-8 SSID in double quotes and may return a hex string otherwise.
+        if (reported.length() < 2 || reported.charAt(0) != '"' || reported.charAt(reported.length() - 1) != '"')
+            return false;
+        String name = reported.substring(1, reported.length() - 1);
+        for (String allowed : configured.split(",")) {
+            if (!allowed.trim().isEmpty() && name.equals(allowed.trim())) return true;
+        }
+        return false;
     }
 
     private synchronized void ensureServer() {
@@ -153,6 +229,7 @@ public final class AdbShellService extends Service {
     }
 
     private ServerSocket bindServer(int run) throws IOException {
+        if (!networkAllowsAccess()) return null;
         IOException last = null;
         for (int attempt = 0; attempt < BIND_ATTEMPTS && isCurrent(run); attempt++) {
             try {
@@ -174,6 +251,8 @@ public final class AdbShellService extends Service {
 
     @Override
     public void onDestroy() {
+        networkHandler.removeCallbacks(networkCheck);
+        unregisterReceiver(wifiChanges);
         stopServer();
         clients.shutdownNow();
         stopForeground(true);
@@ -194,6 +273,11 @@ public final class AdbShellService extends Service {
                     if (!isCurrent(run)) {
                         closeQuietly(socket);
                         break;
+                    }
+                    if (!networkAllowsAccess()) {
+                        closeQuietly(socket);
+                        networkHandler.post(networkCheck);
+                        continue;
                     }
                     connections.add(socket);
                 }
@@ -216,7 +300,7 @@ public final class AdbShellService extends Service {
 
     private void handleConnection(Socket socket, int run) {
         try {
-            if (!isCurrent(run)) return;
+            if (!isCurrent(run) || !networkAllowsAccess()) return;
             socket.setSoTimeout(10_000);
             byte[] line = readLine(socket.getInputStream(), 512);
             if (line == null) return;
@@ -847,7 +931,9 @@ public final class AdbShellService extends Service {
             ? new Notification.Builder(this, CHANNEL_ID) : new Notification.Builder(this);
         return builder.setSmallIcon(R.drawable.ic_service_notification)
             .setContentTitle(getString(R.string.adb_shell_notification_title))
-            .setContentText(getString(R.string.adb_shell_notification_text, PORT))
+            .setContentText(waitingForNetwork
+                ? getString(R.string.adb_shell_waiting_for_network)
+                : getString(R.string.adb_shell_notification_text, PORT))
             .setOngoing(true)
             .addAction(R.drawable.ic_service_notification, getString(R.string.adb_shell_stop), stopPendingIntent)
             .build();

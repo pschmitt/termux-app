@@ -396,6 +396,8 @@ public final class TermuxPropertyConstants {
             .put("bottom-right", Gravity.BOTTOM | Gravity.RIGHT)
             .build();
 
+    public static final String KEY_ADB_SHELL_ALLOWED_SSIDS = "adb-shell-allowed-ssids";
+
     public static final String KEY_GESTURE_ANIMATIONS = "gesture-animations";
 
     public static final String KEY_TERMINAL_SINGLE_TAP_ACTION =  "terminal-single-tap-action"; // Default: "terminal-single-tap-action"
@@ -533,6 +535,7 @@ public final class TermuxPropertyConstants {
     public static final Set<String> TERMUX_APP_PROPERTIES_LIST = new HashSet<>(Arrays.asList(
         /* boolean */
         KEY_GESTURE_ANIMATIONS,
+        KEY_ADB_SHELL_ALLOWED_SSIDS,
         KEY_DISABLE_FILE_SHARE_RECEIVER,
         KEY_DISABLE_FILE_VIEW_RECEIVER,
         KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS,

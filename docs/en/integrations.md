@@ -64,3 +64,16 @@ The native API and TermuxAm helper packages have their own build instructions.
 | Styling | [Styling component](../../termux-styling/) |
 | Widget | [Widget component](../../termux-widget/) |
 | TermuxAm | [Helper package](../../termux-am/TERMUXPP.md) |
+
+## ADB shell Wi-Fi restriction
+
+Set `adb-shell-allowed-ssids` in **Settings → Properties → Advanced** or in
+`termuxpp.properties` to a comma-separated list of exact Wi-Fi names.
+The ADB shell listener closes active connections when the network becomes
+ineligible and resumes when an allowed SSID is available. With a list set,
+an unknown SSID also blocks access. Android may require Location to be on
+and TermuxPP to have location permission to read the connected network.
+
+An empty list leaves the ADB shell service available on any network when
+enabled. This setting controls the TermuxPP listener. Android's own ADB
+debugging and debug-build `run-as` are controlled separately by Android.
