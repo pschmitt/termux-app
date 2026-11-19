@@ -5,8 +5,12 @@ import androidx.annotation.Nullable;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,9 +31,67 @@ public final class TermuxNix {
     /** nixpp's default runtime directory, {@code $HOME/.local/share/termuxpp-nix}. */
     public static final String RUNTIME_DIR_PATH = TermuxConstants.TERMUX_HOME_DIR_PATH + "/.local/share/termuxpp-nix";
 
+    /**
+     * Stable copy of the APK's {@code libtermux-pkg-redirect.so}. The APK's own library directory
+     * ({@code /data/app/~~hash/.../lib/arm64}) changes on every update, which broke every native
+     * process that kept it in {@code LD_PRELOAD}; this path never changes. The app replaces the
+     * file atomically on start, so running processes keep their mapped copy.
+     */
+    public static final String REDIRECT_LIB_PATH = TermuxConstants.TERMUX_FILES_DIR_PATH + "/lib/libtermux-pkg-redirect.so";
+
     private static final String[] ASSETS = {"launcher", "bootstrap-aarch64.zip", "manifest.json"};
 
     private TermuxNix() {}
+
+    /**
+     * Install {@code nativeLibraryDir/libtermux-pkg-redirect.so} at {@link #REDIRECT_LIB_PATH}
+     * when it differs: write a temporary file, then rename it over the old one.
+     *
+     * @return the path to put in {@code LD_PRELOAD}: the stable copy, or the APK's library if the
+     *     copy cannot be written
+     */
+    @NonNull
+    public static String installRedirectLibrary(@NonNull String nativeLibraryDir) {
+        File source = new File(nativeLibraryDir, "libtermux-pkg-redirect.so");
+        File target = new File(REDIRECT_LIB_PATH);
+        try {
+            if (sameContent(source, target)) return target.getPath();
+            File directory = target.getParentFile();
+            if (directory != null && !directory.isDirectory() && !directory.mkdirs())
+                throw new IOException("cannot create " + directory);
+            File temporary = new File(directory, "." + target.getName() + ".tmp");
+            try (InputStream in = new FileInputStream(source); FileOutputStream out = new FileOutputStream(temporary)) {
+                byte[] buffer = new byte[65536];
+                int read;
+                while ((read = in.read(buffer)) > 0) out.write(buffer, 0, read);
+                out.getFD().sync();
+            }
+            if (!temporary.setReadable(true, true) || !temporary.setExecutable(true, true))
+                throw new IOException("cannot set permissions on " + temporary);
+            if (!temporary.renameTo(target)) throw new IOException("cannot replace " + target);
+            return target.getPath();
+        } catch (IOException e) {
+            return source.getPath();
+        }
+    }
+
+    private static boolean sameContent(@NonNull File a, @NonNull File b) throws IOException {
+        if (!b.isFile() || a.length() != b.length()) return false;
+        try (InputStream x = new FileInputStream(a); InputStream y = new FileInputStream(b)) {
+            byte[] bx = new byte[65536], by = new byte[65536];
+            int nx;
+            while ((nx = x.read(bx)) > 0) {
+                int ny = 0;
+                while (ny < nx) {
+                    int r = y.read(by, ny, nx - ny);
+                    if (r <= 0) return false;
+                    ny += r;
+                }
+                if (!Arrays.equals(Arrays.copyOf(bx, nx), Arrays.copyOf(by, nx))) return false;
+            }
+            return y.read() < 0;
+        }
+    }
 
     /** Whether the prefix can set up a Nix runtime: nixpp and all of its bundled assets are present. */
     public static boolean isProvisioned() {

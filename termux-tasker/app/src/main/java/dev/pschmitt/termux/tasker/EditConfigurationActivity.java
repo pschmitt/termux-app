@@ -72,6 +72,10 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
     private CheckBox mInTerminalCheckbox;
     private CheckBox mWaitForResult;
     private CheckBox mKillTermux;
+    private CheckBox mControlService;
+    private View mServiceContainer;
+    private android.widget.Spinner mServiceAction;
+    private android.widget.Spinner mServiceName;
     private CheckBox mKillTermuxRestart;
     private View mCommandContainer;
     private TextView mExecutableAbsolutePathText;
@@ -135,8 +139,26 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
         mKillTermuxRestart = findViewById(R.id.kill_termux_restart);
         mCommandContainer = findViewById(R.id.command_container);
         mKillTermux.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            mCommandContainer.setVisibility(isChecked ? View.GONE : View.VISIBLE);
+            if (isChecked) mControlService.setChecked(false);
+            mCommandContainer.setVisibility(isChecked || mControlService.isChecked() ? View.GONE : View.VISIBLE);
             mKillTermuxRestart.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+        });
+        mControlService = findViewById(R.id.control_service);
+        mServiceContainer = findViewById(R.id.service_container);
+        mServiceAction = findViewById(R.id.service_action);
+        mServiceName = findViewById(R.id.service_name);
+        mServiceAction.setAdapter(new android.widget.ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_dropdown_item, PluginBundleManager.SERVICE_ACTIONS));
+        mServiceName.setAdapter(new android.widget.ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_dropdown_item, readServiceNames()));
+        mControlService.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                mKillTermux.setChecked(false);
+                if (mServiceName.getCount() == 0)
+                    Logger.showToast(this, getString(R.string.msg_no_services), true);
+            }
+            mCommandContainer.setVisibility(isChecked || mKillTermux.isChecked() ? View.GONE : View.VISIBLE);
+            mServiceContainer.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
         mExecutableAbsolutePathText = findViewById(R.id.executable_absolute_path);
         mWorkingDirectoryAbsolutePathText = findViewById(R.id.working_directory_absolute_path);
@@ -169,6 +191,13 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
         errmsg = PluginBundleManager.parseBundle(this, localeBundle);
         if (errmsg != null) {
             Logger.logError(LOG_TAG, errmsg);
+            return;
+        }
+
+        if (localeBundle.containsKey(PluginBundleManager.EXTRA_SERVICE)) {
+            selectSpinnerValue(mServiceAction, localeBundle.getString(PluginBundleManager.EXTRA_SERVICE_ACTION));
+            selectSpinnerValue(mServiceName, localeBundle.getString(PluginBundleManager.EXTRA_SERVICE));
+            mControlService.setChecked(true);
             return;
         }
 
@@ -691,6 +720,25 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
             return;
         }
 
+        if (mControlService.isChecked() && mServiceName.getSelectedItem() != null) {
+            final String action = String.valueOf(mServiceAction.getSelectedItem());
+            final String service = String.valueOf(mServiceName.getSelectedItem());
+            final Bundle serviceBundle = PluginBundleManager.generateServiceBundle(getApplicationContext(), action, service);
+            if (serviceBundle == null) {
+                Logger.showToast(this, getString(R.string.error_generate_plugin_bundle_failed), true);
+                setResult(RESULT_CODE_FAILED, new Intent());
+                super.finish();
+                return;
+            }
+            final Intent serviceResult = new Intent();
+            serviceResult.putExtra(com.twofortyfouram.locale.Intent.EXTRA_BUNDLE, serviceBundle);
+            serviceResult.putExtra(com.twofortyfouram.locale.Intent.EXTRA_STRING_BLURB,
+                PluginBundleManager.generateServiceBlurb(action, service));
+            setResult(RESULT_OK, serviceResult);
+            super.finish();
+            return;
+        }
+
         if (mKillTermux.isChecked()) {
             final boolean restart = mKillTermuxRestart.isChecked();
             final Bundle killBundle = PluginBundleManager.generateKillBundle(getApplicationContext(), restart);
@@ -833,4 +881,33 @@ public final class EditConfigurationActivity extends AbstractPluginActivity {
         }
     }
 
+
+    /** Guest service names, as svc supervise publishes them (service-state/manifest.json). */
+    private java.util.List<String> readServiceNames() {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        java.io.File manifest = new java.io.File(dev.pschmitt.termux.shared.termux.nix.TermuxNix.RUNTIME_DIR_PATH,
+            "service-state/manifest.json");
+        try (java.io.FileInputStream in = new java.io.FileInputStream(manifest)) {
+            java.io.ByteArrayOutputStream data = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) > 0 && data.size() < 1 << 20) data.write(buffer, 0, read);
+            org.json.JSONObject services = new org.json.JSONObject(data.toString("UTF-8"));
+            java.util.Iterator<String> keys = services.keys();
+            while (keys.hasNext()) names.add(keys.next());
+            java.util.Collections.sort(names);
+        } catch (java.io.IOException | org.json.JSONException ignored) {
+        }
+        return names;
+    }
+
+    private static void selectSpinnerValue(@androidx.annotation.NonNull android.widget.Spinner spinner, @androidx.annotation.Nullable String value) {
+        if (value == null) return;
+        for (int i = 0; i < spinner.getCount(); i++) {
+            if (value.equals(String.valueOf(spinner.getItemAtPosition(i)))) {
+                spinner.setSelection(i);
+                return;
+            }
+        }
+    }
 }

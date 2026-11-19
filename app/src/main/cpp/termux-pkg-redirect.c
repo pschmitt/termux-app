@@ -30,6 +30,13 @@ static const size_t OLD_USER_PREFIX_LEN = sizeof(OLD_USER_PREFIX) - 1;
 static char g_target_dir[PATH_MAX];
 static size_t g_target_dir_len = 0;
 
+/* Termux keeps per-app state (the termux-am socket) under files/apps/<package>;
+ * stock binaries have the com.termux name compiled into that segment too. */
+static const char OLD_APPS_SEGMENT[] = "/files/apps/com.termux";
+static const size_t OLD_APPS_SEGMENT_LEN = sizeof(OLD_APPS_SEGMENT) - 1;
+static const char *g_target_package = NULL;
+static size_t g_target_package_len = 0;
+
 __attribute__((constructor))
 static void init_redirect_target(void) {
     const char *env_dir = getenv("TERMUX_APP__DATA_DIR");
@@ -45,6 +52,11 @@ static void init_redirect_target(void) {
     memcpy(g_target_dir, env_dir, len);
     g_target_dir[len] = '\0';
     g_target_dir_len = len;
+    const char *slash = strrchr(g_target_dir, '/');
+    if (slash && slash[1]) {
+        g_target_package = slash + 1;
+        g_target_package_len = strlen(g_target_package);
+    }
 }
 
 static const char *rewrite_path(const char *path, char *buf, size_t buf_size) {
@@ -64,6 +76,25 @@ static const char *rewrite_path(const char *path, char *buf, size_t buf_size) {
 
     const char *rest = path + match_len;
     size_t rest_len = strlen(rest);
+    if (g_target_package_len > 0 &&
+        strncmp(rest, OLD_APPS_SEGMENT, OLD_APPS_SEGMENT_LEN) == 0 &&
+        (rest[OLD_APPS_SEGMENT_LEN] == '\0' || rest[OLD_APPS_SEGMENT_LEN] == '/')) {
+        /* <target>/files/apps/<package><tail> */
+        const char *tail = rest + OLD_APPS_SEGMENT_LEN;
+        size_t tail_len = strlen(tail);
+        size_t apps_len = OLD_APPS_SEGMENT_LEN - (sizeof("com.termux") - 1);
+        if (g_target_dir_len + apps_len + g_target_package_len + tail_len >= buf_size)
+            return path;
+        char *out = buf;
+        memcpy(out, g_target_dir, g_target_dir_len);
+        out += g_target_dir_len;
+        memcpy(out, OLD_APPS_SEGMENT, apps_len);
+        out += apps_len;
+        memcpy(out, g_target_package, g_target_package_len);
+        out += g_target_package_len;
+        memcpy(out, tail, tail_len + 1);
+        return buf;
+    }
     if (g_target_dir_len + rest_len >= buf_size)
         return path;
 

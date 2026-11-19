@@ -80,6 +80,10 @@ public class TermuxApplication extends Application {
             Logger.logErrorExtended(LOG_TAG, "Termux files directory is not accessible\n" + error);
         }
 
+        // Before any shell or native process starts: they preload the stable copy.
+        if (isTermuxFilesDirectoryAccessible)
+            dev.pschmitt.termux.shared.termux.nix.TermuxNix.installRedirectLibrary(getApplicationInfo().nativeLibraryDir);
+
         // Init TermuxShellEnvironment constants and caches after everything has been setup including termux-am-socket server
         TermuxShellEnvironment.init(this);
         NixppRuntimeRecovery.schedule(this);

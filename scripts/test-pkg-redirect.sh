@@ -147,6 +147,14 @@ check stock-dir-noop "PRE=$MIXED" \
 mkdir -p "$DATA/files/home"
 check af-unix "SOCK_OK" "$("$WORK/sock" /data/data/com.termux/files/home/test.sock)"
 [ -S "$DATA/files/home/test.sock" ] && echo "PASS af-unix-target" || { echo "FAIL af-unix-target"; fail=1; }
+# Per-app state: stock binaries (termux-am-socket) compile files/apps/com.termux in.
+mkdir -p "$DATA/files/apps/dev.pschmitt.termux/termux-am"
+check af-unix-apps "SOCK_OK" "$("$WORK/sock" /data/data/com.termux/files/apps/com.termux/termux-am/am.sock)"
+[ -S "$DATA/files/apps/dev.pschmitt.termux/termux-am/am.sock" ] && echo "PASS af-unix-apps-target" ||
+    { echo "FAIL af-unix-apps-target"; fail=1; }
+check apps-prefix-only "SOCK_OK" "$(mkdir -p "$DATA/files/apps/com.termuxx" && "$WORK/sock" /data/data/com.termux/files/apps/com.termuxx/x.sock)"
+[ -S "$DATA/files/apps/com.termuxx/x.sock" ] && echo "PASS apps-prefix-only-target" ||
+    { echo "FAIL apps-prefix-only-target"; fail=1; }
 exit $fail
 EOS
 

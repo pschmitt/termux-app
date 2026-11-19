@@ -96,7 +96,10 @@ public class TermuxShellEnvironment extends AndroidShellEnvironment {
                     environment.remove(ENV_LD_LIBRARY_PATH);
                 } else {
                     environment.put(ENV_LD_LIBRARY_PATH, TermuxConstants.TERMUX_LIB_PREFIX_DIR_PATH);
-                    String redirectLib = currentPackageContext.getApplicationInfo().nativeLibraryDir + "/libtermux-pkg-redirect.so";
+                    // The stable copy survives APK updates; see TermuxNix.REDIRECT_LIB_PATH.
+                    String redirectLib = new java.io.File(dev.pschmitt.termux.shared.termux.nix.TermuxNix.REDIRECT_LIB_PATH).isFile()
+                        ? dev.pschmitt.termux.shared.termux.nix.TermuxNix.REDIRECT_LIB_PATH
+                        : currentPackageContext.getApplicationInfo().nativeLibraryDir + "/libtermux-pkg-redirect.so";
                     environment.put("LD_PRELOAD", redirectLib);
                     environment.put("TERMUX_PKG_REDIRECT_SO", redirectLib);
                 }

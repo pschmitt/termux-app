@@ -492,7 +492,8 @@ export TERMUX_APP__DATA_DIR=/data/data/{PACKAGE}
 export PATH="$PREFIX/bin:/system/bin:/system/xbin"
 export LD_LIBRARY_PATH="$PREFIX/lib"
 export TERM="${{TERM:-xterm-256color}}"
-for redirect in {shlex.quote(apk_dir)}/lib/*/libtermux-pkg-redirect.so
+# The app's stable copy survives APK updates; the APK library is a fallback.
+for redirect in "$TERMUX_APP__DATA_DIR/files/lib/libtermux-pkg-redirect.so" {shlex.quote(apk_dir)}/lib/*/libtermux-pkg-redirect.so
 do
   if [ -f "$redirect" ]
   then

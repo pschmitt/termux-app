@@ -101,8 +101,13 @@ public final class NixppRuntimeRecovery {
     public static void schedule(Context context) {
         File runtime = new File(TermuxNix.RUNTIME_DIR_PATH);
         File launcher = new File(runtime, "start-system-control.sh");
-        File library = new File(context.getApplicationInfo().nativeLibraryDir,
-            "libtermux-pkg-redirect.so");
+        // The marker must name the library the runtime's start script preloads: nixpp restarts a
+        // process whose preload differs from it. Runtimes whose script preloads the stable copy
+        // get the stable path, which no longer changes on APK updates; older runtimes keep the
+        // APK path, or every controller start would see a "replaced" APK and restart forever.
+        String stable = TermuxNix.installRedirectLibrary(context.getApplicationInfo().nativeLibraryDir);
+        File library = scriptPreloadsStableCopy(launcher) ? new File(stable)
+            : new File(context.getApplicationInfo().nativeLibraryDir, "libtermux-pkg-redirect.so");
         if (!new File(runtime, "ready").isFile() ||
             !new File(runtime, "system.enabled").isFile() ||
             !launcher.isFile() || !library.isFile() ||
@@ -124,6 +129,16 @@ public final class NixppRuntimeRecovery {
                 Logger.logWarn(LOG_TAG, "Could not start nixpp runtime recovery: " + exception.getMessage());
             }
         }, "nixpp-runtime-recovery").start();
+    }
+
+    private static boolean scriptPreloadsStableCopy(File launcher) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(launcher), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null)
+                if (line.contains("/files/lib/libtermux-pkg-redirect.so")) return true;
+        } catch (IOException ignored) {
+        }
+        return false;
     }
 
     private static void publishLibrary(File runtime, File library) throws IOException {

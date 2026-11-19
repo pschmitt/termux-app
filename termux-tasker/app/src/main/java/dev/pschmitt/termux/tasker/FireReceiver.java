@@ -1,5 +1,6 @@
 package dev.pschmitt.termux.tasker;
 
+import androidx.annotation.NonNull;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -82,6 +83,28 @@ public final class FireReceiver extends BroadcastReceiver {
             killIntent.setClassName(TermuxConstants.TERMUX_PACKAGE_NAME, TermuxConstants.TERMUX_APP.TERMUX_SERVICE_NAME);
             killIntent.putExtra(TERMUX_SERVICE.EXTRA_KILL_RESTART, bundle.getBoolean(PluginBundleManager.EXTRA_KILL_RESTART, false));
             PluginUtils.sendExecuteIntentToExecuteService(context, this, intent, killIntent, false);
+            return;
+        }
+
+        // Service action: the guest's svc starts or stops a declared service. A fixed command
+        // through the guest login, so neither a script nor allow-external-apps is involved.
+        if (bundle.containsKey(PluginBundleManager.EXTRA_SERVICE)) {
+            errmsg = TermuxUtils.isTermuxAppAccessible(context);
+            if (errmsg != null) {
+                Logger.logError(LOG_TAG, errmsg);
+                PluginUtils.sendImmediateResultToPluginHostApp(this, intent, TaskerPlugin.Setting.RESULT_CODE_FAILED, errmsg);
+                return;
+            }
+            ExecutionCommand serviceCommand = new ExecutionCommand();
+            serviceCommand.executable = "/system/bin/sh";
+            serviceCommand.arguments = new String[]{
+                dev.pschmitt.termux.shared.termux.nix.TermuxNix.RUNTIME_DIR_PATH + "/login.sh", "-c",
+                "exec /run/current-system/sw/bin/svc \"$1\" \"$2\"", "tasker-svc",
+                bundle.getString(PluginBundleManager.EXTRA_SERVICE_ACTION),
+                bundle.getString(PluginBundleManager.EXTRA_SERVICE)};
+            serviceCommand.runner = ExecutionCommand.Runner.APP_SHELL.getName();
+            serviceCommand.executableUri = new Uri.Builder().scheme(TERMUX_SERVICE.URI_SCHEME_SERVICE_EXECUTE).path(serviceCommand.executable).build();
+            sendExecution(context, intent, serviceCommand, true);
             return;
         }
 
@@ -200,6 +223,12 @@ public final class FireReceiver extends BroadcastReceiver {
         Logger.logVerboseExtended(LOG_TAG, executionCommand.toString());
         Logger.logVerbose(LOG_TAG, "Wait For Result: `" + waitForResult + "`");
 
+        sendExecution(context, intent, executionCommand, waitForResult);
+    }
+
+    /** Send {@code executionCommand} to the TermuxPP execute service. */
+    private void sendExecution(@NonNull Context context, @NonNull Intent intent,
+                               @NonNull ExecutionCommand executionCommand, boolean waitForResult) {
         // Create execution intent with the action TERMUX_SERVICE#ACTION_SERVICE_EXECUTE to be sentto the TERMUX_SERVICE
         Intent executionIntent = new Intent(TERMUX_SERVICE.ACTION_SERVICE_EXECUTE, executionCommand.executableUri);
         executionIntent.setClassName(TermuxConstants.TERMUX_PACKAGE_NAME, TermuxConstants.TERMUX_APP.TERMUX_SERVICE_NAME);

@@ -71,6 +71,32 @@
                 android:visibility="gone"
                 android:text="@string/title_kill_termux_restart" />
 
+            <CheckBox
+                android:id="@+id/control_service"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/title_control_service" />
+
+            <LinearLayout
+                android:id="@+id/service_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="32dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <Spinner
+                    android:id="@+id/service_action"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <Spinner
+                    android:id="@+id/service_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
             <LinearLayout
                 android:id="@+id/command_container"
                 android:layout_width="match_parent"

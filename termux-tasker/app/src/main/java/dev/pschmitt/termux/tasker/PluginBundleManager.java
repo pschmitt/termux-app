@@ -49,6 +49,14 @@ public class PluginBundleManager {
     /** The {@code boolean} extra for whether the action kills Termux instead of running an executable. */
     public static final String EXTRA_KILL = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.KILL"; // Default: "dev.pschmitt.termux.tasker.extra.KILL"
 
+    /** The {@code String} extra naming a guest service to control instead of running an executable. */
+    public static final String EXTRA_SERVICE = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.SERVICE";
+
+    /** The {@code String} extra with the service action: start, stop or restart. */
+    public static final String EXTRA_SERVICE_ACTION = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.SERVICE_ACTION";
+
+    public static final java.util.List<String> SERVICE_ACTIONS = java.util.Arrays.asList("start", "stop", "restart");
+
     /** The {@code boolean} extra for whether Termux is relaunched after it was killed. */
     public static final String EXTRA_KILL_RESTART = TermuxConstants.TERMUX_TASKER_PACKAGE_NAME + ".extra.KILL_RESTART"; // Default: "dev.pschmitt.termux.tasker.extra.KILL_RESTART"
 
@@ -81,6 +89,18 @@ public class PluginBundleManager {
     @SuppressLint("DefaultLocale")
     public static String parseBundle(@NonNull final Context context, final Bundle bundle) {
         if (bundle == null) return context.getString(R.string.error_null_bundle);
+
+        // Service action: a valid service name, an action and the version code
+        if (bundle.containsKey(EXTRA_SERVICE)) {
+            String service = bundle.getString(EXTRA_SERVICE);
+            if (service == null || !service.matches("[a-zA-Z0-9][a-zA-Z0-9_.@-]*"))
+                return "Invalid service name: " + service;
+            if (!SERVICE_ACTIONS.contains(bundle.getString(EXTRA_SERVICE_ACTION)))
+                return "Invalid service action: " + bundle.getString(EXTRA_SERVICE_ACTION);
+            if (!bundle.containsKey(BUNDLE_EXTRA_INT_VERSION_CODE))
+                return String.format("The bundle must contain extra %s.", BUNDLE_EXTRA_INT_VERSION_CODE);
+            return null;
+        }
 
         // Kill action: only needs the kill flag and the version code
         if (bundle.getBoolean(EXTRA_KILL, false)) {
@@ -189,6 +209,24 @@ public class PluginBundleManager {
 
         result.putInt(BUNDLE_EXTRA_INT_VERSION_CODE, versionCode);
         return result;
+    }
+
+    @Nullable
+    public static Bundle generateServiceBundle(@NonNull final Context context, @NonNull final String action, @NonNull final String service) {
+        final Bundle result = new Bundle();
+        result.putString(EXTRA_SERVICE, service);
+        result.putString(EXTRA_SERVICE_ACTION, action);
+        Integer versionCode = PackageUtils.getVersionCodeForPackage(context);
+        if (versionCode == null) {
+            Logger.showToast(context, context.getString(R.string.error_get_version_code_failed, context.getPackageName()), true);
+            return null;
+        }
+        result.putInt(BUNDLE_EXTRA_INT_VERSION_CODE, versionCode);
+        return result;
+    }
+
+    public static String generateServiceBlurb(@NonNull final String action, @NonNull final String service) {
+        return "svc " + action + " " + service;
     }
 
     public static String generateKillBlurb(@NonNull final Context context, final boolean restart) {

@@ -68,6 +68,8 @@
     <string name="blurb_custom_log_level">Custom Log Level %1$s</string>
     <string name="blurb_session_action">Session Action %1$s</string>
     <string name="title_kill_termux">Kill TermuxPP (stop all shells and kill the app process)</string>
+    <string name="title_control_service">Start or stop a guest service</string>
+    <string name="msg_no_services">No guest services found. Open TermuxPP once so the guest lists them.</string>
     <string name="title_kill_termux_restart">Restart TermuxPP afterwards</string>
     <string name="blurb_kill">Kill TermuxPP</string>
     <string name="blurb_kill_restart">Kill TermuxPP and restart it</string>
