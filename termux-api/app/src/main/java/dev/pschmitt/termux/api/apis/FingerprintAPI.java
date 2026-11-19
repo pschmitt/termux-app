@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static android.content.Intent.FLAG_ACTIVITY_NO_ANIMATION;
 
 /**
  * This API allows users to use device fingerprint sensor as an authentication mechanism
@@ -79,7 +80,9 @@ public class FingerprintAPI {
         if (validateFingerprintSensor(context, fingerprintManager)) {
             Intent fingerprintIntent = new Intent(context, FingerprintActivity.class);
             fingerprintIntent.putExtras(intent.getExtras());
-            fingerprintIntent.setFlags(FLAG_ACTIVITY_NEW_TASK);
+            // Its own task opens over the terminal; skip the task-open slide,
+            // the system prompt brings its own animation.
+            fingerprintIntent.setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_NO_ANIMATION);
             context.startActivity(fingerprintIntent);
         } else {
             postFingerprintResult(context, intent, fingerprintResult);
@@ -237,7 +240,13 @@ public class FingerprintAPI {
 
         protected static void finishPrompt(final FragmentActivity context) {
             context.runOnUiThread(() -> {
-                if (!context.isFinishing()) context.finish();
+                if (context.isFinishing()) return;
+                context.finish();
+                if (android.os.Build.VERSION.SDK_INT >= 34) {
+                    context.overrideActivityTransition(android.app.Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0);
+                } else {
+                    context.overridePendingTransition(0, 0);
+                }
             });
         }
     }
