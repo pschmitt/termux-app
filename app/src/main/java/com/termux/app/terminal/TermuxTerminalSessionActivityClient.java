@@ -148,6 +148,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             return;
         }
 
+        if (service.finishSessionClosedByCommand(finishedSession)) return;
         int index = service.getIndexOfSession(finishedSession);
 
         // For plugin commands that expect the result back, we should immediately close the session
@@ -291,6 +292,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     }
 
 
+
+    public TerminalSession getCurrentSession() {
+        return mActivity.getCurrentSession();
+    }
 
     /** Try switching to session. */
     public void setCurrentSession(TerminalSession session) {

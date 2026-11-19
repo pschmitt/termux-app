@@ -14,6 +14,9 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -52,8 +55,20 @@ import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A service holding a list of {@link TermuxSession} in {@link TermuxShellManager#mTermuxSessions} and background {@link AppShell}
@@ -108,6 +123,10 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     /** If the user has executed the {@link TERMUX_SERVICE#ACTION_STOP_SERVICE} intent. */
     boolean mWantsToStop = false;
 
+    private SessionCommandServer sessionCommandServer;
+    private boolean sessionCliInstalled;
+    private final Set<String> closingSessions = new HashSet<>();
+
     private static final String LOG_TAG = "TermuxService";
 
     @Override
@@ -121,6 +140,12 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         mShellManager = TermuxShellManager.getShellManager();
 
         runStartForeground();
+        try {
+            sessionCommandServer = new SessionCommandServer(this);
+        } catch (IOException e) {
+            Logger.logWarn(LOG_TAG, "Could not start the session command listener: " + e.getMessage());
+        }
+        installSessionCli();
 
         SystemEventReceiver.registerPackageUpdateEvents(this);
     }
@@ -175,6 +200,14 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     @Override
     public void onDestroy() {
         Logger.logVerbose(LOG_TAG, "onDestroy");
+
+        if (sessionCommandServer != null) {
+            try {
+                sessionCommandServer.close();
+            } catch (IOException e) {
+                Logger.logWarn(LOG_TAG, "Could not close the session command listener: " + e.getMessage());
+            }
+        }
 
         TermuxShellUtils.clearTermuxTMPDIR(true);
 
@@ -636,6 +669,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     @Nullable
     public synchronized TermuxSession createTermuxSession(ExecutionCommand executionCommand) {
         if (executionCommand == null) return null;
+        installSessionCli();
 
         Logger.logDebug(LOG_TAG, "Creating \"" + executionCommand.getCommandIdAndLabelLogString() + "\" TermuxSession");
 
@@ -690,6 +724,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     /** Remove a TermuxSession. */
     public synchronized int removeTermuxSession(TerminalSession sessionToRemove) {
         int index = getIndexOfSession(sessionToRemove);
+        closingSessions.remove(sessionToRemove.mHandle);
 
         if (index >= 0)
             mShellManager.mTermuxSessions.get(index).finish();
@@ -740,6 +775,136 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
                 getString(R.string.error_termux_service_unsupported_execution_command_shell_create_mode, executionCommand.shellCreateMode));
             return null;
         }
+    }
+
+    private void installSessionCli() {
+        if (sessionCliInstalled) return;
+        File bin = new File(TermuxConstants.TERMUX_PREFIX_DIR_PATH, "bin");
+        if (!bin.isDirectory()) return;
+
+        File target = new File(bin, "termuxpp-session");
+        File staging = null;
+        try {
+            staging = File.createTempFile(".termuxpp-session-", ".tmp", bin);
+            try (InputStream source = getAssets().open("termuxpp-session");
+                 OutputStream destination = new FileOutputStream(staging)) {
+                destination.write(("#!" + bin + "/python3\n").getBytes(StandardCharsets.UTF_8));
+                byte[] buffer = new byte[4096];
+                int count;
+                while ((count = source.read(buffer)) != -1) destination.write(buffer, 0, count);
+            }
+            if (!staging.setExecutable(true, true) || !staging.renameTo(target))
+                throw new IOException("Could not replace " + target);
+            sessionCliInstalled = true;
+        } catch (IOException e) {
+            Logger.logWarn(LOG_TAG, "Could not install termuxpp-session: " + e.getMessage());
+        } finally {
+            if (staging != null && !sessionCliInstalled) staging.delete();
+        }
+    }
+
+    /** Called on the main thread by the app-UID session socket. */
+    Object runSessionCommand(JSONArray args) throws JSONException, ErrnoException {
+        String command = args.getString(0);
+        List<TermuxSession> sessions = getTermuxSessions();
+        TermuxAppSharedPreferences preferences = TermuxAppSharedPreferences.build(this);
+        String current = preferences == null ? null : preferences.getCurrentSession();
+        TerminalSession selected = mTermuxTerminalSessionActivityClient == null
+            ? (current == null ? null : getTerminalSessionForHandle(current))
+            : mTermuxTerminalSessionActivityClient.getCurrentSession();
+        if (selected == null && !sessions.isEmpty())
+            selected = sessions.get(sessions.size() - 1).getTerminalSession();
+
+        if ("list".equals(command) && args.length() == 1) {
+            JSONArray result = new JSONArray();
+            for (int i = 0; i < sessions.size(); i++) {
+                TerminalSession terminal = sessions.get(i).getTerminalSession();
+                result.put(new JSONObject()
+                    .put("id", terminal.mHandle)
+                    .put("position", i + 1)
+                    .put("name", terminal.mSessionName == null ? "" : terminal.mSessionName)
+                    .put("title", terminal.getTitle() == null ? "" : terminal.getTitle())
+                    .put("running", terminal.isRunning())
+                    .put("current", terminal == selected));
+            }
+            return result;
+        }
+
+        int expected = "rename".equals(command) || "move".equals(command) ? 3 : 2;
+        if (args.length() != expected) throw new IllegalArgumentException("Invalid session command arguments");
+        TerminalSession terminal = getTerminalSessionForHandle(args.getString(1));
+        if (terminal == null) throw new IllegalArgumentException("Session ID not found");
+        int index = getIndexOfSession(terminal);
+
+        switch (command) {
+            case "focus":
+                selectSessionFromCommand(terminal);
+                break;
+            case "rename":
+                String name = args.getString(2);
+                if (name.codePoints().anyMatch(Character::isISOControl))
+                    throw new IllegalArgumentException("Names cannot contain control characters");
+                terminal.mSessionName = name;
+                sessions.get(index).getExecutionCommand().shellName = name;
+                break;
+            case "move":
+                int position = args.getInt(2);
+                if (position < 1 || position > sessions.size())
+                    throw new IllegalArgumentException("Position must be between 1 and " + sessions.size());
+                sessions.add(position - 1, sessions.remove(index));
+                if (mTermuxTerminalSessionActivityClient != null && selected != null)
+                    mTermuxTerminalSessionActivityClient.checkAndScrollToSession(selected);
+                break;
+            case "close":
+                if (terminal.getPid() > 0) {
+                    signalSession(terminal, OsConstants.SIGHUP);
+                    closingSessions.add(terminal.mHandle);
+                } else if (terminal.isRunning()) {
+                    throw new IllegalStateException("Session shell has not started");
+                } else {
+                    dismissSessionFromCommand(terminal);
+                }
+                break;
+            case "kill":
+                signalSession(terminal, OsConstants.SIGKILL);
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown session command");
+        }
+        if (mTermuxTerminalSessionActivityClient != null)
+            mTermuxTerminalSessionActivityClient.termuxSessionListNotifyUpdated();
+        return JSONObject.NULL;
+    }
+
+    public boolean finishSessionClosedByCommand(TerminalSession terminal) {
+        if (!closingSessions.remove(terminal.mHandle)) return false;
+        dismissSessionFromCommand(terminal);
+        return true;
+    }
+
+    private void dismissSessionFromCommand(TerminalSession terminal) {
+        TermuxTerminalSessionActivityClient activityClient = mTermuxTerminalSessionActivityClient;
+        if (activityClient != null && terminal == activityClient.getCurrentSession()) {
+            activityClient.removeFinishedSession(terminal);
+            return;
+        }
+        int index = removeTermuxSession(terminal);
+        if (index < 0 || activityClient != null) return;
+
+        TermuxAppSharedPreferences preferences = TermuxAppSharedPreferences.build(this);
+        if (preferences == null || !terminal.mHandle.equals(preferences.getCurrentSession())) return;
+        TermuxSession next = getTermuxSession(Math.min(index, getTermuxSessionsSize() - 1));
+        preferences.setCurrentSession(next == null ? null : next.getTerminalSession().mHandle);
+    }
+
+    private void selectSessionFromCommand(TerminalSession terminal) {
+        handleSessionAction(TERMUX_SERVICE.VALUE_EXTRA_SESSION_ACTION_SWITCH_TO_NEW_SESSION_AND_DONT_OPEN_ACTIVITY, terminal);
+    }
+
+    private void signalSession(TerminalSession terminal, int signal) throws ErrnoException {
+        int pid = terminal.getPid();
+        if (pid <= 0) throw new IllegalStateException("Session has no running shell");
+        Os.kill(pid, signal);
     }
 
     /** Process session action for new session. */

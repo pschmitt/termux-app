@@ -2,12 +2,10 @@
 page_ref: /docs/apps/termux/index.html
 ---
 
-# Termux App Docs
+# TermuxPP documentation
 
-<!--- DOC_HEADER_PLACEHOLDER -->
-
-Welcome to documentation for the [Termux App].
-
-##
-
-[Termux App]: https://github.com/termux/termux-app
+- [Terminal settings](terminal-settings.md)
+- [Built-in integrations](integrations.md)
+- [Self-update over Shizuku](self-update.md)
+- [Custom AArch64 bootstrap](aarch64-bootstrap.md)
+- [Upstream and TermuxPP differences](termuxpp-differences.md)

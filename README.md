@@ -3,43 +3,31 @@
 </p>
 <h1 align="center">TermuxPP</h1>
 <p align="center">
-  An Android terminal and Linux environment forked from Termux, with compatible
-  companion apps and fork-aware helpers.
+  An Android terminal and Linux environment forked from Termux, with built-in
+  Android integrations and fork-aware command-line helpers.
 </p>
 
 ## Features
 
-- **Terminal and Linux environment** — Run command-line tools in an Android
-  app sandbox using the Termux package ecosystem.
-- **Companion apps** — Build TermuxPP:API, TermuxPP:Tasker, TermuxPP:Boot,
-  TermuxPP:Styling, TermuxPP:Widget, and TermuxPP:Float in this repository;
-  these are forks of the corresponding upstream Termux companion apps.
-- **Fork-aware helpers** — TermuxAm and the native API tools address TermuxPP's
-  Android identities while retaining the APT names `termux-am` and `termux-api`.
-- **Upstream package compatibility** — Fork shells translate selected stock
-  Termux paths for unmodified package binaries; the app identity and API socket
-  remain fork-specific.
-- **AArch64 bootstrap** — Optionally build a checksum-verified archive with
-  extra packages; upstream archives remain the default. See [Custom AArch64
-  Bootstrap](docs/en/aarch64-bootstrap.md).
-- **On-device updates** — Settings > Updates checks the core, API, and Tasker
-  rolling feeds on request through Shizuku. See [Self-update over
-  Shizuku](docs/en/self-update.md).
+- **Terminal and Linux environment.** Run Termux packages in the Android
+  app sandbox, or enter a managed Nix guest with the custom bootstrap.
+- **Built-in integrations.** One APK includes API, Tasker, Boot, Float,
+  Styling, and Widget. See [Built-in integrations](docs/en/integrations.md).
+- **Terminal customization.** Assign tap and swipe actions, edit extra keys,
+  and set fonts and colors. See [Terminal settings](docs/en/terminal-settings.md).
+- **Fork-aware helpers.** TermuxAm and the API tools target TermuxPP while
+  keeping their APT package names.
+- **On-device updates.** Check and install the TermuxPP APK through Shizuku.
+  See [Self-update over Shizuku](docs/en/self-update.md).
 
 ## Install
 
-Install the core APK and any companion APKs from matching TermuxPP builds. They
-must use the same signing certificate. Do not mix TermuxPP APKs or helper
-packages with stock Termux; the app identities differ, and the Tasker permission
-compatibility alias prevents co-installing the TermuxPP core with stock Termux.
-See [Upstream and TermuxPP differences](docs/en/termuxpp-differences.md).
-
-The current core release page is the [GitHub Releases][core-releases] page.
-Companion project instructions and build sources are listed below.
+Install the [TermuxPP APK][core-releases] for your device. For an in-place
+update, use a build signed by the same certificate as your installed app.
 
 ## Quick start
 
-After installing and opening TermuxPP, use its terminal to install a package:
+Open TermuxPP. In the native terminal, use `pkg` to install command-line tools.
 
 ```sh
 pkg update                 # Refresh package metadata
@@ -47,31 +35,19 @@ pkg install git            # Install Git
 git --version              # Check that Git is available
 ```
 
-Continue with the [Termux package management guide][package-management].
+See the [Termux package management guide][package-management] for APT usage.
 
 ## Documentation
 
 | Topic | Description |
 | --- | --- |
-| [AArch64 bootstrap](docs/en/aarch64-bootstrap.md) | Build an optional custom bootstrap and package fork-aware Android helpers. |
-| [Config directory](docs/en/config-dir.md) | Termux configuration directory behavior. |
-| [Extra keys and colors](docs/en/extra-keys-colors.md) | Configure the extra-keys row and terminal colors. |
-| [Self-update over Shizuku](docs/en/self-update.md) | Check and install core, API, and Tasker rolling builds. |
-| [Tap gestures](docs/en/tap-gestures.md) | Terminal touch gesture behavior. |
-| [Upstream and TermuxPP differences](docs/en/termuxpp-differences.md) | Compatibility points and intentional fork behavior. |
-| [URLs and hyperlinks](docs/en/urls-and-hyperlinks.md) | URL detection and terminal hyperlinks. |
-| [TermuxPP:API README](termux-api/README.md) | API companion project and upstream usage documentation. |
-| [TermuxPP:API notes](termux-api/TERMUXPP.md) | Fork identity, build, signing, helper, and update details. |
-| [TermuxPP:Boot README](termux-boot/README.md) | Boot companion project documentation. |
-| [TermuxPP:Float README](termux-float/README.md) | Float companion project documentation. |
-| [TermuxPP:Styling README](termux-styling/README.md) | Styling companion project documentation. |
-| [TermuxPP:Tasker README](termux-tasker/README.md) | Tasker companion project and protocol documentation. |
-| [TermuxPP:Tasker notes](termux-tasker/TERMUXPP.md) | Fork identity, host permissions, tests, and update details. |
-| [TermuxPP:Widget README](termux-widget/README.md) | Widget companion project documentation. |
-| [Termux API tools README](termux-api-package/README.md) | Native API command-line tools, retaining upstream helper names. |
-| [Termux API tools TermuxPP notes](termux-api-package/TERMUXPP.md) | Fork receiver/socket, native build, and packaging notes. |
-| [TermuxAm README](termux-am/README.md) | Android command helper project, retaining the upstream helper name. |
-| [TermuxAm TermuxPP notes](termux-am/TERMUXPP.md) | Caller identity and helper APK packaging notes. |
+| [Terminal settings](docs/en/terminal-settings.md) | Properties, fonts, colors, touch gestures, extra keys, and links. |
+| [Built-in integrations](docs/en/integrations.md) | Use API, Tasker, Boot, Float, Styling, and Widget. Migrate standalone installations. |
+| [Self-update over Shizuku](docs/en/self-update.md) | Configure and use the in-app APK updater. |
+| [Custom AArch64 bootstrap](docs/en/aarch64-bootstrap.md) | Build a verified bootstrap and package the Android helpers. |
+| [Upstream and TermuxPP differences](docs/en/termuxpp-differences.md) | App identity, compatibility, the Nix guest, services, and ADB access. |
+| [API CLI helper](termux-api-package/TERMUXPP.md) | Build the native API command-line package. |
+| [TermuxAm helper](termux-am/TERMUXPP.md) | Build and package the Android command helper. |
 
 ## License
 

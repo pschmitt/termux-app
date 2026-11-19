@@ -30,7 +30,7 @@ guide](../docs/en/aarch64-bootstrap.md) for the complete procedure.
 Battery status, cold-start broadcast fallback, and toast delivery were tested
 successfully on a device.
 
-Install the matching companion from <https://github.com/pschmitt/termuxpp-api> and
+Install the [TermuxPP app with its built-in API](../docs/en/integrations.md#api) and
 sign it with the same certificate as TermuxPP. Test `termux-battery-status`,
 `termux-api-start`, and `termux-api-stop` on-device. The API socket's same-UID
 check remains enabled.

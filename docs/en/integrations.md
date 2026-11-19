@@ -1,0 +1,64 @@
+---
+page_ref: /docs/apps/termux/integrations.html
+---
+
+# Built-in integrations
+
+The TermuxPP APK includes **API, Tasker, Boot, Float, Styling, and Widget**.
+Open **Settings → Integrations** for their available controls and diagnostics.
+
+## API
+
+API receivers and services run in TermuxPP. Shell commands such as
+`termux-battery-status` use the TermuxPP build of the `termux-api` helper
+package. See [building and packaging helpers](aarch64-bootstrap.md#fork-compatible-android-helpers).
+Grant the Android permissions required by the commands you use.
+
+## Tasker and Locale
+
+In Tasker, add a plug-in action and select the TermuxPP entry provided by the
+main APK. Grant Tasker the `com.termux.permission.RUN_COMMAND` permission in
+Android settings. The built-in plug-in keeps the Termux Tasker/Locale intent
+protocol and uses TermuxPP's properties, including the managed guest's
+properties when available.
+
+Put scripts in `~/.config/termuxpp/tasker/`. Relative names also resolve in
+`~/.config/termux/tasker/` and `~/.termux/tasker/`, in that order. Commands
+outside these directories require `allow-external-apps=true`. Keep this
+disabled unless an automation needs it. The plug-in can return command output
+and exit status. Its **Kill TermuxPP** action stops shells and the app, with an
+optional relaunch.
+
+## Boot, Float, Styling, and Widget
+
+| Integration | Where to use it |
+| --- | --- |
+| **Boot** | Put startup scripts in the native TermuxPP home's `~/.config/termuxpp/boot/`. Scripts run in filename order. For duplicate names, that directory takes precedence over `~/.config/termux/boot/` and `~/.termux/boot/`. |
+| **Float** | Start a floating terminal and allow the overlay permission if Android requests it. Float reads `~/.config/termuxpp/termux.float.properties`. |
+| **Styling** | Open Styling from Settings → Integrations to choose terminal fonts and colors. See [Terminal settings](terminal-settings.md#configuration-files) for custom files. |
+| **Widget** | Add the TermuxPP widget from your launcher. Put terminal shortcuts in the native home's `~/.shortcuts/` and background tasks in `~/.shortcuts/tasks/`. |
+
+## Migrating from standalone companions
+
+Update the main TermuxPP APK in place with a build signed by the same
+certificate. On startup, eligible companion preferences are copied once from
+installed legacy packages into empty TermuxPP preference files. Reopen and save
+Tasker actions against the built-in plug-in when they still reference a legacy
+package. Test your actions and recreate launcher widgets before removing legacy
+apps through Android settings. [APK updates](self-update.md).
+
+## Component sources
+
+The Gradle projects are linked into the main APK. Build the app from the
+repository root using the [Android build instructions](../../AGENTS.md).
+The native API and TermuxAm helper packages have their own build instructions.
+
+| Component | Source |
+| --- | --- |
+| API | [Android component](../../termux-api/) and [CLI helper package](../../termux-api-package/TERMUXPP.md) |
+| Tasker | [Plug-in component](../../termux-tasker/) |
+| Boot | [Boot component](../../termux-boot/) |
+| Float | [Floating terminal component](../../termux-float/) |
+| Styling | [Styling component](../../termux-styling/) |
+| Widget | [Widget component](../../termux-widget/) |
+| TermuxAm | [Helper package](../../termux-am/TERMUXPP.md) |

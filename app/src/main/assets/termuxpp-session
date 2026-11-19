@@ -1,0 +1,70 @@
+import argparse
+import json
+import socket
+import sys
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Manage TermuxPP terminal sessions.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("list", help="list sessions and their IDs").add_argument(
+        "--json", action="store_true", help="output JSON"
+    )
+    actions = {
+        "close": "hang up a shell or dismiss an exited tab",
+        "focus": "switch to a session",
+        "kill": "force-kill a session shell",
+        "move": "move a session to a one-based position",
+        "rename": "change the session name",
+    }
+    for action, help_text in actions.items():
+        command = commands.add_parser(action, help=help_text)
+        command.add_argument("id")
+        if action == "move":
+            command.add_argument("position", type=int)
+        if action == "rename":
+            command.add_argument("name")
+    args = parser.parse_args()
+
+    request = [args.command]
+    if args.command != "list":
+        request.append(args.id)
+    if args.command == "rename":
+        request.append(args.name)
+    if args.command == "move":
+        request.append(args.position)
+    payload = json.dumps(request, ensure_ascii=False).encode() + b"\n"
+    if len(payload) > 4096:
+        parser.error("session command is too long")
+
+    try:
+        with socket.socket(socket.AF_UNIX) as client:
+            client.settimeout(5)
+            try:
+                client.connect("\0dev.pschmitt.termux.sessions")
+            except OSError as error:
+                sys.exit(f"{parser.prog}: cannot reach TermuxPP; open the app first ({error})")
+            client.sendall(payload)
+            with client.makefile("rb") as response:
+                reply = json.loads(response.readline(1024 * 1024))
+        if "error" in reply:
+            sys.exit(f"{parser.prog}: {reply['error']}")
+    except (OSError, ValueError) as error:
+        sys.exit(f"{parser.prog}: invalid or missing response from TermuxPP ({error})")
+
+    if args.command == "list":
+        sessions = reply["result"]
+        if args.json:
+            print(json.dumps(sessions))
+        else:
+            print("  POS  ID                                    STATE    NAME / TITLE")
+            for session in sessions:
+                current = "*" if session["current"] else " "
+                state = "running" if session["running"] else "exited"
+                label = session["name"] or session["title"]
+                label = "".join(char if char.isprintable() else "?" for char in label)
+                print(f"{current} {session['position']:>3}  {session['id']}  {state:<7}  {label}")
+
+
+if __name__ == "__main__":
+    main()

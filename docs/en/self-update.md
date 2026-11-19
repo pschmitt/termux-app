@@ -4,7 +4,7 @@ page_ref: /docs/apps/termux/self-update.html
 
 # Self-update over Shizuku
 
-TermuxPP now contains Termux:API, Termux:Tasker, Float, Boot, Styling and Widget in one APK.
+TermuxPP includes API, Tasker, Boot, Float, Styling, and Widget in one APK.
 **Settings > Updates** checks and updates that APK as a whole. Nothing is checked or downloaded in
 the background. Every check starts with a tap, and every install asks for confirmation first.
 
@@ -20,10 +20,7 @@ Without Shizuku (not installed, not running, permission missing or denied) the s
 which, updates cannot be started and nothing is changed on the device.
 
 Updating the APK ends its processes. Open terminal sessions and running Tasker actions stop.
-Companion preferences are copied once from installed legacy companion packages when their package
-is present and the matching preference file in TermuxPP is empty. Existing standalone companion
-packages are not removed automatically. Tasker profiles that still name a standalone package may
-need to be reopened and saved after the integrated plugin has been discovered.
+See [Migrating from standalone companions](integrations.md#migrating-from-standalone-companions).
 
 ## Channel and what "newer" means
 
@@ -35,9 +32,6 @@ release variants of the integrated APK. The release also includes the ABI-specif
 The updater compares commits instead of version names: the installed app's own commit against the
 release commit, using GitHub's compare API. That commit is `BuildConfig.GIT_REVISION`, written by
 `app/build.gradle`.
-
-Older TermuxPP builds may still offer standalone companion updates. The integrated updater only
-offers the main TermuxPP package.
 
 | Result | Meaning |
 | --- | --- |
@@ -78,8 +72,7 @@ made from a dirty tree is not, by design.
   one signing identity. Matching certificates here mean "same key as the installed app", not "built
   by the maintainer". Treat the published APKs as exactly as trustworthy as the repository.
 - The rolling feed contains the integrated APK after the release workflow has run once on `main`.
-- CI builds embed the upstream bootstrap archive unless the bootstrap inputs described in
-  `docs/en/aarch64-bootstrap.md` are supplied to the workflow. An update does not re-extract the
+- CI builds embed the upstream bootstrap archive unless the [custom bootstrap inputs](aarch64-bootstrap.md) are supplied to the workflow. An update does not re-extract the
   bootstrap of an existing installation, but a fresh install from the published APK would get the
   upstream one.
 - Hidden installer APIs are reached by reflection and could break on a future Android version; the
