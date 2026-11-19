@@ -283,6 +283,12 @@ guest has not been provisioned or is unavailable, the page reports that state an
 offers a refresh. Sources: [services settings](../../app/src/main/java/com/termux/app/fragments/settings/termux/ServicesPreferencesFragment.java)
 and [preferences entry](../../app/src/main/res/xml/termux_preferences.xml).
 
+## Terminal feedback position
+
+TermuxPP can place terminal feedback toasts, including session-switch
+indicators, in any of nine positions through `terminal-toast-position`.
+The default is top center.
+
 ## Reloading settings
 
 The `termuxpp-reload-settings` command reloads properties from disk and

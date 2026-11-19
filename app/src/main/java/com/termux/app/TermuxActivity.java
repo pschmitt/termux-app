@@ -648,7 +648,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (text == null || text.isEmpty()) return;
         if (mLastToast != null) mLastToast.cancel();
         mLastToast = Toast.makeText(TermuxActivity.this, text, longDuration ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT);
-        mLastToast.setGravity(Gravity.TOP, 0, 0);
+        mLastToast.setGravity(mProperties.getTerminalToastGravity(), 0, 0);
         mLastToast.show();
     }
 

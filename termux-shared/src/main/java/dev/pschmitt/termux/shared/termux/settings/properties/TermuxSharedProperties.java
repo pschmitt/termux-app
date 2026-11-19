@@ -733,6 +733,13 @@ public abstract class TermuxSharedProperties {
         return (String) SharedProperties.getDefaultIfNotInMap(TermuxPropertyConstants.KEY_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR, TermuxPropertyConstants.MAP_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR, SharedProperties.toLowerCase(value), TermuxPropertyConstants.DEFAULT_IVALUE_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR, true, LOG_TAG);
     }
 
+    public int getTerminalToastGravity() {
+        String value = (String) getInternalPropertyValue(TermuxPropertyConstants.KEY_TERMINAL_TOAST_POSITION, true);
+        Integer gravity = value == null ? null
+            : TermuxPropertyConstants.MAP_TERMINAL_TOAST_POSITION.get(SharedProperties.toLowerCase(value));
+        return gravity == null ? TermuxPropertyConstants.DEFAULT_TERMINAL_TOAST_GRAVITY : gravity;
+    }
+
     public boolean areGestureAnimationsEnabled() {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_GESTURE_ANIMATIONS, true);
     }

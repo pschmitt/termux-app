@@ -1,5 +1,7 @@
 package dev.pschmitt.termux.shared.termux.settings.properties;
 
+import android.view.Gravity;
+
 import com.google.common.collect.ImmutableBiMap;
 import dev.pschmitt.termux.shared.termux.shell.am.TermuxAmSocketServer;
 import dev.pschmitt.termux.shared.theme.NightMode;
@@ -379,6 +381,21 @@ public final class TermuxPropertyConstants {
     /* TerminalGestureAction (never null) */
 
     /** Defines the key for the {@link TerminalGestureAction} of a single finger tap on the terminal. */
+    public static final String KEY_TERMINAL_TOAST_POSITION = "terminal-toast-position";
+    public static final int DEFAULT_TERMINAL_TOAST_GRAVITY = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+    public static final ImmutableBiMap<String, Integer> MAP_TERMINAL_TOAST_POSITION =
+        new ImmutableBiMap.Builder<String, Integer>()
+            .put("top-left", Gravity.TOP | Gravity.LEFT)
+            .put("top-center", DEFAULT_TERMINAL_TOAST_GRAVITY)
+            .put("top-right", Gravity.TOP | Gravity.RIGHT)
+            .put("center-left", Gravity.CENTER_VERTICAL | Gravity.LEFT)
+            .put("center", Gravity.CENTER)
+            .put("center-right", Gravity.CENTER_VERTICAL | Gravity.RIGHT)
+            .put("bottom-left", Gravity.BOTTOM | Gravity.LEFT)
+            .put("bottom-center", Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL)
+            .put("bottom-right", Gravity.BOTTOM | Gravity.RIGHT)
+            .build();
+
     public static final String KEY_GESTURE_ANIMATIONS = "gesture-animations";
 
     public static final String KEY_TERMINAL_SINGLE_TAP_ACTION =  "terminal-single-tap-action"; // Default: "terminal-single-tap-action"
@@ -553,6 +570,7 @@ public final class TermuxPropertyConstants {
         KEY_TERMINAL_SINGLE_TAP_ACTION,
         KEY_TERMINAL_TRIPLE_TAP_ACTION,
         KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE,
+        KEY_TERMINAL_TOAST_POSITION,
 
         /* gesture command configuration */
         KEY_GESTURE_COMMAND_CONTEXT,

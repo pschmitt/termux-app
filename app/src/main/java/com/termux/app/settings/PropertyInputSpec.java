@@ -148,6 +148,9 @@ public final class PropertyInputSpec {
                     + number(ExtraKeysColorParser.MAX_CORNER_RADIUS_DP) + ", like 8 or 6.5, without a sign or a unit."
                     + " Default: not set, the corners of the current theme.";
 
+            case TermuxPropertyConstants.KEY_TERMINAL_TOAST_POSITION:
+                return "Where terminal feedback appears, including session-switch indicators. Default: top-center.";
+
             case TermuxPropertyConstants.KEY_GESTURE_ANIMATIONS:
                 return "Show visual feedback for custom taps, extra-key swipes, and volume button actions. Enabled by default.";
 
@@ -299,6 +302,8 @@ public final class PropertyInputSpec {
                 return inMap(TermuxPropertyConstants.MAP_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR, value);
             case TermuxPropertyConstants.KEY_VOLUME_KEYS_BEHAVIOUR:
                 return inMap(TermuxPropertyConstants.MAP_VOLUME_KEYS_BEHAVIOUR, value);
+            case TermuxPropertyConstants.KEY_TERMINAL_TOAST_POSITION:
+                return inMap(TermuxPropertyConstants.MAP_TERMINAL_TOAST_POSITION, value);
             case TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT:
                 return GestureCommandContext.parse(value) != null ? null : "Expected one of: session, nix, outer";
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE:
@@ -429,13 +434,14 @@ public final class PropertyInputSpec {
     /**
      * The values to offer in a picker for a property.
      *
-     * @return The names of the extra keys styles for {@code extra-keys-style}, otherwise an empty
-     * array: the other properties with a fixed set of values are not covered by this class.
+     * @return Values for a property with a fixed set of choices, or an empty array.
      */
     @NonNull
     public static String[] choices(@Nullable String key) {
         if (TermuxPropertyConstants.KEY_EXTRA_KEYS_STYLE.equals(key)) return EXTRA_KEYS_STYLES.clone();
         if (TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT.equals(key)) return new String[] {"session", "nix", "outer"};
+        if (TermuxPropertyConstants.KEY_TERMINAL_TOAST_POSITION.equals(key))
+            return TermuxPropertyConstants.MAP_TERMINAL_TOAST_POSITION.keySet().toArray(new String[0]);
         return new String[0];
     }
 

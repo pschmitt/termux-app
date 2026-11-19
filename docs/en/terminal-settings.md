@@ -11,6 +11,7 @@ files as fallbacks. Edit the file in the same home to manage it through dotfiles
 
 - [Session commands](#session-commands)
 - [Configuration files](#configuration-files)
+- [Terminal feedback position](#terminal-feedback-position)
 - [Tap and swipe actions](#tap-and-swipe-actions)
 - [Volume buttons](#volume-buttons)
 - [Extra-key appearance](#extra-key-appearance)
@@ -61,6 +62,15 @@ paths. See [Built-in integrations](integrations.md) for script locations.
 Run `termuxpp-reload-settings` after editing a file. In native sessions, TermuxPP's
 adapted `termux-tools` also reads `shell` and `motd.sh` in the same
 directory order. A custom `motd.sh` can override the welcome message.
+
+## Terminal feedback position
+
+Use **Settings → Properties → Appearance → terminal-toast-position** to move
+short terminal messages such as the session number. The default is
+`top-center`. The nine values are `top-left`, `top-center`, `top-right`,
+`center-left`, `center`, `center-right`, `bottom-left`, `bottom-center`, and
+`bottom-right`. You can also write `terminal-toast-position = top-right` in
+`termuxpp.properties` and run `termuxpp-reload-settings`.
 
 ## Tap and swipe actions
 
