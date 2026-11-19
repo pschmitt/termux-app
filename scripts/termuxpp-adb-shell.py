@@ -50,7 +50,8 @@ def parse_args():
     parser.add_argument("--credential-dir", type=Path,
                         help="private directory for this device's mTLS credentials (default: per device)")
     parser.add_argument("--mode", choices=("auto", "mtls", "run-as"), default="auto",
-                        help="shell transport (default: auto tries run-as, then mTLS for non-debuggable apps)")
+                        help="shell transport (default: auto uses mTLS when credentials exist, run-as on a "
+                             "debuggable app otherwise)")
     parser.add_argument("--shell", help="shell executable name or absolute path (default: configured login shell)")
     parser.add_argument("command", nargs=argparse.REMAINDER, metavar="COMMAND",
                         help="run command and arguments without a PTY (use -- before the command)")
@@ -549,7 +550,8 @@ exec "$SHELL" -l
 esac
 ''')
     remote = shlex.join(["run-as", PACKAGE, "/system/bin/sh", "-c", script])
-    print("Using run-as (debuggable TermuxPP).", file=sys.stderr)
+    print("Using run-as (debuggable TermuxPP) for recovery: processes started here are not "
+          "owned by the app and survive its restarts.", file=sys.stderr)
     return subprocess.run(["adb", "-s", serial, "shell", "-T" if command else "-tt", remote]).returncode
 
 
@@ -585,7 +587,12 @@ def main():
         args.credential_dir = device.credential_dir
     management = args.provision or args.list_authorizations or args.revoke is not None
     try:
-        if not management and args.mode != "mtls":
+        # mTLS sessions are children of the app: they end with it, and Android
+        # stops them with the app. run-as processes run in another SELinux
+        # context that survives app restarts, so auto mode uses run-as only
+        # when no mTLS credentials exist, as one-shot recovery.
+        has_mtls = (args.credential_dir / "client.key").is_file() and (args.credential_dir / "client.crt").is_file()
+        if not management and args.mode != "mtls" and not (args.mode == "auto" and has_mtls):
             if supports_run_as(args.serial):
                 if args.command:
                     return run_as_shell(args.serial, args.shell, args.command)
