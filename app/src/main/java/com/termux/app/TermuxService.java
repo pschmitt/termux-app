@@ -94,6 +94,8 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     private final Handler mHandler = new Handler();
 
+    @Nullable private NetworkStatePublisher networkStatePublisher;
+
 
     /** The full implementation of the {@link TerminalSessionClient} interface to be used by {@link TerminalSession}
      * that holds activity references for activity related functions.
@@ -148,6 +150,10 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         installSessionCli();
 
         SystemEventReceiver.registerPackageUpdateEvents(this);
+
+        // Lets the guest supervisor follow Wi-Fi for services.<name>.allowedSsids.
+        networkStatePublisher = new NetworkStatePublisher(this);
+        networkStatePublisher.start();
     }
 
     @SuppressLint("Wakelock")
@@ -200,6 +206,11 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     @Override
     public void onDestroy() {
         Logger.logVerbose(LOG_TAG, "onDestroy");
+
+        if (networkStatePublisher != null) {
+            networkStatePublisher.stop();
+            networkStatePublisher = null;
+        }
 
         if (sessionCommandServer != null) {
             try {

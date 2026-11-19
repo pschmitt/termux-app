@@ -43,14 +43,83 @@ public class DebuggingPreferencesFragment extends PreferenceFragmentCompat {
 
         configureLoggingPreferences(context);
         configureAdbShellPreference(context);
+        configureAllowedSsidsPreference(context);
         configureCurrentNetworkPreference(context);
+    }
+
+    private void configureAllowedSsidsPreference(@NonNull Context context) {
+        androidx.preference.EditTextPreference edit = findPreference("adb_shell_allowed_ssids");
+        if (edit == null) return;
+        // Show the configured networks; the help text only while there are none.
+        edit.setSummaryProvider(preference -> {
+            String text = ((androidx.preference.EditTextPreference) preference).getText();
+            String list = text == null ? "" : text.trim();
+            if (list.isEmpty()) return getString(R.string.adb_shell_allowed_ssids_summary);
+            StringBuilder names = new StringBuilder();
+            for (String name : list.split(",")) {
+                if (name.trim().isEmpty()) continue;
+                if (names.length() > 0) names.append(", ");
+                names.append(name.trim());
+            }
+            return names.toString();
+        });
+        edit.setOnPreferenceChangeListener((preference, value) -> {
+            postNetworkRefresh();
+            return true;
+        });
     }
 
     @Override
     public void onResume() {
         super.onResume();
         Context context = getContext();
-        if (context != null) refreshCurrentNetwork(context);
+        if (context == null) return;
+        refreshCurrentNetwork(context);
+        // Follow Wi-Fi changes while the screen is visible; Android does not
+        // resume the fragment when the phone joins or leaves a network.
+        android.net.ConnectivityManager connectivity = (android.net.ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivity != null && wifiCallback == null) {
+            wifiCallback = new android.net.ConnectivityManager.NetworkCallback() {
+                @Override public void onAvailable(@NonNull android.net.Network network) { postNetworkRefresh(); }
+                @Override public void onLost(@NonNull android.net.Network network) { postNetworkRefresh(); }
+                @Override public void onCapabilitiesChanged(@NonNull android.net.Network network,
+                                                            @NonNull android.net.NetworkCapabilities capabilities) { postNetworkRefresh(); }
+            };
+            try {
+                connectivity.registerNetworkCallback(new android.net.NetworkRequest.Builder()
+                    .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI).build(), wifiCallback);
+            } catch (RuntimeException e) {
+                wifiCallback = null;
+            }
+        }
+    }
+
+    @Override
+    public void onPause() {
+        Context context = getContext();
+        if (context != null && wifiCallback != null) {
+            android.net.ConnectivityManager connectivity = (android.net.ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            try {
+                if (connectivity != null) connectivity.unregisterNetworkCallback(wifiCallback);
+            } catch (RuntimeException ignored) {
+            }
+        }
+        wifiCallback = null;
+        super.onPause();
+    }
+
+    @Nullable
+    private android.net.ConnectivityManager.NetworkCallback wifiCallback;
+
+    private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+
+    // Always posted: a preference change listener runs before the new value is
+    // stored, and network callbacks arrive on a binder thread.
+    private void postNetworkRefresh() {
+        uiHandler.post(() -> {
+            Context context = getContext();
+            if (context != null && isResumed()) refreshCurrentNetwork(context);
+        });
     }
 
     private final androidx.activity.result.ActivityResultLauncher<String> locationPermission =

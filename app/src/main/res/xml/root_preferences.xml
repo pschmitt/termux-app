@@ -57,12 +57,6 @@
             app:title="@string/about_preference_title"
             app:fragment="com.termux.app.fragments.settings.AboutPreferencesFragment" />
 
-        <Preference
-            app:key="donate"
-            app:icon="@drawable/ui_ic_favorite"
-            app:title="@string/donate_preference_title"
-            app:persistent="false"
-            app:isPreferenceVisible="false"/>
     </PreferenceCategory>
 
 </PreferenceScreen>

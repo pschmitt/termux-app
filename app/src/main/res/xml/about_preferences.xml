@@ -19,6 +19,13 @@
             app:summary="@string/about_information_summary"
             app:persistent="false" />
 
+        <Preference
+            app:key="donate"
+            app:icon="@drawable/ui_ic_favorite"
+            app:title="@string/donate_preference_title"
+            app:persistent="false"
+            app:isPreferenceVisible="false"/>
+
     </PreferenceCategory>
 
 </PreferenceScreen>

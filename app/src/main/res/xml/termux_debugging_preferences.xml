@@ -44,8 +44,7 @@
             app:dialogTitle="@string/adb_shell_allowed_ssids_title"
             app:dialogMessage="@string/adb_shell_allowed_ssids_dialog"
             app:title="@string/adb_shell_allowed_ssids_title"
-            app:useSimpleSummaryProvider="false"
-            app:summary="@string/adb_shell_allowed_ssids_summary" />
+            app:useSimpleSummaryProvider="false" />
 
         <Preference
             app:icon="@drawable/ui_ic_info"
