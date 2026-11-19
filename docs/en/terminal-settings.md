@@ -20,7 +20,8 @@ files as fallbacks. Edit the file in the same home to manage it through dotfiles
 
 `termuxpp-session` controls the terminal tabs owned by the running TermuxPP
 app. Open TermuxPP before running it. The app installs the CLI under its
-native prefix. In a native session, install Python with `pkg install python`.
+native prefix with Bash, Zsh, and Fish completions. Install Python in a native
+session with `pkg install python`. Completion suggests live IDs and positions.
 
 ```text
 termuxpp-session list --json

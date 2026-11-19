@@ -779,27 +779,41 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     private void installSessionCli() {
         if (sessionCliInstalled) return;
-        File bin = new File(TermuxConstants.TERMUX_PREFIX_DIR_PATH, "bin");
+        File prefix = new File(TermuxConstants.TERMUX_PREFIX_DIR_PATH);
+        File bin = new File(prefix, "bin");
         if (!bin.isDirectory()) return;
 
-        File target = new File(bin, "termuxpp-session");
-        File staging = null;
         try {
-            staging = File.createTempFile(".termuxpp-session-", ".tmp", bin);
-            try (InputStream source = getAssets().open("termuxpp-session");
+            installSessionAsset("session-completions/bash",
+                new File(prefix, "share/bash-completion/completions/termuxpp-session"), null);
+            installSessionAsset("session-completions/fish",
+                new File(prefix, "share/fish/vendor_completions.d/termuxpp-session.fish"), null);
+            installSessionAsset("session-completions/zsh",
+                new File(prefix, "share/zsh/site-functions/_termuxpp-session"), null);
+            installSessionAsset("termuxpp-session", new File(bin, "termuxpp-session"), "#!" + bin + "/python3\n");
+            sessionCliInstalled = true;
+        } catch (IOException e) {
+            Logger.logWarn(LOG_TAG, "Could not install termuxpp-session: " + e.getMessage());
+        }
+    }
+
+    private void installSessionAsset(String asset, File target, String shebang) throws IOException {
+        File directory = target.getParentFile();
+        if (!directory.mkdirs() && !directory.isDirectory())
+            throw new IOException("Could not create " + directory);
+        File staging = File.createTempFile(".termuxpp-session-", ".tmp", directory);
+        try {
+            try (InputStream source = getAssets().open(asset);
                  OutputStream destination = new FileOutputStream(staging)) {
-                destination.write(("#!" + bin + "/python3\n").getBytes(StandardCharsets.UTF_8));
+                if (shebang != null) destination.write(shebang.getBytes(StandardCharsets.UTF_8));
                 byte[] buffer = new byte[4096];
                 int count;
                 while ((count = source.read(buffer)) != -1) destination.write(buffer, 0, count);
             }
-            if (!staging.setExecutable(true, true) || !staging.renameTo(target))
+            if ((shebang != null && !staging.setExecutable(true, true)) || !staging.renameTo(target))
                 throw new IOException("Could not replace " + target);
-            sessionCliInstalled = true;
-        } catch (IOException e) {
-            Logger.logWarn(LOG_TAG, "Could not install termuxpp-session: " + e.getMessage());
         } finally {
-            if (staging != null && !sessionCliInstalled) staging.delete();
+            staging.delete();
         }
     }
 
