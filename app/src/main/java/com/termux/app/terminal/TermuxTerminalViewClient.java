@@ -59,6 +59,10 @@ import com.termux.terminal.TerminalBuffer;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalHyperlink;
 import com.termux.terminal.TerminalSession;
+import dev.pschmitt.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
+
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -337,10 +341,41 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
      */
     @Override
     public void onTapCount(int tapCount) {
+        if (tapCount == 3 && focusTripleTapSession()) return;
         performGestureAction(mActivity.getProperties().getTerminalTapAction(tapCount),
             mActivity.getProperties().getTerminalTapKeys(tapCount),
             mActivity.getProperties().getTerminalTapCommand(tapCount),
             mActivity.getProperties().getGestureCommandContext());
+    }
+
+    private boolean focusTripleTapSession() {
+        String expression = mActivity.getProperties().getPropertyValue(
+            TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE, "", true);
+        TermuxService service = mActivity.getTermuxService();
+        if (expression.isEmpty() || service == null) return false;
+
+        Pattern titlePattern;
+        try {
+            titlePattern = Pattern.compile(expression);
+        } catch (PatternSyntaxException e) {
+            return false;
+        }
+        TerminalSession current = mActivity.getCurrentSession();
+        if (matchesSessionTitle(current, titlePattern)) return true;
+        for (TermuxSession session : service.getTermuxSessions()) {
+            TerminalSession terminal = session.getTerminalSession();
+            if (matchesSessionTitle(terminal, titlePattern)) {
+                mTermuxTerminalSessionActivityClient.setCurrentSession(terminal);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean matchesSessionTitle(@Nullable TerminalSession session, Pattern pattern) {
+        if (session == null || !session.isRunning()) return false;
+        String title = session.getTitle();
+        return title != null && pattern.matcher(title).find();
     }
 
     /**

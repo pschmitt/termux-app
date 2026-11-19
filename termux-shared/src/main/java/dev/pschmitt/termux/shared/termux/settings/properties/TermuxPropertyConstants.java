@@ -389,6 +389,7 @@ public final class TermuxPropertyConstants {
     /** Defines the key for the {@link TerminalGestureAction} of three quick finger taps on the terminal. */
     public static final String KEY_TERMINAL_TRIPLE_TAP_ACTION =  "terminal-triple-tap-action"; // Default: "terminal-triple-tap-action"
     public static final TerminalGestureAction DEFAULT_TERMINAL_TRIPLE_TAP_ACTION = TerminalGestureAction.NONE;
+    public static final String KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE = "terminal-triple-tap-focus-title";
 
     /** Defines the key for the {@link TerminalGestureAction} of a swipe on the normal extra keys row
      * from left to right, the direction that does not switch to the text input. */
@@ -548,6 +549,7 @@ public final class TermuxPropertyConstants {
         KEY_TERMINAL_DOUBLE_TAP_ACTION,
         KEY_TERMINAL_SINGLE_TAP_ACTION,
         KEY_TERMINAL_TRIPLE_TAP_ACTION,
+        KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE,
 
         /* gesture command configuration */
         KEY_GESTURE_COMMAND_CONTEXT,

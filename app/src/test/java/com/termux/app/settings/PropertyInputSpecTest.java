@@ -113,6 +113,8 @@ public class PropertyInputSpecTest {
         valid("volume-keys", "virtual", "volume");
         invalid("volume-keys", "mute");
         valid(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT, "session", "nix", "outer");
+        valid(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE, "^tmux(:[^@]+)?@server\\b");
+        invalid(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE, "[");
         invalid(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT, "native", "guest");
         valid(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION, "run-command");
         invalid(TermuxPropertyConstants.KEY_VOLUME_UP_ACTION, "run-command");

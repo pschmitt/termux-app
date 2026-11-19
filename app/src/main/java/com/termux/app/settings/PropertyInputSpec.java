@@ -18,6 +18,8 @@ import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConst
 import com.google.common.collect.BiMap;
 
 import java.io.File;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Describes how each property of {@code termuxpp.properties} is edited in the settings GUI: help
@@ -156,6 +158,9 @@ public final class PropertyInputSpec {
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION:
                 return gesture("a triple tap on the terminal", TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS,
                     TermuxPropertyConstants.DEFAULT_TERMINAL_TRIPLE_TAP_ACTION);
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE:
+                return "Focus a running session with a matching terminal title before running the triple-tap action."
+                    + " Enter a regular expression. Leave blank to always run the action.";
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
                 return gesture("a swipe to the left on the extra keys", TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS,
                     TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION);
@@ -293,6 +298,13 @@ public final class PropertyInputSpec {
                 return inMap(TermuxPropertyConstants.MAP_VOLUME_KEYS_BEHAVIOUR, value);
             case TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT:
                 return GestureCommandContext.parse(value) != null ? null : "Expected one of: session, nix, outer";
+            case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE:
+                try {
+                    Pattern.compile(value);
+                    return null;
+                } catch (PatternSyntaxException e) {
+                    return e.getDescription();
+                }
             case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_COMMAND:
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND:
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND:

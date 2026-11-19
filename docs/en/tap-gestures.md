@@ -14,6 +14,7 @@ setting (see [config-dir.md](config-dir.md) for the legacy locations that are st
 | `terminal-single-tap-action` | One finger tap on the terminal | `show-keyboard` |
 | `terminal-double-tap-action` | Two quick taps in a row | `none` |
 | `terminal-triple-tap-action` | Three quick taps in a row | `none` |
+| `terminal-triple-tap-focus-title` | Regular expression for a running session to focus before trying the triple-tap action | unset |
 | `extra-keys-swipe-left-action` | Swipe on the normal extra keys row (see below) | `none` |
 | `gesture-command-context` | Shell environment for configured command actions | `session` |
 
@@ -36,6 +37,12 @@ The four keys are independent and active at the same time. Valid values, case-in
 A missing or empty key uses its default. A value that is not listed is logged and the default is
 used. The soft keyboard flags that disable the keyboard always win: `show-keyboard` and
 `toggle-keyboard` do nothing while it is disabled, the other actions still work.
+
+When a triple-tap action is configured, `terminal-triple-tap-focus-title` can
+match the title reported by a program such as tmux. A match focuses that
+session. If the current session matches, it stays selected. If no active
+session matches, the configured action runs. For example, combine a title
+pattern with `send-keys` and a shell shortcut that starts the desired program.
 
 ## Sending keys
 
