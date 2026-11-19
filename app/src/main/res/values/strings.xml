@@ -189,6 +189,7 @@
     <string name="adb_shell_current_network_none">Not connected to a readable Wi-Fi network. Check that Wi-Fi and Location are on.</string>
     <string name="adb_shell_current_network_unrestricted">%1$s: no list is set, so any network is allowed. Tap to restrict the ADB shell to this network.</string>
     <string name="adb_shell_current_network_trusted">%1$s: trusted, the ADB shell is available here.</string>
+    <string name="adb_shell_current_network_background">Android hides the Wi-Fi name from TermuxPP in the background, which stops the ADB shell and Wi-Fi-restricted guest services. Tap to allow location \"All the time\".</string>
     <string name="adb_shell_current_network_untrusted">%1$s: NOT trusted, the ADB shell is blocked here. Tap to trust this network.</string>
     <string name="adb_shell_trust_network_title">Trust %1$s?</string>
     <string name="adb_shell_trust_network_message">The ADB shell will be available on this network.</string>

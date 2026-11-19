@@ -95,6 +95,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     private final Handler mHandler = new Handler();
 
     @Nullable private NetworkStatePublisher networkStatePublisher;
+    @Nullable private PermissionStatePublisher permissionStatePublisher;
 
 
     /** The full implementation of the {@link TerminalSessionClient} interface to be used by {@link TerminalSession}
@@ -154,6 +155,15 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         // Lets the guest supervisor follow Wi-Fi for services.<name>.allowedSsids.
         networkStatePublisher = new NetworkStatePublisher(this);
         networkStatePublisher.start();
+        // Lets termuxpp-setup-permissions report the grants without Shizuku.
+        permissionStatePublisher = new PermissionStatePublisher(this);
+        permissionStatePublisher.start();
+        NixppRuntimeRecovery.startWatchdog(this);
+    }
+
+    /** Republish the permission state, e.g. after returning from a permission prompt. */
+    public void refreshPermissionState() {
+        if (permissionStatePublisher != null) permissionStatePublisher.refreshSoon();
     }
 
     @SuppressLint("Wakelock")
@@ -211,6 +221,11 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
             networkStatePublisher.stop();
             networkStatePublisher = null;
         }
+        if (permissionStatePublisher != null) {
+            permissionStatePublisher.stop();
+            permissionStatePublisher = null;
+        }
+        NixppRuntimeRecovery.stopWatchdog();
 
         if (sessionCommandServer != null) {
             try {

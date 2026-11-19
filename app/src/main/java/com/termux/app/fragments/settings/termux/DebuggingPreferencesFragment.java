@@ -138,6 +138,11 @@ public class DebuggingPreferencesFragment extends PreferenceFragmentCompat {
                 locationPermission.launch(android.Manifest.permission.ACCESS_FINE_LOCATION);
                 return true;
             }
+            if (!hasBackgroundLocation(context)) {
+                // Android 11+ answers this request with the app's location settings page.
+                locationPermission.launch(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+                return true;
+            }
             String ssid = AdbShellService.currentSsid(context);
             String list = currentAllowedSsids();
             if (ssid == null || (!list.isEmpty() && AdbShellService.permitsSsid(list, "\"" + ssid + "\""))) return true;
@@ -163,6 +168,12 @@ public class DebuggingPreferencesFragment extends PreferenceFragmentCompat {
         return text == null ? "" : text.trim();
     }
 
+    private static boolean hasBackgroundLocation(@NonNull Context context) {
+        return android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q
+            || androidx.core.content.ContextCompat.checkSelfPermission(context,
+                android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
     private void refreshCurrentNetwork(@NonNull Context context) {
         androidx.preference.Preference network = findPreference("adb_shell_current_network");
         if (network == null) return;
@@ -181,6 +192,9 @@ public class DebuggingPreferencesFragment extends PreferenceFragmentCompat {
             network.setSummary(getString(R.string.adb_shell_current_network_trusted, ssid));
         } else {
             network.setSummary(getString(R.string.adb_shell_current_network_untrusted, ssid));
+        }
+        if (!hasBackgroundLocation(context)) {
+            network.setSummary(network.getSummary() + "\n\n" + getString(R.string.adb_shell_current_network_background));
         }
     }
 

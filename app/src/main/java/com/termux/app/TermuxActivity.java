@@ -304,6 +304,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (mIsInvalidState) return;
 
+        // Returning from a permission prompt or settings page: let the guest see the result.
+        if (mTermuxService != null) mTermuxService.refreshPermissionState();
+
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onResume();
 
