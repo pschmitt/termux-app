@@ -109,6 +109,7 @@ public final class AdbShellService extends Service {
     private final Handler networkHandler = new Handler(Looper.getMainLooper());
     private final Runnable networkCheck = this::updateNetworkAccess;
     private boolean waitingForNetwork;
+    private boolean destroyed;
     private final BroadcastReceiver wifiChanges = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -159,7 +160,7 @@ public final class AdbShellService extends Service {
 
     private void updateNetworkAccess() {
         networkHandler.removeCallbacks(networkCheck);
-        if (!getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(PREF_ENABLED, false)) return;
+        if (destroyed || !getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(PREF_ENABLED, false)) return;
 
         boolean allowed = networkAllowsAccess();
         if (allowed) {
@@ -167,8 +168,9 @@ public final class AdbShellService extends Service {
         } else if (!stopping) {
             stopServer();
         }
-        if (waitingForNetwork == allowed) {
-            waitingForNetwork = !allowed;
+        boolean waiting = !allowed;
+        if (waitingForNetwork != waiting) {
+            waitingForNetwork = waiting;
             getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, buildNotification());
         }
         // Permission or location changes may redact the SSID without a Wi-Fi broadcast.
@@ -251,6 +253,7 @@ public final class AdbShellService extends Service {
 
     @Override
     public void onDestroy() {
+        destroyed = true;
         networkHandler.removeCallbacks(networkCheck);
         unregisterReceiver(wifiChanges);
         stopServer();
