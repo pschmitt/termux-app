@@ -131,7 +131,7 @@ public final class NixppRuntimeRecovery {
         }, "nixpp-runtime-recovery").start();
     }
 
-    private static boolean scriptPreloadsStableCopy(File launcher) {
+    static boolean scriptPreloadsStableCopy(File launcher) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(launcher), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null)
