@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.termux.R;
+import com.termux.app.fragments.settings.termux.PropertiesPreferencesFragment;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -120,12 +121,7 @@ public final class SettingsSearchIndex {
         List<String> keys = new ArrayList<>(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST);
         Collections.sort(keys);
         for (String key : keys) {
-            String category = key.startsWith("extra-keys") || key.endsWith("-action") || key.endsWith("-keys")
-                || key.endsWith("-command") || key.equals(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT)
-                ? context.getString(R.string.properties_gestures)
-                : key.startsWith("terminal-") || key.equals("fullscreen") || key.equals("night-mode")
-                    ? context.getString(R.string.properties_appearance)
-                    : context.getString(R.string.properties_advanced);
+            String category = context.getString(PropertiesPreferencesFragment.categoryFor(key));
             results.add(new Result(humanize(key), join(join(breadcrumb,
                 context.getString(R.string.properties_title)), category), path, key, PropertyInputSpec.help(key)));
         }

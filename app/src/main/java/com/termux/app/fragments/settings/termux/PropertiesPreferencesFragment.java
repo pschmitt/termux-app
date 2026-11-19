@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.widget.Toast;
 
 import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
 import androidx.preference.DialogPreference;
 import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
@@ -140,7 +141,7 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
         }
     }
 
-    private int categoryFor(String key) {
+    public static int categoryFor(@NonNull String key) {
         if (key.startsWith("extra-keys") || key.endsWith("-action") || key.endsWith("-keys")
             || key.endsWith("-command") || key.equals(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT)
             || key.equals(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE))

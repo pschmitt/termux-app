@@ -1,6 +1,10 @@
 package com.termux.app.settings;
 
+import com.termux.R;
 import com.termux.app.activities.SettingsActivity;
+import com.termux.app.fragments.settings.termux.PropertiesPreferencesFragment;
+
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,6 +32,18 @@ public class SettingsSearchIndexTest {
             tripleTap.fragmentPath.get(0));
         assertTrue(tripleTap.matches("triple"));
         assertTrue(tripleTap.matches("triple tap action"));
+
+        SettingsSearchIndex.Result tripleFocusTitle = resultFor(results,
+            TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE);
+        assertNotNull(tripleFocusTitle);
+        assertTrue(tripleFocusTitle.breadcrumb.endsWith(activity.getString(R.string.properties_gestures)));
+        assertEquals(R.string.properties_gestures,
+            PropertiesPreferencesFragment.categoryFor(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE));
+
+        SettingsSearchIndex.Result keyboard = resultFor(results,
+            TermuxPropertyConstants.KEY_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR);
+        assertNotNull(keyboard);
+        assertTrue(keyboard.breadcrumb.endsWith(activity.getString(R.string.properties_keyboard)));
 
         SettingsSearchIndex.Result logLevel = resultFor(results, "log_level");
         assertNotNull(logLevel);

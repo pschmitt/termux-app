@@ -155,7 +155,7 @@ public class SettingsActivity extends AppCompatActivity
         String normalized = query == null ? "" : query.trim();
         if (normalized.isEmpty()) {
             removeSearchResults();
-            restoreVisibility();
+            restoreVisibility(false);
             return;
         }
 
@@ -190,7 +190,7 @@ public class SettingsActivity extends AppCompatActivity
 
     private void clearSearch() {
         removeSearchResults();
-        restoreVisibility();
+        restoreVisibility(true);
         searchScreen = null;
     }
 
@@ -199,10 +199,10 @@ public class SettingsActivity extends AppCompatActivity
         searchResults = null;
     }
 
-    private void restoreVisibility() {
+    private void restoreVisibility(boolean clearSnapshot) {
         for (Map.Entry<Preference, Boolean> entry : searchVisibility.entrySet())
             entry.getKey().setVisible(entry.getValue());
-        searchVisibility.clear();
+        if (clearSnapshot) searchVisibility.clear();
     }
 
     private void navigateToSearchResult(@NonNull SettingsSearchIndex.Result result) {

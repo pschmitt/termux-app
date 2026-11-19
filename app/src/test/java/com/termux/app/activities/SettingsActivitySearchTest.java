@@ -14,7 +14,9 @@ import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(RobolectricTestRunner.class)
@@ -39,5 +41,26 @@ public class SettingsActivitySearchTest {
         assertNotNull(properties.findPreference("terminal-triple-tap-action"));
         assertEquals("terminal-triple-tap-action",
             properties.getArguments().getString("termuxpp.settings.search.focus-key"));
+    }
+
+    @Test
+    public void clearingAndChangingTheQueryKeepsTheOriginalVisibilitySnapshot() {
+        SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
+        PreferenceFragmentCompat root = (PreferenceFragmentCompat)
+            activity.getSupportFragmentManager().findFragmentById(R.id.settings);
+        activity.startSearch(root);
+
+        activity.filterSearch("triple tap action");
+        Preference properties = root.findPreference("termux_properties");
+        assertNotNull(properties);
+        assertFalse(properties.isVisible());
+
+        activity.filterSearch("");
+        assertTrue(properties.isVisible());
+        assertNull(root.findPreference("settings-search-result-0"));
+
+        activity.filterSearch("triple tap action");
+        assertFalse(properties.isVisible());
+        assertNotNull(root.findPreference("settings-search-result-0"));
     }
 }
