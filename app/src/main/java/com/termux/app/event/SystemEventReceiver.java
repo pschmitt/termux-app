@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.termux.app.AdbShellRecovery;
+import com.termux.app.NixppRuntimeRecovery;
 import dev.pschmitt.termux.shared.data.IntentUtils;
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.TermuxUtils;
@@ -61,9 +62,10 @@ public class SystemEventReceiver extends BroadcastReceiver {
         AdbShellRecovery.recover(context, "boot");
     }
 
-    /** An APK update stops the process and its services; restore an already enabled ADB shell listener. */
+    /** Restore enabled native services after installing an APK. */
     public synchronized void onActionMyPackageReplaced(@NonNull Context context, @NonNull Intent intent) {
         AdbShellRecovery.recover(context, "package replaced");
+        NixppRuntimeRecovery.schedule(context);
     }
 
     public synchronized void onActionPackageUpdated(@NonNull Context context, @NonNull Intent intent) {

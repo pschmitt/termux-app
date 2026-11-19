@@ -82,6 +82,7 @@ public class TermuxApplication extends Application {
 
         // Init TermuxShellEnvironment constants and caches after everything has been setup including termux-am-socket server
         TermuxShellEnvironment.init(this);
+        NixppRuntimeRecovery.schedule(this);
 
         if (isTermuxFilesDirectoryAccessible) {
             TermuxShellEnvironment.writeEnvironmentToFile(this);
