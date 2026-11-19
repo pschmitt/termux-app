@@ -195,7 +195,25 @@ public final class AdbShellService extends Service {
         }
     }
 
-    static boolean permitsSsid(String configured, @Nullable String reported) {
+    /** The connected network's name, or null when not on Wi-Fi or Android withholds it. */
+    @Nullable
+    public static String currentSsid(Context context) {
+        try {
+            WifiManager wifi = context.getApplicationContext().getSystemService(WifiManager.class);
+            if (wifi == null || !wifi.isWifiEnabled()) return null;
+            WifiInfo current = wifi.getConnectionInfo();
+            if (current == null || current.getNetworkId() < 0
+                || current.getSupplicantState() != SupplicantState.COMPLETED) return null;
+            String reported = current.getSSID();
+            if (reported == null || reported.length() < 2 || WifiManager.UNKNOWN_SSID.equals(reported)
+                || reported.charAt(0) != '"' || reported.charAt(reported.length() - 1) != '"') return null;
+            return reported.substring(1, reported.length() - 1);
+        } catch (SecurityException e) {
+            return null;
+        }
+    }
+
+    public static boolean permitsSsid(String configured, @Nullable String reported) {
         if (configured.trim().isEmpty()) return true;
         if (reported == null || reported.isEmpty() || WifiManager.UNKNOWN_SSID.equals(reported)) return false;
 

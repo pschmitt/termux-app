@@ -48,6 +48,12 @@
             app:summary="@string/adb_shell_allowed_ssids_summary" />
 
         <Preference
+            app:icon="@drawable/ui_ic_info"
+            app:key="adb_shell_current_network"
+            app:persistent="false"
+            app:title="@string/adb_shell_current_network_title" />
+
+        <Preference
             app:icon="@drawable/ui_ic_lock"
             app:fragment="com.termux.app.fragments.settings.termux.AdbShellAuthorizationsPreferencesFragment"
             app:key="adb_shell_authorizations"

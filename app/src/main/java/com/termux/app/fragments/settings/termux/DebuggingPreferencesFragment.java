@@ -43,6 +43,76 @@ public class DebuggingPreferencesFragment extends PreferenceFragmentCompat {
 
         configureLoggingPreferences(context);
         configureAdbShellPreference(context);
+        configureCurrentNetworkPreference(context);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Context context = getContext();
+        if (context != null) refreshCurrentNetwork(context);
+    }
+
+    private final androidx.activity.result.ActivityResultLauncher<String> locationPermission =
+        registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+            granted -> {
+                Context context = getContext();
+                if (context != null) refreshCurrentNetwork(context);
+            });
+
+    private void configureCurrentNetworkPreference(@NonNull Context context) {
+        androidx.preference.Preference network = findPreference("adb_shell_current_network");
+        if (network == null) return;
+        network.setOnPreferenceClickListener(preference -> {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(context,
+                android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                locationPermission.launch(android.Manifest.permission.ACCESS_FINE_LOCATION);
+                return true;
+            }
+            String ssid = AdbShellService.currentSsid(context);
+            String list = currentAllowedSsids();
+            if (ssid == null || (!list.isEmpty() && AdbShellService.permitsSsid(list, "\"" + ssid + "\""))) return true;
+            DialogUtils.builder(context, R.drawable.ui_ic_terminal, false)
+                .setTitle(getString(R.string.adb_shell_trust_network_title, ssid))
+                .setMessage(R.string.adb_shell_trust_network_message)
+                .setPositiveButton(R.string.adb_shell_trust_network_confirm, (dialog, which) -> {
+                    androidx.preference.EditTextPreference edit = findPreference("adb_shell_allowed_ssids");
+                    if (edit == null) return;
+                    edit.setText(list.isEmpty() ? ssid : list + "," + ssid);
+                    refreshCurrentNetwork(context);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+            return true;
+        });
+        refreshCurrentNetwork(context);
+    }
+
+    private String currentAllowedSsids() {
+        androidx.preference.EditTextPreference edit = findPreference("adb_shell_allowed_ssids");
+        String text = edit == null ? null : edit.getText();
+        return text == null ? "" : text.trim();
+    }
+
+    private void refreshCurrentNetwork(@NonNull Context context) {
+        androidx.preference.Preference network = findPreference("adb_shell_current_network");
+        if (network == null) return;
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context,
+            android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            network.setSummary(R.string.adb_shell_current_network_permission);
+            return;
+        }
+        String ssid = AdbShellService.currentSsid(context);
+        String list = currentAllowedSsids();
+        if (ssid == null) {
+            network.setSummary(R.string.adb_shell_current_network_none);
+        } else if (list.isEmpty()) {
+            network.setSummary(getString(R.string.adb_shell_current_network_unrestricted, ssid));
+        } else if (AdbShellService.permitsSsid(list, "\"" + ssid + "\"")) {
+            network.setSummary(getString(R.string.adb_shell_current_network_trusted, ssid));
+        } else {
+            network.setSummary(getString(R.string.adb_shell_current_network_untrusted, ssid));
+        }
     }
 
     private void configureAdbShellPreference(@NonNull Context context) {
