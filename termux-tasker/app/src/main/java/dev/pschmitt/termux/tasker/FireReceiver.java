@@ -96,9 +96,10 @@ public final class FireReceiver extends BroadcastReceiver {
                 return;
             }
             ExecutionCommand serviceCommand = new ExecutionCommand();
-            serviceCommand.executable = "/system/bin/sh";
+            // nixpp login is the one entry from the native side into the guest.
+            serviceCommand.executable = dev.pschmitt.termux.shared.termux.nix.TermuxNix.NIXPP_PATH;
             serviceCommand.arguments = new String[]{
-                dev.pschmitt.termux.shared.termux.nix.TermuxNix.RUNTIME_DIR_PATH + "/login.sh", "-c",
+                "login", "-c",
                 "exec /run/current-system/sw/bin/svc \"$1\" \"$2\"", "tasker-svc",
                 bundle.getString(PluginBundleManager.EXTRA_SERVICE_ACTION),
                 bundle.getString(PluginBundleManager.EXTRA_SERVICE)};
