@@ -44,6 +44,11 @@ session. If the current session matches, it stays selected. If no active
 session matches, the configured action runs. For example, combine a title
 pattern with `send-keys` and a shell shortcut that starts the desired program.
 
+A recognized custom tap or volume-button action briefly pulses a colored
+outline inside the terminal. The extra-keys swipe slides the row and snaps
+it back. The ordinary single tap to show the keyboard skips the pulse.
+Both effects follow Android's animator duration scale.
+
 ## Sending keys
 
 The action `send-keys` sends keys to the current terminal session, as if they were typed. Every

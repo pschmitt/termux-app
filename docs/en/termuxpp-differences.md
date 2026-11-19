@@ -295,6 +295,10 @@ Command strings are redacted from property and execution logs. Sources: [gesture
 [properties editor](../../app/src/main/java/com/termux/app/fragments/settings/termux/PropertiesPreferencesFragment.java),
 and [gesture documentation](tap-gestures.md).
 
+Configured tap and volume-button actions briefly pulse an outline inside the
+terminal. The extra-keys swipe gives feedback by sliding the key row. Both
+respect Android's animation setting. [Gesture feedback implementation](../../app/src/main/java/com/termux/app/terminal/GestureFeedback.java).
+
 ## Recursive Settings search
 
 Settings search indexes the reachable preference screens and the dynamically generated TermuxPP

@@ -92,6 +92,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     private boolean mTerminalCursorBlinkerStateAlreadySet;
 
     private List<KeyboardShortcut> mSessionShortcuts;
+    private final GestureFeedback mGestureFeedback = new GestureFeedback();
 
     private static final String LOG_TAG = "TermuxTerminalViewClient";
 
@@ -219,9 +220,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         // not report anything.
         TerminalGestureAction singleTapAction = mActivity.getProperties().getTerminalSingleTapAction();
         if (shouldActOnSingleTapUp(e, getMaxTapActionCount(), singleTapAction))
-            performGestureAction(singleTapAction, mActivity.getProperties().getTerminalTapKeys(1),
-                mActivity.getProperties().getTerminalTapCommand(1),
-                mActivity.getProperties().getGestureCommandContext());
+            performTerminalTapAction(1, singleTapAction);
     }
 
     /** How many rows above and below a tapped row are searched for the rest of a URL that was broken over rows. */
@@ -341,8 +340,18 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
      */
     @Override
     public void onTapCount(int tapCount) {
-        if (tapCount == 3 && focusTripleTapSession()) return;
-        performGestureAction(mActivity.getProperties().getTerminalTapAction(tapCount),
+        if (tapCount == 3 && focusTripleTapSession()) {
+            mGestureFeedback.pulse(mActivity.getTerminalView());
+            return;
+        }
+        performTerminalTapAction(tapCount, mActivity.getProperties().getTerminalTapAction(tapCount));
+    }
+
+    private void performTerminalTapAction(int tapCount, TerminalGestureAction action) {
+        if (action != TerminalGestureAction.NONE
+            && (tapCount != 1 || action != TermuxPropertyConstants.DEFAULT_TERMINAL_SINGLE_TAP_ACTION))
+            mGestureFeedback.pulse(mActivity.getTerminalView());
+        performGestureAction(action,
             mActivity.getProperties().getTerminalTapKeys(tapCount),
             mActivity.getProperties().getTerminalTapCommand(tapCount),
             mActivity.getProperties().getGestureCommandContext());
@@ -634,6 +643,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
                 if (volumeUp) mVirtualFnKeyDown = down; else mVirtualControlKeyDown = down;
                 return true;
             case PERFORM:
+                mGestureFeedback.pulse(mActivity.getTerminalView());
                 performGestureAction(action, volumeUp ? properties.getVolumeUpKeys() : properties.getVolumeDownKeys());
                 return true;
             case CONSUME:
