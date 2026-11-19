@@ -538,11 +538,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 }
 
                 @Override
+                public boolean isFeedbackEnabled() {
+                    return mProperties != null && mProperties.areGestureAnimationsEnabled();
+                }
+
+                @Override
                 public void onSwipeLeft() {
-                    if (mTermuxTerminalViewClient != null && mProperties != null)
-                        mTermuxTerminalViewClient.performGestureAction(mProperties.getExtraKeysSwipeLeftAction(),
-                            mProperties.getExtraKeysSwipeLeftKeys(), mProperties.getExtraKeysSwipeLeftCommand(),
-                            mProperties.getGestureCommandContext());
+                    if (mTermuxTerminalViewClient == null || mProperties == null) return;
+                    TerminalGestureAction action = mProperties.getExtraKeysSwipeLeftAction();
+                    if (action != TerminalGestureAction.NONE) mTermuxTerminalViewClient.showGestureFeedback();
+                    mTermuxTerminalViewClient.performGestureAction(action,
+                        mProperties.getExtraKeysSwipeLeftKeys(), mProperties.getExtraKeysSwipeLeftCommand(),
+                        mProperties.getGestureCommandContext());
                 }
             });
         }

@@ -144,7 +144,8 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
     public static int categoryFor(@NonNull String key) {
         if (key.startsWith("extra-keys") || key.endsWith("-action") || key.endsWith("-keys")
             || key.endsWith("-command") || key.equals(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT)
-            || key.equals(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE))
+            || key.equals(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE)
+            || key.equals(TermuxPropertyConstants.KEY_GESTURE_ANIMATIONS))
             return R.string.properties_gestures;
         if (key.contains("keyboard") || key.startsWith("shortcut.") || key.equals("back-key")
             || key.equals("volume-keys") || key.equals("ctrl-space-workaround")

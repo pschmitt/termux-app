@@ -379,6 +379,8 @@ public final class TermuxPropertyConstants {
     /* TerminalGestureAction (never null) */
 
     /** Defines the key for the {@link TerminalGestureAction} of a single finger tap on the terminal. */
+    public static final String KEY_GESTURE_ANIMATIONS = "gesture-animations";
+
     public static final String KEY_TERMINAL_SINGLE_TAP_ACTION =  "terminal-single-tap-action"; // Default: "terminal-single-tap-action"
     public static final TerminalGestureAction DEFAULT_TERMINAL_SINGLE_TAP_ACTION = TerminalGestureAction.SHOW_KEYBOARD;
 
@@ -513,6 +515,7 @@ public final class TermuxPropertyConstants {
      * */
     public static final Set<String> TERMUX_APP_PROPERTIES_LIST = new HashSet<>(Arrays.asList(
         /* boolean */
+        KEY_GESTURE_ANIMATIONS,
         KEY_DISABLE_FILE_SHARE_RECEIVER,
         KEY_DISABLE_FILE_VIEW_RECEIVER,
         KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS,
@@ -615,6 +618,7 @@ public final class TermuxPropertyConstants {
      * default: true
      */
     public static final Set<String> TERMUX_DEFAULT_TRUE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST = new HashSet<>(Arrays.asList(
+        KEY_GESTURE_ANIMATIONS,
         KEY_EXTRA_KEYS_TEXT_ALL_CAPS,
         KEY_NIX_SESSION,
         KEY_RUN_TERMUX_AM_SOCKET_SERVER

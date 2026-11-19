@@ -42,6 +42,7 @@ public class NotificationAPI {
 
     public static final String BIN_SH = TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/bin/sh";
     private static final String CHANNEL_ID = "termux-notification";
+    private static final String DESKTOP_CHANNEL_PREFIX = "termux-notify-send-";
     private static final String CHANNEL_TITLE = "Termux API notification channel";
     private static final String KEY_TEXT_REPLY = "TERMUX_TEXT_REPLY";
 
@@ -70,9 +71,14 @@ public class NotificationAPI {
                 }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                            CHANNEL_TITLE, priorityFromIntent(intent));
-                    manager.createNotificationChannel(channel);
+                    String desktopChannel = getDesktopChannel(intent);
+                    String channelId = CHANNEL_ID;
+                    String name = CHANNEL_TITLE;
+                    if (desktopChannel != null) {
+                        channelId = desktopChannel;
+                        name = "Shell notifications (" + desktopChannel.substring(DESKTOP_CHANNEL_PREFIX.length()) + ")";
+                    }
+                    manager.createNotificationChannel(new NotificationChannel(channelId, name, priorityFromIntent(intent)));
                 }
 
                 manager.notify(notificationId, 0, notification.build());
@@ -137,6 +143,13 @@ public class NotificationAPI {
         return importance;
     }
 
+    private static String getDesktopChannel(Intent intent) {
+        String urgency = intent.getStringExtra("desktop-urgency");
+        if ("low".equals(urgency) || "normal".equals(urgency) || "critical".equals(urgency))
+            return DESKTOP_CHANNEL_PREFIX + urgency;
+        return null;
+    }
+
     static Pair<NotificationCompat.Builder, String> buildNotification(final Context context, final Intent intent) {
         String priorityExtra = intent.getStringExtra("priority");
         if (priorityExtra == null) priorityExtra = "default";
@@ -186,7 +199,8 @@ public class NotificationAPI {
 
         String groupKey = intent.getStringExtra("group");
         
-        String channel = intent.getStringExtra("channel");
+        String channel = getDesktopChannel(intent);
+        if (channel == null) channel = intent.getStringExtra("channel");
         if (channel == null) {
             channel = CHANNEL_ID;
         }
@@ -196,7 +210,12 @@ public class NotificationAPI {
         notification.setSmallIcon(R.drawable.ic_event_note_black_24dp);
         notification.setColor(0xFF000000);
         notification.setContentTitle(title);
+        notification.setSubText(intent.getStringExtra("app-name"));
+        notification.setCategory(intent.getStringExtra("category"));
+        long timeout = intent.getLongExtra("timeout-ms", 0);
+        if (timeout > 0 && !ongoing) notification.setTimeoutAfter(timeout);
         notification.setPriority(priority);
+        if (intent.getBooleanExtra("silent", false)) notification.setSilent(true);
         notification.setOngoing(ongoing);
         notification.setOnlyAlertOnce(alertOnce);
         notification.setWhen(System.currentTimeMillis());
@@ -227,6 +246,21 @@ public class NotificationAPI {
             }
         }
 
+
+        String largeIconPath = intent.getStringExtra("large-icon-path");
+        if (largeIconPath != null) {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(largeIconPath, options);
+            if (options.outWidth > 0 && options.outHeight > 0) {
+                options.inSampleSize = 1;
+                while (Math.max(options.outWidth, options.outHeight) / options.inSampleSize > 256)
+                    options.inSampleSize *= 2;
+                options.inJustDecodeBounds = false;
+                Bitmap icon = BitmapFactory.decodeFile(largeIconPath, options);
+                if (icon != null) notification.setLargeIcon(icon);
+            }
+        }
 
         String imagePath = intent.getStringExtra("image-path");
         if (imagePath != null) {

@@ -283,6 +283,11 @@ guest has not been provisioned or is unavailable, the page reports that state an
 offers a refresh. Sources: [services settings](../../app/src/main/java/com/termux/app/fragments/settings/termux/ServicesPreferencesFragment.java)
 and [preferences entry](../../app/src/main/res/xml/termux_preferences.xml).
 
+## Reloading settings
+
+The `termuxpp-reload-settings` command reloads properties from disk and
+refreshes terminal styling in the app.
+
 ## Terminal session CLI
 
 TermuxPP ships `termuxpp-session` to list, focus, rename, reorder, close,

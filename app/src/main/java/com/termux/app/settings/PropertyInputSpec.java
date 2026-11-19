@@ -148,6 +148,9 @@ public final class PropertyInputSpec {
                     + number(ExtraKeysColorParser.MAX_CORNER_RADIUS_DP) + ", like 8 or 6.5, without a sign or a unit."
                     + " Default: not set, the corners of the current theme.";
 
+            case TermuxPropertyConstants.KEY_GESTURE_ANIMATIONS:
+                return "Show visual feedback for custom taps, extra-key swipes, and volume button actions. Enabled by default.";
+
             /* TerminalGestureAction */
             case TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION:
                 return gesture("a single tap on the terminal", TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_KEYS,

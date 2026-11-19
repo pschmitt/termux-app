@@ -58,11 +58,17 @@ and `~/.termux`, in that order. Other appearance files use the same
 directory order. Lookup is per file. `XDG_CONFIG_HOME` does not change these
 paths. See [Built-in integrations](integrations.md) for script locations.
 
-Run `termux-reload-settings` after editing a file. In native sessions, TermuxPP's
+Run `termuxpp-reload-settings` after editing a file. In native sessions, TermuxPP's
 adapted `termux-tools` also reads `shell` and `motd.sh` in the same
 directory order. A custom `motd.sh` can override the welcome message.
 
 ## Tap and swipe actions
+
+Custom taps, extra-key swipes, and volume-button actions show visual feedback
+by default. Turn **gesture-animations** off in **Settings → Properties →
+Gestures**, or set `gesture-animations = false` in `termuxpp.properties`.
+The assigned actions still run.
+
 
 | Key | Gesture | Default |
 | --- | --- | --- |

@@ -39,7 +39,11 @@ def main():
     commands.add_parser("completions", help="print completion source").add_argument(
         "shell", choices=("bash", "fish", "zsh")
     )
-    args = parser.parse_args()
+    commands.add_parser("reload-settings", help="reload app properties and styling")
+    argv = sys.argv[1:]
+    if Path(sys.argv[0]).name == "termuxpp-reload-settings":
+        argv = ["reload-settings", *argv]
+    args = parser.parse_args(argv)
     if args.command == "completions":
         directory = Path(__file__).resolve().parent.parent / "share"
         names = {
@@ -51,7 +55,7 @@ def main():
         return
 
     request = [args.command]
-    if args.command != "list":
+    if args.command not in ("list", "reload-settings"):
         request.append(args.id)
     if args.command == "rename":
         request.append(args.name)

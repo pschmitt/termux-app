@@ -36,6 +36,10 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
     static final long FEEDBACK_DURATION_MS = 220;
 
     public interface Listener {
+        default boolean isFeedbackEnabled() {
+            return true;
+        }
+
         /** A swipe was recognized over the normal extra keys row. */
         void onSwipeLeft();
 
@@ -88,8 +92,10 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
                 if (mSwipeDetector.onMove(event.getX(), event.getY()) && getCurrentItem() == 0) {
                     mSwallowTouch = true;
                     cancelTouchOfChildren(event);
-                    startSwipeFeedback();
-                    if (mListener != null) mListener.onSwipeLeft();
+                    if (mListener != null) {
+                        if (mListener.isFeedbackEnabled()) startSwipeFeedback();
+                        mListener.onSwipeLeft();
+                    }
                     return true;
                 }
                 break;

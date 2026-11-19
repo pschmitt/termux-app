@@ -790,7 +790,9 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
                 new File(prefix, "share/fish/vendor_completions.d/termuxpp-session.fish"), null);
             installSessionAsset("session-completions/zsh",
                 new File(prefix, "share/zsh/site-functions/_termuxpp-session"), null);
-            installSessionAsset("termuxpp-session", new File(bin, "termuxpp-session"), "#!" + bin + "/python3\n");
+            String python = "#!" + bin + "/python3\n";
+            installSessionAsset("termuxpp-session", new File(bin, "termuxpp-session"), python);
+            installSessionAsset("termuxpp-session", new File(bin, "termuxpp-reload-settings"), python);
             sessionCliInstalled = true;
         } catch (IOException e) {
             Logger.logWarn(LOG_TAG, "Could not install termuxpp-session: " + e.getMessage());
@@ -820,6 +822,11 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     /** Called on the main thread by the app-UID session socket. */
     Object runSessionCommand(JSONArray args) throws JSONException, ErrnoException {
         String command = args.getString(0);
+        if ("reload-settings".equals(command) && args.length() == 1) {
+            mProperties.loadTermuxPropertiesFromDisk();
+            sendBroadcast(new Intent(TERMUX_ACTIVITY.ACTION_RELOAD_STYLE).setPackage(getPackageName()));
+            return JSONObject.NULL;
+        }
         List<TermuxSession> sessions = getTermuxSessions();
         TermuxAppSharedPreferences preferences = TermuxAppSharedPreferences.build(this);
         String current = preferences == null ? null : preferences.getCurrentSession();

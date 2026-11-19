@@ -13,6 +13,7 @@ case $state in
       'kill:Force-stop a session shell'
       'move:Reorder a session'
       'rename:Change the session name'
+      'reload-settings:Reload app properties and styling'
       'completions:Print completion source'
       '--help:Show help'
     )

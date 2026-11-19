@@ -3,7 +3,7 @@ _termuxpp_session() {
   COMPREPLY=()
   if (( COMP_CWORD == 1 ))
   then
-    mapfile -t COMPREPLY < <(compgen -W 'list close focus kill move rename completions --help' -- "$current")
+    mapfile -t COMPREPLY < <(compgen -W 'list close focus kill move rename reload-settings completions --help' -- "$current")
   elif (( COMP_CWORD == 2 )) && [[ $action == list ]]
   then
     mapfile -t COMPREPLY < <(compgen -W '--json --help' -- "$current")
