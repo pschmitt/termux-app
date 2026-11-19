@@ -12,7 +12,9 @@ Open **Settings → Integrations** for their available controls and diagnostics.
 API receivers and services run in TermuxPP. Shell commands such as
 `termux-battery-status` use the TermuxPP build of the `termux-api` helper
 package. See [building and packaging helpers](aarch64-bootstrap.md#fork-compatible-android-helpers).
-Grant the Android permissions required by the commands you use.
+Grant the Android permissions required by the commands you use. Expiring
+shell notifications display a countdown in the Android notification shade.
+Critical notifications stay visible until dismissed.
 
 ## Tasker and Locale
 

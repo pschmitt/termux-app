@@ -81,6 +81,18 @@ public class NotificationAPI {
                     manager.createNotificationChannel(new NotificationChannel(channelId, name, priorityFromIntent(intent)));
                 }
 
+                long now = System.currentTimeMillis();
+                long timeout = Math.min(intent.getLongExtra("timeout-ms", 0), Long.MAX_VALUE - now);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && timeout > 0
+                    && !intent.getBooleanExtra("ongoing", false)
+                    && !"critical".equals(intent.getStringExtra("desktop-urgency"))) {
+                    notification.setTimeoutAfter(timeout);
+                    notification.setWhen(now + timeout);
+                    notification.setUsesChronometer(true);
+                    notification.setChronometerCountDown(true);
+                } else {
+                    notification.setWhen(now);
+                }
                 manager.notify(notificationId, 0, notification.build());
             }
         });
@@ -212,13 +224,10 @@ public class NotificationAPI {
         notification.setContentTitle(title);
         notification.setSubText(intent.getStringExtra("app-name"));
         notification.setCategory(intent.getStringExtra("category"));
-        long timeout = intent.getLongExtra("timeout-ms", 0);
-        if (timeout > 0 && !ongoing) notification.setTimeoutAfter(timeout);
         notification.setPriority(priority);
         if (intent.getBooleanExtra("silent", false)) notification.setSilent(true);
         notification.setOngoing(ongoing);
         notification.setOnlyAlertOnce(alertOnce);
-        notification.setWhen(System.currentTimeMillis());
         notification.setShowWhen(true);
 
 
