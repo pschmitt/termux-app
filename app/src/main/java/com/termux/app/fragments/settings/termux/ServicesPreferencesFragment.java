@@ -118,9 +118,8 @@ public class ServicesPreferencesFragment extends PreferenceFragmentCompat {
     private void addServicePreference(@NonNull Service service) {
         Preference preference = new Preference(requireContext());
         preference.setTitle(service.name);
-        preference.setSummary(getString(R.string.nix_services_service_summary,
-            service.status, service.enabled ? getString(R.string.nix_services_enabled)
-                : getString(R.string.nix_services_disabled)));
+        String boot = getString(service.enabled ? R.string.nix_services_boot_on : R.string.nix_services_boot_off);
+        preference.setSummary(service.status + " · " + boot + "\n" + wifiSummary(service));
         preference.setIcon(R.drawable.ui_ic_settings);
         preference.setOnPreferenceClickListener(clicked -> {
             showServiceActions(service);
@@ -135,11 +134,16 @@ public class ServicesPreferencesFragment extends PreferenceFragmentCompat {
             getString(R.string.nix_services_start),
             getString(R.string.nix_services_stop),
             getString(R.string.nix_services_restart),
-            getString(R.string.nix_services_logs)
+            getString(R.string.nix_services_logs),
+            getString(R.string.nix_services_settings)
         };
         DialogUtils.builder(context)
             .setTitle(service.name)
             .setItems(actions, (dialog, which) -> {
+                if (which == 4) {
+                    editSettings(service);
+                    return;
+                }
                 String action = new String[]{"start", "stop", "restart", "logs"}[which];
                 runServiceAction(service, action);
             })
@@ -209,9 +213,19 @@ public class ServicesPreferencesFragment extends PreferenceFragmentCompat {
             if (!name.matches(SERVICE_NAME_PATTERN)) {
                 throw new JSONException("Invalid service name in guest response");
             }
+            List<String> ssids = new ArrayList<>();
+            JSONArray allowed = item.optJSONArray("allowedSsids");
+            if (allowed != null)
+                for (int j = 0; j < allowed.length(); j++) ssids.add(allowed.getString(j));
+            JSONObject settings = item.optJSONObject("settings");
             services.add(new Service(name,
                 item.optString("status", "unknown"),
-                item.optBoolean("enabled", false)));
+                item.optBoolean("enabled", false),
+                item.optBoolean("wifiRestricted", false),
+                ssids, item.optBoolean("ssidsOverridden", false),
+                settings != null && settings.length() > 0,
+                item.optBoolean("waitingForNetwork", false),
+                item.has("network") ? item.optString("network") : null));
         }
         return services;
     }
@@ -249,6 +263,120 @@ public class ServicesPreferencesFragment extends PreferenceFragmentCompat {
             .show();
     }
 
+    @NonNull
+    private String wifiSummary(@NonNull Service service) {
+        String text;
+        if (!service.wifiRestricted) {
+            text = getString(R.string.nix_services_wifi_any);
+        } else {
+            String names = TextUtils.join(", ", service.allowedSsids);
+            text = service.waitingForNetwork || "blocked".equals(service.network)
+                ? getString(R.string.nix_services_wifi_waiting, names)
+                : getString(R.string.nix_services_wifi_only, names);
+        }
+        return service.hasSettings ? getString(R.string.nix_services_set_here, text) : text;
+    }
+
+    private void editSettings(@NonNull Service service) {
+        Context context = requireContext();
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(context);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(padding, padding / 2, padding, 0);
+
+        android.widget.Switch boot = new android.widget.Switch(context);
+        boot.setText(R.string.nix_services_start_on_boot);
+        boot.setChecked(service.enabled);
+        layout.addView(boot);
+
+        android.widget.Switch restricted = new android.widget.Switch(context);
+        restricted.setText(R.string.nix_services_wifi_restricted);
+        restricted.setChecked(service.wifiRestricted);
+        layout.addView(restricted);
+
+        TextView help = new TextView(context);
+        help.setText(R.string.nix_services_wifi_restricted_help);
+        layout.addView(help);
+
+        android.widget.EditText networks = new android.widget.EditText(context);
+        networks.setSingleLine(true);
+        networks.setHint(R.string.nix_services_wifi_networks_hint);
+        networks.setText(TextUtils.join(", ", service.allowedSsids));
+        layout.addView(networks);
+
+        DialogUtils.builder(context)
+            .setTitle(getString(R.string.nix_services_settings_title, service.name))
+            .setView(layout)
+            .setPositiveButton(R.string.nix_services_settings_save, (dialog, which) -> {
+                List<String> names = new ArrayList<>();
+                for (String name : String.valueOf(networks.getText()).split(","))
+                    if (!name.trim().isEmpty()) names.add(name.trim());
+                if (restricted.isChecked() && names.isEmpty()) {
+                    Toast.makeText(context, R.string.nix_services_settings_no_networks, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                try {
+                    JSONObject settings = new JSONObject();
+                    settings.put("enabled", boot.isChecked());
+                    settings.put("wifiRestricted", restricted.isChecked());
+                    settings.put("allowedSsids", new JSONArray(names));
+                    saveSettings(service.name, settings);
+                } catch (JSONException e) {
+                    Toast.makeText(context, getString(R.string.nix_services_settings_save_error, e.getMessage()),
+                        Toast.LENGTH_LONG).show();
+                }
+            })
+            .setNeutralButton(R.string.nix_services_settings_default, (dialog, which) ->
+                saveSettings(service.name, null))
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
+    }
+
+    /**
+     * Record the service's settings in service-state/settings.json, which the guest's
+     * {@code svc} reads within a second; {@code null} returns to the configured values.
+     */
+    private void saveSettings(@NonNull String service, @Nullable JSONObject settings) {
+        executor.execute(() -> {
+            String error = null;
+            File state = new File(TermuxNix.RUNTIME_DIR_PATH, "service-state");
+            File target = new File(state, "settings.json");
+            File temporary = new File(state, ".settings.json.tmp");
+            try {
+                JSONObject all = new JSONObject();
+                if (target.isFile()) {
+                    try (InputStream in = new java.io.FileInputStream(target)) {
+                        all = new JSONObject(readBounded(in, OUTPUT_LIMIT));
+                    } catch (JSONException e) {
+                        all = new JSONObject();
+                    }
+                }
+                if (settings == null) all.remove(service);
+                else all.put(service, settings);
+                if (!state.isDirectory() && !state.mkdirs()) throw new IOException("cannot create " + state);
+                try (java.io.FileOutputStream out = new java.io.FileOutputStream(temporary)) {
+                    out.write((all.toString() + "\n").getBytes(StandardCharsets.UTF_8));
+                    out.getFD().sync();
+                }
+                if (!temporary.renameTo(target)) throw new IOException("cannot replace " + target);
+            } catch (IOException | JSONException e) {
+                error = e.getMessage();
+                //noinspection ResultOfMethodCallIgnored
+                temporary.delete();
+            }
+            String failure = error;
+            mainHandler.post(() -> {
+                if (!isAdded()) return;
+                if (failure != null) {
+                    Toast.makeText(requireContext(), getString(R.string.nix_services_settings_save_error, failure),
+                        Toast.LENGTH_LONG).show();
+                }
+                // svc applies the settings within a second.
+                mainHandler.postDelayed(this::refreshServices, 1500);
+            });
+        });
+    }
+
     private void setStatus(@NonNull CharSequence summary) {
         if (statusPreference != null) statusPreference.setSummary(summary);
     }
@@ -269,12 +397,35 @@ public class ServicesPreferencesFragment extends PreferenceFragmentCompat {
     static final class Service {
         final String name;
         final String status;
+        /** Start on boot, as in effect (the app's setting or the configuration). */
         final boolean enabled;
+        final boolean wifiRestricted;
+        /** The effective Wi-Fi allow-list. */
+        final List<String> allowedSsids;
+        /** Whether the list was set on this page rather than in the configuration. */
+        final boolean ssidsOverridden;
+        /** Whether this page set any setting for the service. */
+        final boolean hasSettings;
+        final boolean waitingForNetwork;
+        /** "allowed", "blocked", or null for an unrestricted service. */
+        @Nullable final String network;
 
         Service(@NonNull String name, @NonNull String status, boolean enabled) {
+            this(name, status, enabled, false, new ArrayList<>(), false, false, false, null);
+        }
+
+        Service(@NonNull String name, @NonNull String status, boolean enabled, boolean wifiRestricted,
+                @NonNull List<String> allowedSsids, boolean ssidsOverridden, boolean hasSettings,
+                boolean waitingForNetwork, @Nullable String network) {
             this.name = name;
             this.status = status;
             this.enabled = enabled;
+            this.wifiRestricted = wifiRestricted;
+            this.allowedSsids = allowedSsids;
+            this.ssidsOverridden = ssidsOverridden;
+            this.hasSettings = hasSettings;
+            this.waitingForNetwork = waitingForNetwork;
+            this.network = network;
         }
     }
 
