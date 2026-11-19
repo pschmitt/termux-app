@@ -230,6 +230,11 @@
             android:name=".app.update.UpdateCommandReceiver"
             android:exported="false" />
 
+        <!-- termuxpp-setup-permissions: Shizuku setup; only the app's own UID reaches it. -->
+        <receiver
+            android:name=".app.update.ShizukuCommandReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".app.event.SystemEventReceiver"
             android:exported="false">

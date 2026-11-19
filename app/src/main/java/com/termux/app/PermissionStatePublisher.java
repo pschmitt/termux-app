@@ -68,6 +68,12 @@ public final class PermissionStatePublisher {
         handler.post(refresh);
     }
 
+    /** Publish once now, off the calling thread (for a receiver without the service at hand). */
+    public static void publishNow(@NonNull Context context) {
+        PermissionStatePublisher publisher = new PermissionStatePublisher(context);
+        new Thread(publisher::publish, "termuxpp-permission-state-once").start();
+    }
+
     /** Publish again soon, for example after the user answered a permission prompt. */
     public void refreshSoon() {
         if (handler != null) handler.post(refresh);
@@ -90,6 +96,8 @@ public final class PermissionStatePublisher {
             Set<String> requested = requestedPermissions();
             state.put("runtime", runtimePermissions(requested));
             state.put("special", specialAccess(requested));
+            // How far the privileged path is: termuxpp-setup-permissions sets Shizuku up first.
+            state.put("shizuku", com.termux.app.update.ShizukuInstaller.state(context).name());
             try (FileOutputStream out = new FileOutputStream(temporary)) {
                 out.write((state.toString() + "\n").getBytes(StandardCharsets.UTF_8));
                 out.getFD().sync();
