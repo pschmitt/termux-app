@@ -44,19 +44,14 @@ public final class PermissionStatePublisher {
 
     private static final String LOG_TAG = "PermissionStatePublisher";
     private static final String FILE_NAME = "permissions.json";
-    private static final long REFRESH_MS = 60_000;
 
     private final Context context;
     private final HandlerThread thread = new HandlerThread("termuxpp-permission-state");
     private Handler handler;
-    private final Runnable refresh = new Runnable() {
-        @Override
-        public void run() {
-            publish();
-            handler.removeCallbacks(this);
-            handler.postDelayed(this, REFRESH_MS);
-        }
-    };
+    // Published on start, when the app returns to the foreground and when
+    // termuxpp-setup-permissions asks (ShizukuCommandReceiver), not on a timer:
+    // nothing reads the file in between.
+    private final Runnable refresh = this::publish;
 
     public PermissionStatePublisher(@NonNull Context context) {
         this.context = context.getApplicationContext();
