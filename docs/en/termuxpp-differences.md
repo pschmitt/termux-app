@@ -295,6 +295,14 @@ Command strings are redacted from property and execution logs. Sources: [gesture
 [properties editor](../../app/src/main/java/com/termux/app/fragments/settings/termux/PropertiesPreferencesFragment.java),
 and [gesture documentation](tap-gestures.md).
 
+## Recursive Settings search
+
+Settings search indexes the reachable preference screens and the dynamically generated TermuxPP
+properties. A result shows its settings path; selecting it opens the owning screen, scrolls to the
+preference and briefly highlights that row. Search indexes preference labels and help text, never
+configured property values. Sources: [search index](../../app/src/main/java/com/termux/app/settings/SettingsSearchIndex.java)
+and [Settings navigation](../../app/src/main/java/com/termux/app/activities/SettingsActivity.java).
+
 Set `create-session-on-single-session-switch=true` in `termuxpp.properties` to
 create and open a new terminal when previous or next session is invoked with
 only one terminal open. This applies to keyboard shortcuts and configured
