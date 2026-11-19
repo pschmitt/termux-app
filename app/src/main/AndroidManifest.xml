@@ -225,6 +225,11 @@
             android:name=".app.update.InstallStatusReceiver"
             android:exported="false" />
 
+        <!-- termuxpp-self-update: only the app's own UID (the guest's termux-am) reaches it. -->
+        <receiver
+            android:name=".app.update.UpdateCommandReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".app.event.SystemEventReceiver"
             android:exported="false">
