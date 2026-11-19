@@ -20,6 +20,9 @@ import androidx.preference.PreferenceManager;
 import androidx.preference.SwitchPreferenceCompat;
 
 import com.termux.app.AdbShellService;
+import com.termux.app.settings.TermuxPropertiesEditor;
+import dev.pschmitt.termux.shared.termux.TermuxConstants;
+import dev.pschmitt.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 
 import com.termux.R;
 import dev.pschmitt.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
@@ -136,6 +139,13 @@ class DebuggingPreferencesDataStore extends PreferenceDataStore {
         switch (key) {
             case "log_level":
                 return String.valueOf(mPreferences.getLogLevel());
+            case "adb_shell_allowed_ssids":
+                try {
+                    return new TermuxPropertiesEditor().read().getProperty(
+                        TermuxPropertyConstants.KEY_ADB_SHELL_ALLOWED_SSIDS, "");
+                } catch (java.io.IOException e) {
+                    return "";
+                }
             default:
                 return null;
         }
@@ -143,9 +153,23 @@ class DebuggingPreferencesDataStore extends PreferenceDataStore {
 
     @Override
     public void putString(String key, @Nullable String value) {
-        if (mPreferences == null) return;
         if (key == null) return;
 
+        if ("adb_shell_allowed_ssids".equals(key)) {
+            try {
+                String list = value == null ? "" : value.trim();
+                new TermuxPropertiesEditor().set(
+                    TermuxPropertyConstants.KEY_ADB_SHELL_ALLOWED_SSIDS, list.isEmpty() ? null : list);
+                Intent reload = new Intent(TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY.ACTION_RELOAD_STYLE);
+                reload.setPackage(mContext.getPackageName());
+                mContext.sendBroadcast(reload);
+            } catch (java.io.IOException | IllegalArgumentException e) {
+                android.widget.Toast.makeText(mContext, R.string.properties_save_error, android.widget.Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+
+        if (mPreferences == null) return;
         switch (key) {
             case "log_level":
                 if (value != null) {

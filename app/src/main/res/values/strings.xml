@@ -181,6 +181,9 @@
                 <string name="adb_shell_notification_channel">ADB shell access</string>
                 <string name="adb_shell_notification_title">ADB shell is enabled</string>
                 <string name="adb_shell_waiting_for_network">Waiting for an allowed Wi-Fi network</string>
+    <string name="adb_shell_allowed_ssids_title">Allowed Wi-Fi networks</string>
+    <string name="adb_shell_allowed_ssids_summary">Only run the ADB shell on these Wi-Fi networks. Empty allows any network.</string>
+    <string name="adb_shell_allowed_ssids_dialog">Exact Wi-Fi names, comma-separated. Leave empty to allow any network. Android must allow TermuxPP to read the connected network (Location on and permission granted); otherwise the shell stays unavailable while a list is set.</string>
     <string name="adb_shell_notification_text">ADB shell listening on loopback port %1$d</string>
                 <string name="adb_shell_stop">Stop</string>
                 <string name="adb_shell_authorizations_title">ADB shell authorizations</string>

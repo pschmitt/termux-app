@@ -38,6 +38,15 @@
             app:summary="@string/adb_shell_enabled_summary"
             app:title="@string/adb_shell_enabled_title" />
 
+        <EditTextPreference
+            app:icon="@drawable/ui_ic_link"
+            app:key="adb_shell_allowed_ssids"
+            app:dialogTitle="@string/adb_shell_allowed_ssids_title"
+            app:dialogMessage="@string/adb_shell_allowed_ssids_dialog"
+            app:title="@string/adb_shell_allowed_ssids_title"
+            app:useSimpleSummaryProvider="false"
+            app:summary="@string/adb_shell_allowed_ssids_summary" />
+
         <Preference
             app:icon="@drawable/ui_ic_lock"
             app:fragment="com.termux.app.fragments.settings.termux.AdbShellAuthorizationsPreferencesFragment"
