@@ -251,13 +251,22 @@ public class PropertyInputSpecTest {
     }
 
     @Test
-    public void choicesOnlyForExtraKeysStyle() {
+    public void choicesForPickerProperties() {
         assertArrayEquals(new String[] {"default", "arrows-only", "arrows-all", "all", "none"},
             PropertyInputSpec.choices("extra-keys-style"));
         assertArrayEquals(new String[] {"session", "nix", "outer"},
             PropertyInputSpec.choices(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT));
+        String toastKey = TermuxPropertyConstants.KEY_TERMINAL_TOAST_POSITION;
+        String[] toastPositions = {
+            "top-left", "top-center", "top-right", "center-left", "center", "center-right",
+            "bottom-left", "bottom-center", "bottom-right"
+        };
+        assertArrayEquals(toastPositions, PropertyInputSpec.choices(toastKey));
+        valid(toastKey, toastPositions);
+        invalid(toastKey, "top", "center-top", "bottom right");
         for (String key : TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST) {
-            if (key.equals("extra-keys-style") || key.equals(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT)) continue;
+            if (key.equals("extra-keys-style") || key.equals(TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT)
+                || key.equals(toastKey)) continue;
             assertEquals(key, 0, PropertyInputSpec.choices(key).length);
         }
         assertEquals(0, PropertyInputSpec.choices(null).length);
