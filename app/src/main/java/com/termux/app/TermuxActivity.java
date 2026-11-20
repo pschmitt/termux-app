@@ -695,7 +695,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private TerminalContextMenu.State getContextMenuState(@NonNull TerminalSession session) {
         return new TerminalContextMenu.State(mTerminalView.isAutoFillEnabled(),
             !DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText()),
-            session.getPid(), session.isRunning(), mPreferences.shouldKeepScreenOn());
+            session.getPid(), session.isRunning(), mPreferences.shouldKeepScreenOn(), isWakeLockHeld(),
+            null, null, null, 0, 0, -1);
+    }
+
+    private boolean isWakeLockHeld() {
+        return mTermuxService != null && mTermuxService.isWakeLockHeld();
     }
 
     /** The state for the sheet, which also shows which session it acts on and how many URLs it found. */
@@ -712,7 +717,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Map<String, String> urls = mTermuxTerminalViewClient.collectUrlItems(session);
         return new TerminalContextMenu.State(mTerminalView.isAutoFillEnabled(),
             !DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText()),
-            session.getPid(), session.isRunning(), mPreferences.shouldKeepScreenOn(),
+            session.getPid(), session.isRunning(), mPreferences.shouldKeepScreenOn(), isWakeLockHeld(),
             session.mSessionName, ProcessInfo.readName(pid), cwd, number, count,
             urls == null ? -1 : urls.size());
     }
@@ -807,6 +812,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return true;
             case TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON:
                 toggleKeepScreenOn();
+                return true;
+            case TerminalContextMenu.TOGGLE_WAKE_LOCK:
+                if (mTermuxService != null) mTermuxService.toggleWakeLock();
                 return true;
             case TerminalContextMenu.SETTINGS:
                 ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class));

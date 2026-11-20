@@ -400,6 +400,17 @@ public final class TermuxPropertyConstants {
 
     public static final String KEY_GESTURE_ANIMATIONS = "gesture-animations";
 
+    /** Defines the key for whether "Acquire wakelock" also holds a high-performance Wi-Fi lock, which
+     * keeps the Wi-Fi radio out of power save. Default: false, the CPU wake lock alone. */
+    public static final String KEY_WAKE_LOCK_WIFI = "wake-lock-wifi"; // Default: "wake-lock-wifi"
+
+    /** Defines the key for after how many minutes a wake lock is released by itself.
+     * `0` keeps it until it is released. */
+    public static final String KEY_WAKE_LOCK_TIMEOUT = "wake-lock-timeout"; // Default: "wake-lock-timeout"
+    public static final int IVALUE_WAKE_LOCK_TIMEOUT_MIN = 0;
+    public static final int IVALUE_WAKE_LOCK_TIMEOUT_MAX = 7 * 24 * 60;
+    public static final int DEFAULT_IVALUE_WAKE_LOCK_TIMEOUT = 0;
+
     public static final String KEY_TERMINAL_SINGLE_TAP_ACTION =  "terminal-single-tap-action"; // Default: "terminal-single-tap-action"
     public static final TerminalGestureAction DEFAULT_TERMINAL_SINGLE_TAP_ACTION = TerminalGestureAction.SHOW_KEYBOARD;
 
@@ -569,6 +580,7 @@ public final class TermuxPropertyConstants {
     public static final Set<String> TERMUX_APP_PROPERTIES_LIST = new HashSet<>(Arrays.asList(
         /* boolean */
         KEY_GESTURE_ANIMATIONS,
+        KEY_WAKE_LOCK_WIFI,
         KEY_ADB_SHELL_ALLOWED_SSIDS,
         KEY_DISABLE_FILE_SHARE_RECEIVER,
         KEY_DISABLE_FILE_VIEW_RECEIVER,
@@ -589,6 +601,7 @@ public final class TermuxPropertyConstants {
         /* int */
         KEY_BELL_BEHAVIOUR,
         KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT,
+        KEY_WAKE_LOCK_TIMEOUT,
         KEY_TERMINAL_CURSOR_BLINK_RATE,
         KEY_TERMINAL_CURSOR_STYLE,
         KEY_TERMINAL_MARGIN_HORIZONTAL,
@@ -662,6 +675,7 @@ public final class TermuxPropertyConstants {
      * default: false
      */
     public static final Set<String> TERMUX_DEFAULT_FALSE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST = new HashSet<>(Arrays.asList(
+        KEY_WAKE_LOCK_WIFI,
         KEY_DISABLE_FILE_SHARE_RECEIVER,
         KEY_DISABLE_FILE_VIEW_RECEIVER,
         KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS,

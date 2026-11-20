@@ -34,8 +34,8 @@ Upstream uses Android's context menu for terminal actions. TermuxPP uses a
 rounded bottom sheet with a compact session card, an Autofill / Open URL / Share
 shortcut card, and grouped icon-led rows. Open URL is disabled when the terminal
 contains no URLs. Autofill remains conditional on Android support. Keep screen on
-has an On/Off state pill: it stays visible while On and moves under **More actions**
-while Off. Reset and Kill are also under **More actions**.
+and Wake lock have an On/Off state pill: each stays visible while On and moves
+under **More** while Off. Reset and Kill are also under **More**.
 Settings remains visible in its own group at the bottom. Tapping Kill retains its
 confirmation, and holding it retains the immediate-kill action. Share and
 Autofill choices retain their existing preview cards. The presentation is an
@@ -326,6 +326,15 @@ for the upstream behavior. Each direction can also have a long swipe whose hint
 shows which action releasing runs. Sources: [swipe pager](../../app/src/main/java/com/termux/app/terminal/io/ExtraKeysSwipeViewPager.java),
 [swipe detector](../../app/src/main/java/com/termux/app/terminal/io/ExtraKeysSwipeDetector.java)
 and [extra keys swipe documentation](terminal-settings.md#extra-keys-swipe).
+
+## Wake lock
+
+Upstream Termux's wake lock also holds a high-performance Wi-Fi lock and is kept until it is
+released. In TermuxPP the Wi-Fi lock is opt-in (`wake-lock-wifi`), `wake-lock-timeout` can release
+a forgotten wake lock by itself, the notification shows for how long it has been held, and the
+terminal menu can toggle it. `termux-wake-lock` and `termux-wake-unlock` work as upstream. Sources:
+[service](../../app/src/main/java/com/termux/app/TermuxService.java) and
+[wake lock documentation](terminal-settings.md#wake-lock).
 
 ## Recursive Settings search
 

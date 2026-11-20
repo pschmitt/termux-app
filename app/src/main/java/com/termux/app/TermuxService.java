@@ -119,9 +119,16 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
      */
     private TermuxShellManager mShellManager;
 
-    /** The wake lock and wifi lock are always acquired and released together. */
+    /** The wake lock, and with wake-lock-wifi the Wi-Fi lock, are acquired and released together. */
     private PowerManager.WakeLock mWakeLock;
     private WifiManager.WifiLock mWifiLock;
+    /** When the wake lock was acquired (wall clock, for the notification's timer). */
+    private long mWakeLockSince;
+    /** Releases the wake lock after wake-lock-timeout minutes. */
+    private final Runnable mWakeLockTimeout = () -> {
+        Logger.logInfo(LOG_TAG, "Releasing the wake lock after wake-lock-timeout");
+        actionReleaseWakeLock(true);
+    };
 
     /** If the user has executed the {@link TERMUX_SERVICE#ACTION_STOP_SERVICE} intent. */
     boolean mWantsToStop = false;
@@ -401,11 +408,20 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TermuxConstants.TERMUX_APP_NAME.toLowerCase() + ":service-wakelock");
         mWakeLock.acquire();
+        mWakeLockSince = System.currentTimeMillis();
 
-        // http://tools.android.com/tech-docs/lint-in-studio-2-3#TOC-WifiManager-Leak
-        WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        mWifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, TermuxConstants.TERMUX_APP_NAME.toLowerCase());
-        mWifiLock.acquire();
+        // The high-performance Wi-Fi lock keeps the radio out of power save, which costs battery
+        // for as long as it is held: only with wake-lock-wifi.
+        if (mProperties != null && mProperties.shouldWakeLockHoldWifi()) {
+            // http://tools.android.com/tech-docs/lint-in-studio-2-3#TOC-WifiManager-Leak
+            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            mWifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, TermuxConstants.TERMUX_APP_NAME.toLowerCase());
+            mWifiLock.acquire();
+        }
+
+        int timeoutMinutes = mProperties == null ? 0 : mProperties.getWakeLockTimeoutMinutes();
+        mHandler.removeCallbacks(mWakeLockTimeout);
+        if (timeoutMinutes > 0) mHandler.postDelayed(mWakeLockTimeout, timeoutMinutes * 60_000L);
 
         if (!PermissionUtils.checkIfBatteryOptimizationsDisabled(this)) {
             PermissionUtils.requestDisableBatteryOptimizations(this);
@@ -417,6 +433,17 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     }
 
+    /** Whether the wake lock is held, for the terminal menu. */
+    public boolean isWakeLockHeld() {
+        return mWakeLock != null;
+    }
+
+    /** Acquire or release the wake lock, like the notification's button. */
+    public void toggleWakeLock() {
+        if (mWakeLock == null) actionAcquireWakeLock();
+        else actionReleaseWakeLock(true);
+    }
+
     /** Process action to release Power and Wi-Fi WakeLocks. */
     private void actionReleaseWakeLock(boolean updateNotification) {
         if (mWakeLock == null && mWifiLock == null) {
@@ -426,6 +453,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
         Logger.logDebug(LOG_TAG, "Releasing WakeLocks");
 
+        mHandler.removeCallbacks(mWakeLockTimeout);
         if (mWakeLock != null) {
             mWakeLock.release();
             mWakeLock = null;
@@ -1086,8 +1114,15 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
             contentIntent, null, NotificationUtils.NOTIFICATION_MODE_SILENT);
         if (builder == null)  return null;
 
-        // No need to show a timestamp:
-        builder.setShowWhen(false);
+        // While a wake lock is held, a timer shows for how long, so a forgotten one stands out.
+        // The system runs it: the notification is not updated for it.
+        if (wakeLockHeld) {
+            builder.setWhen(mWakeLockSince);
+            builder.setShowWhen(true);
+            builder.setUsesChronometer(true);
+        } else {
+            builder.setShowWhen(false);
+        }
 
         // Set notification icon
         builder.setSmallIcon(R.drawable.ic_service_notification);

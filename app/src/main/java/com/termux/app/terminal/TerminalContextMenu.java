@@ -36,6 +36,8 @@ public final class TerminalContextMenu {
     public static final int SHARE_MENU = 13;
     /** Open the autofill sheet, which offers the username and the password. Only the sheet offers it. */
     public static final int AUTOFILL_MENU = 14;
+    /** Acquire or release the wake lock, like the notification's button. */
+    public static final int TOGGLE_WAKE_LOCK = 15;
 
     /** What decides which entries are shown, and how. */
     public static final class State {
@@ -44,6 +46,8 @@ public final class TerminalContextMenu {
         public final int sessionPid;
         public final boolean sessionRunning;
         public final boolean keepScreenOn;
+        /** Whether the service holds its wake lock. */
+        public final boolean wakeLockHeld;
         /** The name the user gave the session, or null. */
         @Nullable public final String sessionName;
         /** The name of the session's process, such as zsh, or null if unknown. */
@@ -66,6 +70,15 @@ public final class TerminalContextMenu {
                      int sessionPid, boolean sessionRunning, boolean keepScreenOn,
                      @Nullable String sessionName, @Nullable String processName, @Nullable String cwd,
                      int sessionNumber, int sessionCount, int urlCount) {
+            this(autoFillEnabled, hasSelectedText, sessionPid, sessionRunning, keepScreenOn, false,
+                sessionName, processName, cwd, sessionNumber, sessionCount, urlCount);
+        }
+
+        public State(boolean autoFillEnabled, boolean hasSelectedText,
+                     int sessionPid, boolean sessionRunning, boolean keepScreenOn, boolean wakeLockHeld,
+                     @Nullable String sessionName, @Nullable String processName, @Nullable String cwd,
+                     int sessionNumber, int sessionCount, int urlCount) {
+            this.wakeLockHeld = wakeLockHeld;
             this.autoFillEnabled = autoFillEnabled;
             this.hasSelectedText = hasSelectedText;
             this.sessionPid = sessionPid;
@@ -105,7 +118,8 @@ public final class TerminalContextMenu {
 
     /**
      * Add the entries of the bottom sheet, in the grouped presentation: a session header, a strip of the frequent
-     * actions, expandable secondary actions, and Settings at the bottom. Keep screen on stays visible while active.
+     * actions, expandable secondary actions, and Settings at the bottom. Keep screen on and the wake lock stay
+     * visible while active, and are under More while not.
      */
     public static TermuxContextMenuSheet populateSheet(@NonNull TermuxContextMenuSheet sheet,
                                                        @NonNull Resources resources, @NonNull State state) {
@@ -123,6 +137,8 @@ public final class TerminalContextMenu {
 
         sheet.addStateRow(TOGGLE_KEEP_SCREEN_ON, resources.getString(R.string.action_toggle_keep_screen_on),
             R.drawable.ui_ic_menu_sun, state.keepScreenOn, !state.keepScreenOn);
+        sheet.addStateRow(TOGGLE_WAKE_LOCK, resources.getString(R.string.action_toggle_wake_lock),
+            R.drawable.ui_ic_bolt, state.wakeLockHeld, !state.wakeLockHeld);
         sheet.addSecondaryRow(RESET_TERMINAL, resources.getString(R.string.action_reset_terminal),
             resources.getString(R.string.ui_menu_reset_detail), R.drawable.ui_ic_menu_reset);
 
@@ -244,6 +260,8 @@ public final class TerminalContextMenu {
             .setEnabled(state.sessionRunning);
         menu.add(Menu.NONE, TOGGLE_KEEP_SCREEN_ON, Menu.NONE, R.string.action_toggle_keep_screen_on)
             .setCheckable(true).setChecked(state.keepScreenOn);
+        menu.add(Menu.NONE, TOGGLE_WAKE_LOCK, Menu.NONE, R.string.action_toggle_wake_lock)
+            .setCheckable(true).setChecked(state.wakeLockHeld);
         menu.add(Menu.NONE, SETTINGS, Menu.NONE, R.string.action_open_settings);
     }
 

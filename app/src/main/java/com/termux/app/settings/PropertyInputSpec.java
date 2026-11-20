@@ -103,6 +103,13 @@ public final class PropertyInputSpec {
                 return "What the terminal does when a program rings the bell (the BEL character)."
                     + " Values: " + keys(TermuxPropertyConstants.MAP_BELL_BEHAVIOUR) + "."
                     + " Default: " + inverse(TermuxPropertyConstants.MAP_BELL_BEHAVIOUR, TermuxPropertyConstants.DEFAULT_IVALUE_BELL_BEHAVIOUR) + ".";
+            case TermuxPropertyConstants.KEY_WAKE_LOCK_TIMEOUT:
+                return "Release a wake lock by itself after this many minutes, so a forgotten one does not keep"
+                    + " the phone awake. Format: a whole number from "
+                    + TermuxPropertyConstants.IVALUE_WAKE_LOCK_TIMEOUT_MIN + " to "
+                    + TermuxPropertyConstants.IVALUE_WAKE_LOCK_TIMEOUT_MAX
+                    + ", like 120. Default: " + TermuxPropertyConstants.DEFAULT_IVALUE_WAKE_LOCK_TIMEOUT
+                    + ", keep it until it is released.";
             case TermuxPropertyConstants.KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT:
                 return "Delete files from the TMPDIR directory when the last session exits, if they were not used"
                     + " for this many days. Format: a whole number from "
@@ -155,6 +162,10 @@ public final class PropertyInputSpec {
                 return "Restrict the ADB shell service to these Wi-Fi networks. Enter exact, comma-separated SSIDs. "
                     + "Leave empty to allow any network. Android must allow TermuxPP to read the connected SSID.";
 
+            case TermuxPropertyConstants.KEY_WAKE_LOCK_WIFI:
+                return "Also keep the Wi-Fi radio out of power save while a wake lock is held (a high-performance"
+                    + " Wi-Fi lock). Costs battery; the wake lock alone keeps programs and SSH sessions running."
+                    + " Disabled by default.";
             case TermuxPropertyConstants.KEY_GESTURE_ANIMATIONS:
                 return "Show visual feedback for custom taps, extra-key swipes, and volume button actions. Enabled by default.";
 
@@ -347,6 +358,10 @@ public final class PropertyInputSpec {
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_COMMAND:
                 return value.trim().isEmpty() ? "Command cannot be blank" : null;
 
+            case TermuxPropertyConstants.KEY_WAKE_LOCK_TIMEOUT:
+                return intInRange(value,
+                    TermuxPropertyConstants.IVALUE_WAKE_LOCK_TIMEOUT_MIN,
+                    TermuxPropertyConstants.IVALUE_WAKE_LOCK_TIMEOUT_MAX, false);
             case TermuxPropertyConstants.KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT:
                 return intInRange(value,
                     TermuxPropertyConstants.IVALUE_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT_MIN,
@@ -448,6 +463,7 @@ public final class PropertyInputSpec {
             case TermuxPropertyConstants.KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT:
                 return InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED;
             case TermuxPropertyConstants.KEY_TERMINAL_CURSOR_BLINK_RATE:
+            case TermuxPropertyConstants.KEY_WAKE_LOCK_TIMEOUT:
             case TermuxPropertyConstants.KEY_TERMINAL_MARGIN_HORIZONTAL:
             case TermuxPropertyConstants.KEY_TERMINAL_MARGIN_VERTICAL:
             case TermuxPropertyConstants.KEY_TERMINAL_TRANSCRIPT_ROWS:

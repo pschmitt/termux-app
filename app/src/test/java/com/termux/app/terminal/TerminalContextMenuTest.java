@@ -80,12 +80,14 @@ public class TerminalContextMenuTest {
         Assert.assertEquals(Arrays.asList(
                 TerminalContextMenu.AUTOFILL_MENU, TerminalContextMenu.SELECT_URL,
                 TerminalContextMenu.SHARE_MENU, TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON,
+                TerminalContextMenu.TOGGLE_WAKE_LOCK,
                 TerminalContextMenu.RESET_TERMINAL, TerminalContextMenu.KILL_PROCESS,
                 TerminalContextMenu.KILL_PROCESS_NOW, TerminalContextMenu.SETTINGS),
             sheetIds(activity(), everything()));
         Assert.assertEquals(Arrays.asList(
                 TerminalContextMenu.SELECT_URL, TerminalContextMenu.SHARE_TRANSCRIPT,
-                TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON, TerminalContextMenu.RESET_TERMINAL,
+                TerminalContextMenu.TOGGLE_KEEP_SCREEN_ON, TerminalContextMenu.TOGGLE_WAKE_LOCK,
+                TerminalContextMenu.RESET_TERMINAL,
                 TerminalContextMenu.KILL_PROCESS, TerminalContextMenu.KILL_PROCESS_NOW,
                 TerminalContextMenu.SETTINGS),
             sheetIds(activity(), minimal()));
@@ -133,8 +135,8 @@ public class TerminalContextMenuTest {
         View shortcutIcon = dialog.findViewById(R.id.context_shortcut_icon);
         Assert.assertEquals((int) (32 * density), shortcutIcon.getLayoutParams().height);
         Assert.assertEquals((int) (4 * density), strip.getPaddingTop());
-        // Reset is folded away behind More actions, so it is not shown yet.
-        Assert.assertEquals(Arrays.asList("More actions", "Settings"),
+        // Reset is folded away behind More, so it is not shown yet.
+        Assert.assertEquals(Arrays.asList("More", "Settings"),
             texts(dialog, R.id.context_row_title));
         Assert.assertTrue(texts(dialog, R.id.context_row_detail).isEmpty());
         // No tile of the old grid is left in the main menu.
@@ -232,7 +234,7 @@ public class TerminalContextMenuTest {
         View folded = (View) reset.getParent();
         Assert.assertNotNull(expander);
         Assert.assertEquals(View.GONE, folded.getVisibility());
-        Assert.assertEquals("More actions", ((TextView) expander.findViewById(R.id.context_row_title)).getText().toString());
+        Assert.assertEquals("More", ((TextView) expander.findViewById(R.id.context_row_title)).getText().toString());
         Assert.assertEquals("Collapsed", String.valueOf(androidx.core.view.ViewCompat.getStateDescription(expander)));
 
         Assert.assertTrue(expander.performClick());
@@ -287,11 +289,29 @@ public class TerminalContextMenuTest {
     }
 
     @Test
-    public void onlyTheKeepScreenOnRowHasAPill() {
+    public void onlyTheKeepScreenOnAndWakeLockRowsHavePills() {
         BottomSheetDialog dialog = mainSheet(activity(), everything());
         dialog.findViewById(R.id.context_row_expander).performClick();
         List<String> pills = texts(dialog, R.id.context_row_state);
-        Assert.assertEquals(1, pills.size());
+        Assert.assertEquals(2, pills.size());
+    }
+
+    @Test
+    public void wakeLockIsUnderMoreUnlessHeld() {
+        Activity activity = activity();
+        for (boolean held : new boolean[]{true, false}) {
+            TerminalContextMenu.State state = new TerminalContextMenu.State(false, false, 4182, true, false, held,
+                null, "zsh", "~", 1, 1, 0);
+            BottomSheetDialog dialog = mainSheet(activity, state);
+            View row = rowTitled(dialog, "Wake lock");
+            Assert.assertEquals(held, row.isShown());
+            if (!held) {
+                dialog.findViewById(R.id.context_row_expander).performClick();
+                Assert.assertTrue(row.isShown());
+            }
+            TextView pill = row.findViewById(R.id.context_row_state);
+            Assert.assertEquals(held ? "On" : "Off", pill.getText().toString());
+        }
     }
 
     @Test

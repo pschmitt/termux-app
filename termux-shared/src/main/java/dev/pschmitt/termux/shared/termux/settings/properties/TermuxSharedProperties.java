@@ -273,6 +273,8 @@ public abstract class TermuxSharedProperties {
                 return (int) getBellBehaviourInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT:
                 return (int) getDeleteTMPDIRFilesOlderThanXDaysOnExitInternalPropertyValueFromValue(value);
+            case TermuxPropertyConstants.KEY_WAKE_LOCK_TIMEOUT:
+                return (int) getWakeLockTimeoutInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_TERMINAL_CURSOR_BLINK_RATE:
                 return (int) getTerminalCursorBlinkRateInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_TERMINAL_CURSOR_STYLE:
@@ -411,6 +413,16 @@ public abstract class TermuxSharedProperties {
      * @param value The {@link String} value to convert.
      * @return Returns the internal value for value.
      */
+    /** The minutes after which a wake lock is released by itself, 0 for never, the default if not in range. */
+    public static int getWakeLockTimeoutInternalPropertyValueFromValue(String value) {
+        return SharedProperties.getDefaultIfNotInRange(TermuxPropertyConstants.KEY_WAKE_LOCK_TIMEOUT,
+            DataUtils.getIntFromString(value, TermuxPropertyConstants.DEFAULT_IVALUE_WAKE_LOCK_TIMEOUT),
+            TermuxPropertyConstants.DEFAULT_IVALUE_WAKE_LOCK_TIMEOUT,
+            TermuxPropertyConstants.IVALUE_WAKE_LOCK_TIMEOUT_MIN,
+            TermuxPropertyConstants.IVALUE_WAKE_LOCK_TIMEOUT_MAX,
+            true, true, LOG_TAG);
+    }
+
     public static int getDeleteTMPDIRFilesOlderThanXDaysOnExitInternalPropertyValueFromValue(String value) {
         return SharedProperties.getDefaultIfNotInRange(TermuxPropertyConstants.KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT,
             DataUtils.getIntFromString(value, TermuxPropertyConstants.DEFAULT_IVALUE_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT),
@@ -750,6 +762,16 @@ public abstract class TermuxSharedProperties {
         Integer gravity = value == null ? null
             : TermuxPropertyConstants.MAP_TERMINAL_TOAST_POSITION.get(SharedProperties.toLowerCase(value));
         return gravity == null ? TermuxPropertyConstants.DEFAULT_TERMINAL_TOAST_GRAVITY : gravity;
+    }
+
+    /** Whether "Acquire wakelock" also holds a high-performance Wi-Fi lock. */
+    public boolean shouldWakeLockHoldWifi() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_WAKE_LOCK_WIFI, true);
+    }
+
+    /** The minutes after which a wake lock is released by itself, 0 for never. */
+    public int getWakeLockTimeoutMinutes() {
+        return (int) getInternalPropertyValue(TermuxPropertyConstants.KEY_WAKE_LOCK_TIMEOUT, true);
     }
 
     public boolean areGestureAnimationsEnabled() {

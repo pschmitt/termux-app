@@ -16,6 +16,7 @@ files as fallbacks. Edit the file in the same home to manage it through dotfiles
 - [Volume buttons](#volume-buttons)
 - [Extra-key appearance](#extra-key-appearance)
 - [URLs and hyperlinks](#urls-and-hyperlinks)
+- [Wake lock](#wake-lock)
 
 ## Session commands
 
@@ -512,6 +513,23 @@ Not handled, by design: text that is cut by the application without a recognizab
 example a URL that was shortened with `…`, or wrapped at a width that is not the terminal width), URLs
 whose rows are separated by an empty row, and a continuation that is a word and also valid text (the
 rule above joins a row such as `report` after a URL that ends at the edge).
+
+## Wake lock
+
+The wake lock keeps the CPU running while the screen is off, so programs and SSH sessions keep
+working. Acquire and release it with the notification's button, with **Wake lock** in the terminal
+menu (under **More** while it is off), or with `termux-wake-lock` and `termux-wake-unlock`. While it
+is held, the notification shows for how long.
+
+| Key | Meaning | Default |
+| --- | --- | --- |
+| `wake-lock-timeout` | Release the wake lock by itself after this many minutes (0 to 10080), so a forgotten one does not keep the phone awake | `0` (keep it until released) |
+| `wake-lock-wifi` | Also hold a high-performance Wi-Fi lock, which keeps the Wi-Fi radio out of power save | `false` |
+
+```properties
+# Release a forgotten wake lock after two hours
+wake-lock-timeout = 120
+```
 
 ## Where it is implemented
 

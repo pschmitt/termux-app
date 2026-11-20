@@ -42,7 +42,7 @@ import java.util.List;
  * A sheet can instead opt into the grouped presentation of the More menu by adding its actions with
  * {@link #addShortcut}, {@link #addRow}, {@link #addStateRow}, {@link #addSecondaryRow} and
  * {@link #addDangerRow}: a horizontal strip of frequent actions, then groups of full-width icon rows,
- * where the secondary rows of a group stay folded behind a "More actions" row until it is tapped.
+ * where the secondary rows of a group stay folded behind a "More" row until it is tapped.
  * Sheets of choices keep the tile and card presentation.
  * <p>
  * Items keep the ids of the system context menu entries they replace. A chosen action is delivered
@@ -139,7 +139,7 @@ public class TermuxContextMenuSheet {
         SHORTCUT,
         /** A full-width row of a group. */
         ROW,
-        /** A full-width row that stays folded behind the "More actions" row of its group. */
+        /** A full-width row that stays folded behind the "More" row of its group. */
         SECONDARY
     }
 
@@ -308,7 +308,7 @@ public class TermuxContextMenuSheet {
     }
 
     /**
-     * Add a row to the current group that stays folded behind its "More actions" row until that is tapped. Only
+     * Add a row to the current group that stays folded behind its "More" row until that is tapped. Only
      * the rows of the group that are added with {@link #addRow} or {@link #addStateRow} are always shown.
      */
     public TermuxContextMenuSheet addSecondaryRow(int id, CharSequence title, @Nullable CharSequence detail,
