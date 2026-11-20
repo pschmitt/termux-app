@@ -187,6 +187,9 @@ public class PropertiesPreferencesFragment extends PreferenceFragmentCompat {
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION:
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION:
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION:
             case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION:
             case TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION:
                 Set<String> actions = new LinkedHashSet<>();

@@ -413,9 +413,25 @@ public final class TermuxPropertyConstants {
     public static final String KEY_TERMINAL_TRIPLE_TAP_FOCUS_TITLE = "terminal-triple-tap-focus-title";
 
     /** Defines the key for the {@link TerminalGestureAction} of a swipe on the normal extra keys row
-     * from left to right, the direction that does not switch to the text input. */
+     * with the finger moving from left to right, toward the (non-existing) page on the left. */
     public static final String KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION =  "extra-keys-swipe-left-action"; // Default: "extra-keys-swipe-left-action"
     public static final TerminalGestureAction DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION = TerminalGestureAction.NONE;
+
+    /** Defines the key for the {@link TerminalGestureAction} of a swipe on the normal extra keys row
+     * with the finger moving from right to left, toward the text input page on the right. Opening
+     * the text input is {@link TerminalGestureAction#TOGGLE_TEXT_INPUT}. */
+    public static final String KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION =  "extra-keys-swipe-right-action"; // Default: "extra-keys-swipe-right-action"
+    public static final TerminalGestureAction DEFAULT_EXTRA_KEYS_SWIPE_RIGHT_ACTION = TerminalGestureAction.NEXT_SESSION;
+
+    /** Defines the key for the {@link TerminalGestureAction} of a long (further) swipe in the
+     * direction of {@link #KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION}. */
+    public static final String KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION =  "extra-keys-long-swipe-left-action"; // Default: "extra-keys-long-swipe-left-action"
+    public static final TerminalGestureAction DEFAULT_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION = TerminalGestureAction.NONE;
+
+    /** Defines the key for the {@link TerminalGestureAction} of a long (further) swipe in the
+     * direction of {@link #KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION}. */
+    public static final String KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION =  "extra-keys-long-swipe-right-action"; // Default: "extra-keys-long-swipe-right-action"
+    public static final TerminalGestureAction DEFAULT_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION = TerminalGestureAction.NONE;
 
     /** Defines the shell context used when a gesture or extra-key command starts a session. */
     public static final String KEY_GESTURE_COMMAND_CONTEXT = "gesture-command-context";
@@ -432,6 +448,15 @@ public final class TermuxPropertyConstants {
 
     /** Defines the shell command for a left swipe on the extra keys row. */
     public static final String KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND = "extra-keys-swipe-left-command";
+
+    /** Defines the shell command for a right swipe on the extra keys row. */
+    public static final String KEY_EXTRA_KEYS_SWIPE_RIGHT_COMMAND = "extra-keys-swipe-right-command";
+
+    /** Defines the shell command for a long left swipe on the extra keys row. */
+    public static final String KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_COMMAND = "extra-keys-long-swipe-left-command";
+
+    /** Defines the shell command for a long right swipe on the extra keys row. */
+    public static final String KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_COMMAND = "extra-keys-long-swipe-right-command";
 
 
 
@@ -468,6 +493,15 @@ public final class TermuxPropertyConstants {
     /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for the swipe on
      * the normal extra keys row, see {@link #KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION}. */
     public static final String KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS =  "extra-keys-swipe-left-keys"; // Default: "extra-keys-swipe-left-keys"
+
+    /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for {@link #KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION}. */
+    public static final String KEY_EXTRA_KEYS_SWIPE_RIGHT_KEYS =  "extra-keys-swipe-right-keys"; // Default: "extra-keys-swipe-right-keys"
+
+    /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for {@link #KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION}. */
+    public static final String KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_KEYS =  "extra-keys-long-swipe-left-keys"; // Default: "extra-keys-long-swipe-left-keys"
+
+    /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for {@link #KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION}. */
+    public static final String KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_KEYS =  "extra-keys-long-swipe-right-keys"; // Default: "extra-keys-long-swipe-right-keys"
 
     /** Defines the key for the keys that {@link TerminalGestureAction#SEND_KEYS} sends for the volume up button. */
     public static final String KEY_VOLUME_UP_KEYS =  "volume-up-keys"; // Default: "volume-up-keys"
@@ -569,6 +603,9 @@ public final class TermuxPropertyConstants {
 
         /* TerminalGestureAction */
         KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION,
+        KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION,
+        KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION,
+        KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION,
         KEY_TERMINAL_DOUBLE_TAP_ACTION,
         KEY_TERMINAL_SINGLE_TAP_ACTION,
         KEY_TERMINAL_TRIPLE_TAP_ACTION,
@@ -581,6 +618,9 @@ public final class TermuxPropertyConstants {
         KEY_TERMINAL_DOUBLE_TAP_COMMAND,
         KEY_TERMINAL_TRIPLE_TAP_COMMAND,
         KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND,
+        KEY_EXTRA_KEYS_SWIPE_RIGHT_COMMAND,
+        KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_COMMAND,
+        KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_COMMAND,
 
         /* Volume key action: VOLUME_KEY_ACTION_MODIFIER or a TerminalGestureAction */
         KEY_VOLUME_DOWN_ACTION,
@@ -588,6 +628,9 @@ public final class TermuxPropertyConstants {
 
         /* TerminalKeySequence String (may be null) */
         KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS,
+        KEY_EXTRA_KEYS_SWIPE_RIGHT_KEYS,
+        KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_KEYS,
+        KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_KEYS,
         KEY_TERMINAL_DOUBLE_TAP_KEYS,
         KEY_TERMINAL_SINGLE_TAP_KEYS,
         KEY_TERMINAL_TRIPLE_TAP_KEYS,

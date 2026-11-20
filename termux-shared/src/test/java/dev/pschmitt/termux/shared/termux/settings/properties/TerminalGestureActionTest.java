@@ -117,8 +117,16 @@ public class TerminalGestureActionTest {
     }
 
     @Test
+    public void everyActionHasALabel() {
+        for (TerminalGestureAction action : TerminalGestureAction.values())
+            assertFalse(action.toString(), action.getLabel().isEmpty());
+        assertEquals("New session", TerminalGestureAction.NEW_SESSION.getLabel());
+        assertSame(TerminalGestureAction.TOGGLE_TEXT_INPUT, TerminalGestureAction.parse("toggle-text-input"));
+    }
+
+    @Test
     public void validValuesListsEveryValue() {
-        assertEquals("none, show-keyboard, toggle-keyboard, next-session, previous-session, open-sidebar, open-menu, font-size-up, font-size-down, run-command, send-keys",
+        assertEquals("none, show-keyboard, toggle-keyboard, toggle-text-input, next-session, previous-session, new-session, open-sidebar, open-menu, font-size-up, font-size-down, run-command, send-keys",
             TerminalGestureAction.getValidValues());
     }
 
@@ -242,6 +250,15 @@ public class TerminalGestureActionTest {
         assertSame(TerminalGestureAction.NONE, TermuxPropertyConstants.DEFAULT_TERMINAL_DOUBLE_TAP_ACTION);
         assertSame(TerminalGestureAction.NONE, TermuxPropertyConstants.DEFAULT_TERMINAL_TRIPLE_TAP_ACTION);
         assertSame(TerminalGestureAction.NONE, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION);
+        assertSame(TerminalGestureAction.NEXT_SESSION, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_RIGHT_ACTION);
+        assertSame(TerminalGestureAction.NONE, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION);
+        assertSame(TerminalGestureAction.NONE, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION);
+        assertEquals("extra-keys-swipe-right-action", TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION);
+        assertEquals("extra-keys-long-swipe-left-action", TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION);
+        assertEquals("extra-keys-long-swipe-right-action", TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION);
+        assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST.contains(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION));
+        assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST.contains(TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION));
+        assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST.contains(TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION));
 
         assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST.contains(TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION));
         assertTrue(TermuxPropertyConstants.TERMUX_APP_PROPERTIES_LIST.contains(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION));

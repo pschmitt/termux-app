@@ -29,6 +29,8 @@ public class GestureActionDispatcherTest {
 
         @Override public int getSessionCount() { return sessionCount; }
         @Override public void switchSession(boolean forward) { calls.add(forward ? "next" : "previous"); }
+        @Override public void createSession() { calls.add("newSession"); }
+        @Override public void toggleTextInput() { calls.add("textInput"); }
         @Override public void openSidebar() { calls.add("sidebar"); }
         @Override public void openMenu() { calls.add("menu"); }
         @Override public void changeFontSize(boolean increase) { calls.add(increase ? "fontUp" : "fontDown"); }
@@ -58,6 +60,13 @@ public class GestureActionDispatcherTest {
     public void noneDoesNothing() {
         GestureActionDispatcher.perform(TerminalGestureAction.NONE, mTarget);
         assertTrue(mTarget.calls.isEmpty());
+    }
+
+    @Test
+    public void newSessionAndTextInputReachTheirTargets() {
+        GestureActionDispatcher.perform(TerminalGestureAction.NEW_SESSION, mTarget);
+        GestureActionDispatcher.perform(TerminalGestureAction.TOGGLE_TEXT_INPUT, mTarget);
+        assertEquals(List.of("newSession", "textInput"), mTarget.calls);
     }
 
     @Test

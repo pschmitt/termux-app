@@ -70,6 +70,7 @@ public class ExtraKeysSwipeViewPagerTest {
     private ExtraKeysSwipeViewPager mPager;
     private TwoPageAdapter mAdapter;
     private int mSwipes;
+    private final List<String> mEvents = new ArrayList<>();
     private long mDownTime;
 
     @Before
@@ -81,7 +82,11 @@ public class ExtraKeysSwipeViewPagerTest {
         mAdapter = new TwoPageAdapter(context);
         mPager.setAdapter(mAdapter);
         mSwipes = 0;
-        mPager.setListener(() -> mSwipes++);
+        mEvents.clear();
+        mPager.setListener((direction, longSwipe) -> {
+            mSwipes++;
+            mEvents.add((longSwipe ? "long-" : "") + direction.name().toLowerCase(java.util.Locale.ROOT));
+        });
         activity.setContentView(mPager, new ViewGroup.LayoutParams(1000, 150));
         layout();
     }
@@ -142,12 +147,95 @@ public class ExtraKeysSwipeViewPagerTest {
     }
 
     @Test
-    public void swipeTowardTheTextInputIsNotRecognized() {
+    public void swipeTowardTheTextInputIsARightSwipeAndDoesNotPage() {
         send(MotionEvent.ACTION_DOWN, 800, 75);
-        send(MotionEvent.ACTION_MOVE, 600, 75);
-        send(MotionEvent.ACTION_MOVE, 300, 75);
-        send(MotionEvent.ACTION_MOVE, 1000, 75);
-        send(MotionEvent.ACTION_UP, 1000, 75);
+        send(MotionEvent.ACTION_MOVE, 780, 75);
+        send(MotionEvent.ACTION_MOVE, 500, 75);
+        send(MotionEvent.ACTION_UP, 500, 75);
+        assertEquals(List.of("right"), mEvents);
+        ShadowLooper.idleMainLooper(500, TimeUnit.MILLISECONDS);
+        assertEquals(0, mPager.getCurrentItem());
+    }
+
+    @Test
+    public void withoutAnActionTowardTheTextInputThePagerStillDoesNotPage() {
+        mPager.setListener(new ExtraKeysSwipeViewPager.Listener() {
+            @Override public boolean hasSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction) { return false; }
+            @Override public void onSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) { mSwipes++; }
+        });
+        send(MotionEvent.ACTION_DOWN, 800, 75);
+        for (int x = 780; x >= 100; x -= 40) send(MotionEvent.ACTION_MOVE, x, 75);
+        send(MotionEvent.ACTION_UP, 100, 75);
+        ShadowLooper.idleMainLooper(500, TimeUnit.MILLISECONDS);
+        assertEquals(0, mSwipes);
+        assertEquals(0, mPager.getCurrentItem());
+    }
+
+    private void useLongSwipes() {
+        mPager.setListener(new ExtraKeysSwipeViewPager.Listener() {
+            @Override public boolean hasLongSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction) { return true; }
+            @Override public String getSwipeLabel(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) {
+                return longSwipe ? "New session" : "Next session";
+            }
+            @Override public void onSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) {
+                mSwipes++;
+                mEvents.add((longSwipe ? "long-" : "") + direction.name().toLowerCase(java.util.Locale.ROOT));
+            }
+        });
+    }
+
+    @Test
+    public void longSwipeIsFollowedWithAHintAndRunsOnRelease() {
+        useLongSwipes();
+        float density = mPager.getResources().getDisplayMetrics().density;
+        float longDistance = ExtraKeysSwipeViewPager.LONG_SWIPE_DISTANCE_DP * density;
+        send(MotionEvent.ACTION_DOWN, 50, 75);
+        send(MotionEvent.ACTION_MOVE, 70, 75);
+        send(MotionEvent.ACTION_MOVE, 50 + ExtraKeysSwipeViewPager.MIN_SWIPE_DISTANCE_DP * density + 10, 75);
+        assertTrue(mPager.isHintShown());
+        assertFalse(mPager.isHintLongReached());
+        assertEquals("nothing runs before the release", 0, mSwipes);
+        assertTrue("the row follows the finger", mPager.getChildAt(0).getTranslationX() > 0f);
+
+        send(MotionEvent.ACTION_MOVE, 50 + longDistance + 10, 75);
+        assertTrue(mPager.isHintLongReached());
+        send(MotionEvent.ACTION_UP, 50 + longDistance + 10, 75);
+        assertEquals(List.of("long-left"), mEvents);
+
+        // The key was cancelled, never released.
+        assertFalse(mAdapter.views[0].actions.contains(MotionEvent.ACTION_UP));
+        mPager.getSwipeFeedbackAnimator().end();
+        assertFalse(mPager.isHintShown());
+        assertRestingAtZero();
+    }
+
+    @Test
+    public void shortReleaseOfAFollowedSwipeRunsTheNormalSwipe() {
+        useLongSwipes();
+        float density = mPager.getResources().getDisplayMetrics().density;
+        float x = 900 - ExtraKeysSwipeViewPager.MIN_SWIPE_DISTANCE_DP * density - 10;
+        send(MotionEvent.ACTION_DOWN, 900, 75);
+        send(MotionEvent.ACTION_MOVE, 880, 75);
+        send(MotionEvent.ACTION_MOVE, x, 75);
+        send(MotionEvent.ACTION_UP, x, 75);
+        assertEquals(List.of("right"), mEvents);
+    }
+
+    @Test
+    public void followedSwipeBroughtBackOrCancelledRunsNothing() {
+        useLongSwipes();
+        float density = mPager.getResources().getDisplayMetrics().density;
+        float x = 50 + ExtraKeysSwipeViewPager.MIN_SWIPE_DISTANCE_DP * density + 10;
+        send(MotionEvent.ACTION_DOWN, 50, 75);
+        send(MotionEvent.ACTION_MOVE, 70, 75);
+        send(MotionEvent.ACTION_MOVE, x, 75);
+        send(MotionEvent.ACTION_MOVE, 55, 75);
+        send(MotionEvent.ACTION_UP, 55, 75);
+
+        send(MotionEvent.ACTION_DOWN, 50, 75);
+        send(MotionEvent.ACTION_MOVE, 70, 75);
+        send(MotionEvent.ACTION_MOVE, x, 75);
+        send(MotionEvent.ACTION_CANCEL, x, 75);
         assertEquals(0, mSwipes);
     }
 
@@ -237,8 +325,8 @@ public class ExtraKeysSwipeViewPagerTest {
     @Test
     public void withoutAnActionTheSwipeIsNotRecognizedAnimatedOrConsumed() {
         mPager.setListener(new ExtraKeysSwipeViewPager.Listener() {
-            @Override public boolean isEnabled() { return false; }
-            @Override public void onSwipeLeft() { mSwipes++; }
+            @Override public boolean hasSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction) { return false; }
+            @Override public void onSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) { mSwipes++; }
         });
         swipe(100, 400);
         assertEquals(0, mSwipes);

@@ -86,10 +86,13 @@ The assigned actions still run.
 | `terminal-double-tap-action` | Two quick taps in a row | `none` |
 | `terminal-triple-tap-action` | Three quick taps in a row | `none` |
 | `terminal-triple-tap-focus-title` | Regular expression for a running session to focus before trying the triple-tap action | unset |
-| `extra-keys-swipe-left-action` | Swipe on the normal extra keys row (see below) | `none` |
+| `extra-keys-swipe-left-action` | Swipe on the normal extra keys row, finger moving left to right (see below) | `none` |
+| `extra-keys-swipe-right-action` | Swipe on the normal extra keys row, finger moving right to left (see below) | `next-session` |
+| `extra-keys-long-swipe-left-action` | Longer swipe in the direction of `extra-keys-swipe-left-action` | `none` |
+| `extra-keys-long-swipe-right-action` | Longer swipe in the direction of `extra-keys-swipe-right-action` | `none` |
 | `gesture-command-context` | Shell environment for configured command actions | `session` |
 
-The four keys are independent and active at the same time. Valid values, case-insensitive:
+The gesture keys are independent and active at the same time. Valid values, case-insensitive:
 
 | Value | Action |
 | --- | --- |
@@ -98,6 +101,8 @@ The four keys are independent and active at the same time. Valid values, case-in
 | `toggle-keyboard` | Hide the soft keyboard if it is visible, otherwise show it. Before Android 6 the visibility cannot be read and this only shows it. |
 | `next-session` | Switch to the next session, wrapping around. With one session, creates a new one if `create-session-on-single-session-switch=true`. |
 | `previous-session` | Switch to the previous session, wrapping around. With one session, creates a new one if `create-session-on-single-session-switch=true`. |
+| `new-session` | Open a new terminal session and switch to it, like the **New session** button. |
+| `toggle-text-input` | Switch the extra keys toolbar to its text input, or back to the extra keys. Does nothing while the toolbar is hidden. |
 | `open-sidebar` | Open the sidebar with the session list. It is not opened while it is locked closed in copy mode. |
 | `open-menu` | Open the terminal menu, the bottom sheet that a long press on the terminal and then "More..." opens (Extract URL, Share transcript, Autofill, Reset, Kill process, Style, Settings and so on). It never touches the soft keyboard. |
 | `font-size-up` | Increase the terminal font size by one step, like pinching out. It never touches the soft keyboard. |
@@ -116,7 +121,7 @@ session matches, the configured action runs. For example, combine a title
 pattern with `send-keys` and a shell shortcut that starts the desired program.
 
 A recognized custom tap or volume-button action briefly pulses a colored
-outline inside the terminal. The extra-keys swipe slides the row and snaps
+outline inside the terminal. An extra-keys swipe slides the row and snaps
 it back. The ordinary single tap to show the keyboard skips the pulse.
 Both effects follow Android's animator duration scale.
 
@@ -130,7 +135,10 @@ gesture has its own key that says which keys to send:
 | Single tap | `terminal-single-tap-action` | `terminal-single-tap-keys` |
 | Double tap | `terminal-double-tap-action` | `terminal-double-tap-keys` |
 | Triple tap | `terminal-triple-tap-action` | `terminal-triple-tap-keys` |
-| Extra keys swipe | `extra-keys-swipe-left-action` | `extra-keys-swipe-left-keys` |
+| Extra keys swipe left | `extra-keys-swipe-left-action` | `extra-keys-swipe-left-keys` |
+| Extra keys swipe right | `extra-keys-swipe-right-action` | `extra-keys-swipe-right-keys` |
+| Extra keys long swipe left | `extra-keys-long-swipe-left-action` | `extra-keys-long-swipe-left-keys` |
+| Extra keys long swipe right | `extra-keys-long-swipe-right-action` | `extra-keys-long-swipe-right-keys` |
 
 ## Running commands
 
@@ -141,7 +149,10 @@ Select `run-command` for a tap or extra-keys swipe, then set its matching comman
 | Single tap | `terminal-single-tap-command` |
 | Double tap | `terminal-double-tap-command` |
 | Triple tap | `terminal-triple-tap-command` |
-| Extra keys swipe | `extra-keys-swipe-left-command` |
+| Extra keys swipe left | `extra-keys-swipe-left-command` |
+| Extra keys swipe right | `extra-keys-swipe-right-command` |
+| Extra keys long swipe left | `extra-keys-long-swipe-left-command` |
+| Extra keys long swipe right | `extra-keys-long-swipe-right-command` |
 
 Commands open a new visible terminal session and leave the current program alone. The command is
 interpreted by the selected shell, then the session stays open at a shell prompt so you can inspect
@@ -219,23 +230,56 @@ at once, as before, in addition to the configured action.
 
 ## Extra keys swipe
 
-`extra-keys-swipe-left-action` runs on a deliberate swipe over the normal extra keys row, with the
-finger moving from left to right. This is the direction the row could not go to before, the text
-input is on the other side. The text input is the page to the right and this swipe goes to the
-(non-existing) page to the left, hence the name. The swipe has to be at least 48 dp long and
-clearly more horizontal than vertical.
+Deliberate swipes over the normal extra keys row run actions in both directions. The directions are
+named after the toolbar page the swipe would go to: the text input is the page to the right.
 
-Swiping the other way, with the finger from right to left, still goes to the text input, and going
-back from the text input to the normal row works as before. Only the deliberate swipe over the
-normal row is consumed, and the keys under the finger are released without being pressed.
-Tapping, holding and repeating keys, the swipe-up popup and vertical scrolling of the row keep
-working.
+| Key | Finger moves | Default |
+| --- | --- | --- |
+| `extra-keys-swipe-left-action` | left to right | `none` |
+| `extra-keys-swipe-right-action` | right to left | `next-session` |
 
-When the swipe is recognized, the row slides a little (up to 40 dp) in the direction of the finger
-and snaps back within about 0.2 seconds, as feedback that the swipe was taken. The animation only
-runs while `extra-keys-swipe-left-action` is not `none`, and not when the system animations are
-turned off (animator duration scale 0), the action itself still runs then. With `none` the swipe is
-not recognized at all and the row behaves exactly as without this feature.
+The swipe has to be at least 48 dp long and clearly more horizontal than vertical. Only the
+deliberate swipe over the normal row is consumed, and the keys under the finger are released
+without being pressed. Tapping, holding and repeating keys, the swipe-up popup and vertical
+scrolling of the row keep working.
+
+The toolbar no longer drags from the extra keys to the text input on its own. Opening the text
+input is the `toggle-text-input` action, which any gesture can run. To keep the upstream
+behavior:
+
+```properties
+extra-keys-swipe-right-action = toggle-text-input
+```
+
+Dragging back from the text input to the extra keys works as before.
+
+When a swipe is recognized, the row slides a little (up to 40 dp) in the direction of the finger
+and snaps back within about 0.2 seconds, as feedback that the swipe was taken. The animation is not
+shown when the system animations are turned off (animator duration scale 0). The action itself
+still runs then. With `none` the swipe in that direction is not recognized and the row behaves as
+if this feature did not exist.
+
+### Long swipes
+
+`extra-keys-long-swipe-left-action` and `extra-keys-long-swipe-right-action` add a second action to
+a direction. The action runs when the finger travels further, at least 140 dp. Both are unset by
+default. While a direction has a long swipe, its swipe is followed until the finger goes up, and
+the action is chosen on release:
+
+- When the swipe is recognized, the row follows the finger and a hint pill names the action that
+  releasing runs (for example `Next session ›`), with the long swipe's action below it
+  (`further: New session`).
+- The pill fills up on the way to the long swipe. When the long swipe is reached, the pill turns
+  to the accent color, names the long swipe's action (`New session »`) and the phone ticks.
+- Release past the long distance to run the long swipe, or before it to run the normal swipe.
+  Move back toward the start to call the swipe off: the pill shows `Cancel` and nothing runs.
+
+The hint is shown also when `gesture-animations` is off. Only the row stays still then. Example:
+
+```properties
+# A long swipe with the finger moving left to right opens a new session
+extra-keys-long-swipe-left-action = new-session
+```
 
 ## Volume buttons
 
@@ -312,6 +356,9 @@ terminal-single-tap-action = show-keyboard
 
 # Optional: swipe the extra keys row to the right to go to the previous session
 extra-keys-swipe-left-action = previous-session
+
+# Optional: double tap opens the text input of the extra keys toolbar
+terminal-double-tap-action = toggle-text-input
 ```
 
 Sending keys:

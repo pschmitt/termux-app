@@ -424,6 +424,16 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
                 mTermuxTerminalSessionActivityClient.switchToSession(forward);
             }
 
+            @Override
+            public void createSession() {
+                mTermuxTerminalSessionActivityClient.addNewSession(false, null);
+            }
+
+            @Override
+            public void toggleTextInput() {
+                mActivity.toggleTerminalToolbarTextInput();
+            }
+
             @SuppressLint("RtlHardcoded")
             @Override
             public void openSidebar() {

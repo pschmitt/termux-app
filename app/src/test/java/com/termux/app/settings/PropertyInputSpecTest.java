@@ -170,9 +170,11 @@ public class PropertyInputSpecTest {
     @Test
     public void gestureActions() {
         String[] keys = {"terminal-single-tap-action", "terminal-double-tap-action",
-            "terminal-triple-tap-action", "extra-keys-swipe-left-action"};
+            "terminal-triple-tap-action", "extra-keys-swipe-left-action", "extra-keys-swipe-right-action",
+            "extra-keys-long-swipe-left-action", "extra-keys-long-swipe-right-action"};
         for (String key : keys) {
             valid(key, "none", "show-keyboard", "toggle-keyboard", "next-session", "previous-session",
+                "new-session", "toggle-text-input",
                 "open-sidebar", "open-menu", "font-size-up", "font-size-down", "send-keys", " Open-Menu ");
             invalid(key, "modifier", "keyboard", "tap");
         }
@@ -189,7 +191,8 @@ public class PropertyInputSpecTest {
     @Test
     public void keySequences() {
         String[] keys = {"terminal-single-tap-keys", "terminal-double-tap-keys", "terminal-triple-tap-keys",
-            "extra-keys-swipe-left-keys", "volume-up-keys", "volume-down-keys"};
+            "extra-keys-swipe-left-keys", "extra-keys-swipe-right-keys", "extra-keys-long-swipe-left-keys",
+            "extra-keys-long-swipe-right-keys", "volume-up-keys", "volume-down-keys"};
         StringBuilder tooLong = new StringBuilder();
         for (int i = 0; i < 65; i++) tooLong.append("ESC ");
         for (String key : keys) {

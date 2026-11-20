@@ -301,6 +301,12 @@ public abstract class TermuxSharedProperties {
                 return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_TERMINAL_TRIPLE_TAP_ACTION).getValue();
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
                 return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION).getValue();
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION:
+                return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_RIGHT_ACTION).getValue();
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION:
+                return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION).getValue();
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION:
+                return getGestureActionInternalPropertyValueFromValue(key, value, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION).getValue();
 
             /* GestureCommandContext, stored as its String value since SharedProperties caches primitives and Strings */
             case TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT:
@@ -316,6 +322,9 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_KEYS:
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS:
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_KEYS:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_KEYS:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_KEYS:
             case TermuxPropertyConstants.KEY_VOLUME_UP_KEYS:
             case TermuxPropertyConstants.KEY_VOLUME_DOWN_KEYS:
                 return getKeySequenceInternalPropertyValueFromValue(key, value);
@@ -325,6 +334,9 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND:
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND:
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_COMMAND:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_COMMAND:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_COMMAND:
                 return getGestureCommandInternalPropertyValueFromValue(value);
 
             /* Integer (may be null) */
@@ -812,6 +824,9 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_KEYS;
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS;
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS;
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_KEYS;
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_KEYS;
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_KEYS;
             case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION: return TermuxPropertyConstants.KEY_VOLUME_UP_KEYS;
             case TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION: return TermuxPropertyConstants.KEY_VOLUME_DOWN_KEYS;
             default: return null;
@@ -826,6 +841,9 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND;
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION: return TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND;
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND;
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_COMMAND;
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_COMMAND;
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION: return TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_COMMAND;
             default: return null;
         }
     }
@@ -846,8 +864,11 @@ public abstract class TermuxSharedProperties {
         Object value = getInternalPropertyValue(key, true);
         TerminalGestureAction action = value instanceof String ? TerminalGestureAction.parse((String) value) : null;
         if (action != null) return action;
-        return key.equals(TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION)
-            ? TermuxPropertyConstants.DEFAULT_TERMINAL_SINGLE_TAP_ACTION : TerminalGestureAction.NONE;
+        if (key.equals(TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION))
+            return TermuxPropertyConstants.DEFAULT_TERMINAL_SINGLE_TAP_ACTION;
+        if (key.equals(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION))
+            return TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_RIGHT_ACTION;
+        return TerminalGestureAction.NONE;
     }
 
     /** Get the cached keys of a {@code *-keys} property, {@code null} if they are not set or not valid. */
@@ -879,6 +900,9 @@ public abstract class TermuxSharedProperties {
             TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION,
             TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION,
             TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION,
             TermuxPropertyConstants.KEY_VOLUME_UP_ACTION,
             TermuxPropertyConstants.KEY_VOLUME_DOWN_ACTION
         };
@@ -897,7 +921,10 @@ public abstract class TermuxSharedProperties {
             TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_ACTION,
             TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION,
             TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION,
-            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION,
+            TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION
         };
         for (String actionKey : commandActionKeys) {
             if (getConfiguredGestureAction(actionKey) != TerminalGestureAction.RUN_COMMAND) continue;
@@ -941,8 +968,28 @@ public abstract class TermuxSharedProperties {
     /** The shell command configured for the left extra-keys swipe, or {@code null} if unset. */
     @Nullable
     public String getExtraKeysSwipeLeftCommand() {
-        Object value = getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND, true);
+        return getExtraKeysSwipeCommand(false, false);
+    }
+
+    /**
+     * The shell command configured for an extra-keys swipe, or {@code null} if unset.
+     *
+     * @param right Whether the swipe is the right swipe (finger moving right to left).
+     * @param longSwipe Whether the swipe is the long (further) swipe.
+     */
+    @Nullable
+    public String getExtraKeysSwipeCommand(boolean right, boolean longSwipe) {
+        Object value = getInternalPropertyValue(getCommandKeyOfGestureActionKey(getExtraKeysSwipeActionKey(right, longSwipe)), true);
         return value instanceof String ? (String) value : null;
+    }
+
+    /** The action property key of an extra-keys swipe, see {@link #getExtraKeysSwipeCommand(boolean, boolean)}. */
+    @NonNull
+    public static String getExtraKeysSwipeActionKey(boolean right, boolean longSwipe) {
+        if (right) return longSwipe ? TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION
+            : TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION;
+        return longSwipe ? TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION
+            : TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION;
     }
 
     /** The configured command environment; defaults to the standard new-session behavior. */
@@ -956,7 +1003,13 @@ public abstract class TermuxSharedProperties {
     /** The keys that {@link TerminalGestureAction#SEND_KEYS} sends for the swipe on the normal extra keys row, or {@code null}. */
     @Nullable
     public TerminalKeySequence getExtraKeysSwipeLeftKeys() {
-        return getKeySequence(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS);
+        return getExtraKeysSwipeKeys(false, false);
+    }
+
+    /** The keys that {@link TerminalGestureAction#SEND_KEYS} sends for an extra-keys swipe, see {@link #getExtraKeysSwipeCommand(boolean, boolean)}. */
+    @Nullable
+    public TerminalKeySequence getExtraKeysSwipeKeys(boolean right, boolean longSwipe) {
+        return getKeySequence(getKeysKeyOfGestureActionKey(getExtraKeysSwipeActionKey(right, longSwipe)));
     }
 
     /**
@@ -1049,7 +1102,13 @@ public abstract class TermuxSharedProperties {
     /** The action of a swipe on the normal extra keys row, see {@link TermuxPropertyConstants#KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION}. */
     @NonNull
     public TerminalGestureAction getExtraKeysSwipeLeftAction() {
-        return getGestureAction(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION);
+        return getExtraKeysSwipeAction(false, false);
+    }
+
+    /** The action of an extra-keys swipe, see {@link #getExtraKeysSwipeCommand(boolean, boolean)}. */
+    @NonNull
+    public TerminalGestureAction getExtraKeysSwipeAction(boolean right, boolean longSwipe) {
+        return getGestureAction(getExtraKeysSwipeActionKey(right, longSwipe));
     }
 
     public boolean shouldExtraKeysTextBeAllCaps() {
@@ -1188,7 +1247,10 @@ public abstract class TermuxSharedProperties {
         if (key.equals(TermuxPropertyConstants.KEY_TERMINAL_SINGLE_TAP_COMMAND)
             || key.equals(TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND)
             || key.equals(TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND)
-            || key.equals(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND))
+            || key.equals(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND)
+            || key.equals(TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_COMMAND)
+            || key.equals(TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_COMMAND)
+            || key.equals(TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_COMMAND))
             return "[redacted]";
         if (key.equals(TermuxPropertyConstants.KEY_EXTRA_KEYS) && value != null
             && value.matches("(?s).*['\\\"]?command['\\\"]?\\s*:.*"))

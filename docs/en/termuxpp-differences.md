@@ -304,7 +304,7 @@ socket restricted to the app's Android UID. See [Session commands](terminal-sett
 ## Command actions for taps and extra keys
 
 The TermuxPP Properties editor can assign `run-command` to single, double or triple taps and to
-the extra-keys row swipe. It can also run commands from individual extra-key JSON objects using a
+the extra-keys row swipes. It can also run commands from individual extra-key JSON objects using a
 `command` field. Each action opens a new visible terminal session and runs the configured text as
 one shell `-c` argument, preserving the current session. `gesture-command-context` selects the
 normal `nix-session` behavior, always enters the managed Nix guest, or uses the outer Termux prefix.
@@ -316,6 +316,16 @@ and [gesture documentation](terminal-settings.md#tap-and-swipe-actions).
 Configured tap and volume-button actions briefly pulse an outline inside the
 terminal. The extra-keys swipe gives feedback by sliding the key row. Both
 respect Android's animation setting. [Gesture feedback implementation](../../app/src/main/java/com/termux/app/terminal/GestureFeedback.java).
+
+Upstream Termux opens the toolbar's text input by dragging the extra keys row
+from right to left. In TermuxPP both swipe directions over the extra keys row
+are configurable actions, and the right-to-left swipe switches to the next
+session by default. Opening the text input is the `toggle-text-input` action,
+which any gesture can run. Set `extra-keys-swipe-right-action = toggle-text-input`
+for the upstream behavior. Each direction can also have a long swipe whose hint
+shows which action releasing runs. Sources: [swipe pager](../../app/src/main/java/com/termux/app/terminal/io/ExtraKeysSwipeViewPager.java),
+[swipe detector](../../app/src/main/java/com/termux/app/terminal/io/ExtraKeysSwipeDetector.java)
+and [extra keys swipe documentation](terminal-settings.md#extra-keys-swipe).
 
 ## Recursive Settings search
 

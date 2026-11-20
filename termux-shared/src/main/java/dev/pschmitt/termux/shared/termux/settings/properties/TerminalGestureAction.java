@@ -10,7 +10,10 @@ import java.util.Locale;
  * {@link TermuxPropertyConstants#KEY_TERMINAL_SINGLE_TAP_ACTION},
  * {@link TermuxPropertyConstants#KEY_TERMINAL_DOUBLE_TAP_ACTION},
  * {@link TermuxPropertyConstants#KEY_TERMINAL_TRIPLE_TAP_ACTION} and
- * {@link TermuxPropertyConstants#KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION} properties of
+ * {@link TermuxPropertyConstants#KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION},
+ * {@link TermuxPropertyConstants#KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION},
+ * {@link TermuxPropertyConstants#KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION} and
+ * {@link TermuxPropertyConstants#KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION} properties of
  * {@code termux.properties}, and that a volume button can be mapped to with the
  * {@link TermuxPropertyConstants#KEY_VOLUME_UP_ACTION} and
  * {@link TermuxPropertyConstants#KEY_VOLUME_DOWN_ACTION} properties. {@link #RUN_COMMAND} is
@@ -29,11 +32,20 @@ public enum TerminalGestureAction {
     /** Hide the soft keyboard if it is visible, otherwise show it. */
     TOGGLE_KEYBOARD("toggle-keyboard"),
 
+    /**
+     * Switch the extra keys toolbar to its text input, or back to the extra keys if the text input
+     * is shown. Does nothing while the toolbar is hidden.
+     */
+    TOGGLE_TEXT_INPUT("toggle-text-input"),
+
     /** Switch to the next terminal session, wrapping around after the last one. */
     NEXT_SESSION("next-session"),
 
     /** Switch to the previous terminal session, wrapping around before the first one. */
     PREVIOUS_SESSION("previous-session"),
+
+    /** Open a new terminal session and switch to it, like the "New session" button does. */
+    NEW_SESSION("new-session"),
 
     /** Open the sidebar (the drawer) with the list of sessions. */
     OPEN_SIDEBAR("open-sidebar"),
@@ -98,6 +110,30 @@ public enum TerminalGestureAction {
     public static TerminalGestureAction parseOrDefault(@Nullable String value, @NonNull TerminalGestureAction defaultAction) {
         TerminalGestureAction action = parse(value);
         return action == null ? defaultAction : action;
+    }
+
+    /**
+     * A short name of the action for people, like "Next session", shown while a swipe is in
+     * progress to tell which action it will run.
+     */
+    @NonNull
+    public String getLabel() {
+        switch (this) {
+            case SHOW_KEYBOARD: return "Show keyboard";
+            case TOGGLE_KEYBOARD: return "Toggle keyboard";
+            case TOGGLE_TEXT_INPUT: return "Text input";
+            case NEXT_SESSION: return "Next session";
+            case PREVIOUS_SESSION: return "Previous session";
+            case NEW_SESSION: return "New session";
+            case OPEN_SIDEBAR: return "Sessions";
+            case OPEN_MENU: return "Menu";
+            case FONT_SIZE_UP: return "Larger text";
+            case FONT_SIZE_DOWN: return "Smaller text";
+            case RUN_COMMAND: return "Run command";
+            case SEND_KEYS: return "Send keys";
+            case NONE:
+            default: return "Nothing";
+        }
     }
 
     /** All the values that are valid in {@code termux.properties}, comma separated. */

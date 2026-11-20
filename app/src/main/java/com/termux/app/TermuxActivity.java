@@ -31,6 +31,7 @@ import com.termux.app.terminal.TerminalContextMenu;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxContextMenuSheet;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
+import com.termux.app.terminal.io.ExtraKeysSwipeDetector;
 import com.termux.app.terminal.io.ExtraKeysSwipeViewPager;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
 import dev.pschmitt.termux.shared.activities.ReportActivity;
@@ -530,14 +531,31 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         terminalToolbarViewPager.setAdapter(new TerminalToolbarViewPager.PageAdapter(this, savedTextInput));
         terminalToolbarViewPager.addOnPageChangeListener(new TerminalToolbarViewPager.OnPageChangeListener(this, terminalToolbarViewPager));
 
-        // The action of the swipe on the extra keys row away from the text input. It is read on
-        // each swipe, so that a reloaded termux.properties applies at once.
+        // The actions of the swipes on the extra keys row. They are read on each swipe, so that a
+        // reloaded termux.properties applies at once.
         if (terminalToolbarViewPager instanceof ExtraKeysSwipeViewPager) {
             ((ExtraKeysSwipeViewPager) terminalToolbarViewPager).setListener(new ExtraKeysSwipeViewPager.Listener() {
+                private TerminalGestureAction action(ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) {
+                    if (mProperties == null) return TerminalGestureAction.NONE;
+                    return mProperties.getExtraKeysSwipeAction(direction == ExtraKeysSwipeDetector.Direction.RIGHT, longSwipe);
+                }
+
                 @Override
-                public boolean isEnabled() {
+                public boolean hasSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction) {
                     // With no action configured the swipe is left alone: no animation, nothing consumed.
-                    return mProperties != null && mProperties.getExtraKeysSwipeLeftAction() != TerminalGestureAction.NONE;
+                    return action(direction, false) != TerminalGestureAction.NONE;
+                }
+
+                @Override
+                public boolean hasLongSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction) {
+                    return action(direction, true) != TerminalGestureAction.NONE;
+                }
+
+                @Nullable
+                @Override
+                public String getSwipeLabel(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) {
+                    TerminalGestureAction action = action(direction, longSwipe);
+                    return action == TerminalGestureAction.NONE ? null : action.getLabel();
                 }
 
                 @Override
@@ -546,12 +564,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 }
 
                 @Override
-                public void onSwipeLeft() {
+                public void onSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) {
                     if (mTermuxTerminalViewClient == null || mProperties == null) return;
-                    TerminalGestureAction action = mProperties.getExtraKeysSwipeLeftAction();
-                    if (action != TerminalGestureAction.NONE) mTermuxTerminalViewClient.showGestureFeedback();
+                    boolean right = direction == ExtraKeysSwipeDetector.Direction.RIGHT;
+                    TerminalGestureAction action = mProperties.getExtraKeysSwipeAction(right, longSwipe);
+                    if (action == TerminalGestureAction.NONE) return;
+                    mTermuxTerminalViewClient.showGestureFeedback();
                     mTermuxTerminalViewClient.performGestureAction(action,
-                        mProperties.getExtraKeysSwipeLeftKeys(), mProperties.getExtraKeysSwipeLeftCommand(),
+                        mProperties.getExtraKeysSwipeKeys(right, longSwipe), mProperties.getExtraKeysSwipeCommand(right, longSwipe),
                         mProperties.getGestureCommandContext());
                 }
             });
@@ -927,6 +947,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     public boolean isTerminalViewSelected() {
         return getTerminalToolbarViewPager().getCurrentItem() == 0;
+    }
+
+    /**
+     * Switches the visible terminal toolbar to its text input, or back to the extra keys if the
+     * text input is selected. Does nothing while the toolbar is hidden.
+     */
+    public void toggleTerminalToolbarTextInput() {
+        final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
+        if (terminalToolbarViewPager == null || terminalToolbarViewPager.getVisibility() != View.VISIBLE) return;
+        terminalToolbarViewPager.setCurrentItem(isTerminalToolbarTextInputViewSelected() ? 0 : 1, true);
     }
 
     public boolean isTerminalToolbarTextInputViewSelected() {

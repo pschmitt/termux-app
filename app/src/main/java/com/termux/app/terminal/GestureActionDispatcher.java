@@ -21,6 +21,12 @@ public final class GestureActionDispatcher {
         /** Switch to the next or previous session, wrapping around, like the hardware shortcuts do. */
         void switchSession(boolean forward);
 
+        /** Open a new terminal session and switch to it. */
+        void createSession();
+
+        /** Switch the terminal toolbar to its text input, or back to the extra keys. */
+        void toggleTextInput();
+
         /** Open the sidebar, if it may be opened now. */
         void openSidebar();
 
@@ -91,6 +97,14 @@ public final class GestureActionDispatcher {
                     default:
                         break;
                 }
+                break;
+
+            case NEW_SESSION:
+                target.createSession();
+                break;
+
+            case TOGGLE_TEXT_INPUT:
+                target.toggleTextInput();
                 break;
 
             case OPEN_SIDEBAR:

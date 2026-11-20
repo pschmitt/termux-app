@@ -172,8 +172,17 @@ public final class PropertyInputSpec {
                 return "Focus a running session with a matching terminal title before running the triple-tap action."
                     + " Enter a regular expression. Leave blank to always run the action.";
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
-                return gesture("a swipe to the left on the extra keys", TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS,
+                return gesture("a swipe on the extra keys with the finger moving to the right", TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS,
                     TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_LEFT_ACTION);
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION:
+                return gesture("a swipe on the extra keys with the finger moving to the left (toggle-text-input opens the text input)",
+                    TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_KEYS, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_SWIPE_RIGHT_ACTION);
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION:
+                return gesture("a long swipe on the extra keys with the finger moving to the right (a hint shows which action runs on release)",
+                    TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_KEYS, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION);
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION:
+                return gesture("a long swipe on the extra keys with the finger moving to the left (a hint shows which action runs on release)",
+                    TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_KEYS, TermuxPropertyConstants.DEFAULT_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION);
 
             case TermuxPropertyConstants.KEY_GESTURE_COMMAND_CONTEXT:
                 return "Where commands assigned to taps, extra-key swipes, and extra-key buttons run. "
@@ -187,6 +196,12 @@ public final class PropertyInputSpec {
                 return commandHelp("a triple tap");
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND:
                 return commandHelp("a left swipe on the extra keys row");
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_COMMAND:
+                return commandHelp("a right swipe on the extra keys row");
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_COMMAND:
+                return commandHelp("a long left swipe on the extra keys row");
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_COMMAND:
+                return commandHelp("a long right swipe on the extra keys row");
 
             /* Volume key action */
             case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION:
@@ -203,6 +218,12 @@ public final class PropertyInputSpec {
                 return keySequence("a triple tap on the terminal", TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION);
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS:
                 return keySequence("a swipe to the left on the extra keys", TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION);
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_KEYS:
+                return keySequence("a swipe to the right on the extra keys", TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION);
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_KEYS:
+                return keySequence("a long swipe to the left on the extra keys", TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION);
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_KEYS:
+                return keySequence("a long swipe to the right on the extra keys", TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION);
             case TermuxPropertyConstants.KEY_VOLUME_UP_KEYS:
                 return keySequence("the volume up button", TermuxPropertyConstants.KEY_VOLUME_UP_ACTION);
             case TermuxPropertyConstants.KEY_VOLUME_DOWN_KEYS:
@@ -321,6 +342,9 @@ public final class PropertyInputSpec {
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_COMMAND:
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_COMMAND:
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_COMMAND:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_COMMAND:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_COMMAND:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_COMMAND:
                 return value.trim().isEmpty() ? "Command cannot be blank" : null;
 
             case TermuxPropertyConstants.KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT:
@@ -356,6 +380,9 @@ public final class PropertyInputSpec {
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_ACTION:
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_ACTION:
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_ACTION:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_ACTION:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_ACTION:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_ACTION:
                 return TerminalGestureAction.parse(value) != null ? null
                     : "Expected one of: " + TerminalGestureAction.getValidValues();
             case TermuxPropertyConstants.KEY_VOLUME_UP_ACTION:
@@ -370,6 +397,9 @@ public final class PropertyInputSpec {
             case TermuxPropertyConstants.KEY_TERMINAL_DOUBLE_TAP_KEYS:
             case TermuxPropertyConstants.KEY_TERMINAL_TRIPLE_TAP_KEYS:
             case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_LEFT_KEYS:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_SWIPE_RIGHT_KEYS:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_LEFT_KEYS:
+            case TermuxPropertyConstants.KEY_EXTRA_KEYS_LONG_SWIPE_RIGHT_KEYS:
             case TermuxPropertyConstants.KEY_VOLUME_UP_KEYS:
             case TermuxPropertyConstants.KEY_VOLUME_DOWN_KEYS: {
                 String error = TerminalKeySequence.getError(value);
