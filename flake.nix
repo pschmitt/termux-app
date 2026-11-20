@@ -69,7 +69,7 @@
       };
       apk = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
         pname = "termuxpp-debug-apk";
-        version = "0.118.0";
+        version = "1.0.0";
         outputs = [ "out" ];
         src = ./.;
         nativeBuildInputs = [
