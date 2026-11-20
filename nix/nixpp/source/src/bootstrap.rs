@@ -1019,7 +1019,7 @@ mod tests {
                 "42",
                 "python3\0-I\0/elsewhere/android-bridge.py\0".to_owned(),
             ),
-            ("43", "sleep\0100\0".to_owned()),
+            ("43", "sleep\x00100\0".to_owned()),
             (
                 "self",
                 format!("python3\0{}/android-bridge.py\0", runtime.display()),

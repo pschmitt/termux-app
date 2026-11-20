@@ -69,8 +69,8 @@ pub fn spawn(runtime: &Path) -> Result<()> {
             let _lock = lock;
             let owner = std::process::id();
             loop {
-                let result = open_log(&state)
-                    .and_then(|log| supervise_once(&runtime, &log, Some(owner)));
+                let result =
+                    open_log(&state).and_then(|log| supervise_once(&runtime, &log, Some(owner)));
                 if let Err(error) = result {
                     eprintln!("nixpp: service supervision failed: {error}");
                     sleep(Duration::from_secs(5));

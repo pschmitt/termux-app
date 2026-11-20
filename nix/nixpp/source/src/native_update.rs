@@ -13,7 +13,11 @@ use std::path::{Path, PathBuf};
 /// The native nixpp of the selected generation, when it differs from
 /// `current`. `checked` remembers the generation already looked at, so the
 /// executables are hashed once per switch rather than on every call.
-pub(crate) fn pending(runtime: &Path, current: &Path, checked: &mut Option<String>) -> Option<PathBuf> {
+pub(crate) fn pending(
+    runtime: &Path,
+    current: &Path,
+    checked: &mut Option<String>,
+) -> Option<PathBuf> {
     let name = selected(runtime)?;
     if checked.as_deref() == Some(name.as_str()) {
         return None;
@@ -48,7 +52,10 @@ fn selected(runtime: &Path) -> Option<String> {
 /// `native/nixpp` of generation `name` as a native path. The link targets the
 /// guest's /nix/store, which lives under `runtime/root`.
 fn shipped(runtime: &Path, name: &str) -> Option<PathBuf> {
-    let link = runtime.join("root/nix/store").join(name).join("native/nixpp");
+    let link = runtime
+        .join("root/nix/store")
+        .join(name)
+        .join("native/nixpp");
     let target = fs::read_link(&link).ok()?;
     let source = match target.strip_prefix("/") {
         Ok(relative) => runtime.join("root").join(relative),
@@ -117,7 +124,13 @@ mod tests {
     #[test]
     fn a_generation_without_native_nixpp_is_no_update() {
         let (directory, runtime, name) = fixture(b"new");
-        fs::remove_file(runtime.join("root/nix/store").join(&name).join("native/nixpp")).unwrap();
+        fs::remove_file(
+            runtime
+                .join("root/nix/store")
+                .join(&name)
+                .join("native/nixpp"),
+        )
+        .unwrap();
         let current = directory.path().join("current");
         fs::write(&current, b"old").unwrap();
         assert_eq!(pending(&runtime, &current, &mut None), None);

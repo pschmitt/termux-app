@@ -76,8 +76,15 @@ mod tests {
         fs::write(&library, []).unwrap();
         let alias = runtime.path().join("alias");
         std::os::unix::fs::symlink(runtime.path(), &alias).unwrap();
-        fs::write(runtime.path().join("apk-library"), format!("{}\n", library.display())).unwrap();
-        assert!(!marker_differs(runtime.path(), alias.join("lib.so").as_os_str()));
+        fs::write(
+            runtime.path().join("apk-library"),
+            format!("{}\n", library.display()),
+        )
+        .unwrap();
+        assert!(!marker_differs(
+            runtime.path(),
+            alias.join("lib.so").as_os_str()
+        ));
     }
 
     /// App and runtime update independently. Each combination must restart

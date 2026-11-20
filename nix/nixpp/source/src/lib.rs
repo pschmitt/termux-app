@@ -9,6 +9,7 @@
 //!   which owns the system state, the activation journal and all locks,
 //! * `init` and `resume`, which prepare the isolated runtime.
 
+pub(crate) mod app_cgroup;
 pub mod bootstrap;
 pub mod cli;
 pub mod controller;
@@ -16,17 +17,18 @@ mod enroll;
 pub mod error;
 pub mod fsutil;
 mod gc;
-pub(crate) mod native_update;
 pub mod guest;
+pub(crate) mod native_update;
 mod outer;
 mod outer_remote;
 pub mod progress;
 pub mod provision;
 pub mod runner;
-pub(crate) mod app_cgroup;
 pub(crate) mod runtime_apk;
 pub mod server;
 pub mod services;
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+pub mod signal_stack;
 pub mod store;
 pub mod ui;
 pub(crate) mod watch;

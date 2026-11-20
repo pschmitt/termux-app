@@ -589,7 +589,6 @@ pub fn cached_upgrade(
             .iter()
             .flat_map(|value| ["env", value.as_str()])
             .chain(["nix", "--refresh", "--option", "trusted-public-keys", &keys])
-            .into_iter()
             .chain(arguments.iter().copied())
             .chain([path])
             .map(str::to_owned)
@@ -667,13 +666,24 @@ pub fn probe_builders(builder: &mut dyn Builder) -> Result<()> {
             .map(|store| {
                 (
                     store,
-                    scope.spawn(move || probe_store(&mut ProcessBuilder, Some(store))),
+                    scope.spawn(move || {
+                        // A new thread starts with Rust's small alternate
+                        // stack, which the launcher's syscall handler
+                        // overflows: spawning the probe then fails (p11).
+                        #[cfg(all(target_os = "linux", target_env = "gnu"))]
+                        crate::signal_stack::reserve()?;
+                        probe_store(&mut ProcessBuilder, Some(store))
+                    }),
                 )
             })
             .collect();
         tasks
             .into_iter()
-            .filter_map(|(store, task)| (!matches!(task.join(), Ok(Ok(())))).then_some(store))
+            .filter_map(|(store, task)| match task.join() {
+                Ok(Ok(())) => None,
+                Ok(Err(error)) => Some(format!("{store} ({error})")),
+                Err(_) => Some(format!("{store} (probe panicked)")),
+            })
             .collect::<Vec<_>>()
     });
     if !unavailable.is_empty() {
