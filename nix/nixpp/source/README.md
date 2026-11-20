@@ -30,7 +30,7 @@ only after the activation and checks succeed. A retained failure journal blocks
 another switch until explicit recovery.
 
 `switch`, `rebuild`, `upgrade` and `fetch latest` accept `--backup[=EXT]` (default
-`EXT` is `backup`): the controller runs the Home Manager activation with
+`EXT` is `nixpp.bak`): the controller runs the Home Manager activation with
 `HOME_MANAGER_BACKUP_EXT=EXT`, so an existing unmanaged file in its way is moved
 to `<file>.EXT` instead of failing with "would be clobbered". An existing
 `<file>.EXT` is never overwritten. `homeManagerBackupExtension` in

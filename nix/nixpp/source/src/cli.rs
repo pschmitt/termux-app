@@ -88,7 +88,7 @@ pub struct BuildArgs {
 #[derive(Debug, Args, Default, Clone)]
 pub struct BackupArgs {
     /// Move existing files that Home Manager would clobber to <file>.EXT
-    /// instead of failing (EXT defaults to "backup"); an existing <file>.EXT
+    /// instead of failing (EXT defaults to "nixpp.bak"); an existing <file>.EXT
     /// is never overwritten. The system configuration can enable this by
     /// default (homeManagerBackupExtension in /etc/nixpp/upgrade.json)
     #[arg(
@@ -1104,14 +1104,14 @@ mod tests {
         let none = backup_of(&["switch", "cand"]);
         assert_eq!((none.backup, none.no_backup), (None, false));
         let bare = backup_of(&["switch", "cand", "--backup"]);
-        assert_eq!(bare.backup.as_deref(), Some("backup"));
+        assert_eq!(bare.backup.as_deref(), Some("nixpp.bak"));
         let named = backup_of(&["upgrade", "--backup=hm-old"]);
         assert_eq!(named.backup.as_deref(), Some("hm-old"));
         assert_eq!(
             backup_of(&["fetch", "latest", "--backup"])
                 .backup
                 .as_deref(),
-            Some("backup")
+            Some("nixpp.bak")
         );
         let rebuild = backup_of(&["rebuild", "--flake", "f", "--host", "h", "--backup=x"]);
         assert_eq!(rebuild.backup.as_deref(), Some("x"));
@@ -1124,7 +1124,7 @@ mod tests {
         };
         assert_eq!(
             (candidate.as_str(), backup.backup.as_deref()),
-            ("cand", Some("backup"))
+            ("cand", Some("nixpp.bak"))
         );
         assert!(parse(&["upgrade", "--backup", "--no-backup"]).is_err());
     }

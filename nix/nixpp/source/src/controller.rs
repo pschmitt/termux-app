@@ -228,7 +228,7 @@ pub fn check(runtime: &Path, name: &str, thorough: bool, runner: &mut dyn Runner
 const BACKUP_EXTENSION_LIMIT: usize = 32;
 
 /// Default extension of `--backup` (the one `home-manager switch -b` suggests).
-pub const DEFAULT_BACKUP_EXTENSION: &str = "backup";
+pub const DEFAULT_BACKUP_EXTENSION: &str = "nixpp.bak";
 
 /// Check a Home Manager backup extension: it becomes a file-name suffix
 /// (`<file>.<extension>`), so it is a short plain word that cannot name a
@@ -1062,7 +1062,7 @@ mod tests {
 
     #[test]
     fn backup_extensions_are_plain_words() {
-        for good in ["bak", "backup", "hm-1.old", "a_b", "7"] {
+        for good in ["bak", "backup", "nixpp.bak", "hm-1.old", "a_b", "7"] {
             validate_backup_extension(good).unwrap();
         }
         for bad in [
