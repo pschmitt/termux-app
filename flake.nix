@@ -194,6 +194,25 @@
         '';
       deviceHelperDebs = helperDebs "termuxpp-helper-debs-device-aarch64" false;
       bootstrapHelperDebs = helperDebs "termuxpp-helper-debs-bootstrap-aarch64" true;
+      androidShell = pkgs.mkShell {
+        packages = [
+          gradle
+          java
+          android.androidsdk
+          android.platform-tools
+          pkgs.git
+          pkgs.patchelf
+        ];
+        ANDROID_HOME = sdk;
+        ANDROID_SDK_ROOT = sdk;
+        JAVA_HOME = java.home;
+        TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS = "0";
+        TERMUX_APK_VERSION_TAG = "apt-android-7-debug";
+        shellHook = ''
+          export PATH="${sdk}/platform-tools:${sdk}/build-tools/36.0.0:$PATH"
+          export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdk}/build-tools/36.0.0/aapt2''${GRADLE_OPTS:+ $GRADLE_OPTS}"
+        '';
+      };
     in
     {
       # nixpp built with a caller's Nixpkgs, e.g. nixos-config's guest pkgs.
@@ -227,24 +246,11 @@
         type = "app";
         program = "${apk.mitmCache.updateScript}";
       };
-      devShells.${system}.default = pkgs.mkShell {
-        packages = [
-          gradle
-          java
-          android.androidsdk
-          android.platform-tools
-          pkgs.git
-          pkgs.patchelf
-        ];
-        ANDROID_HOME = sdk;
-        ANDROID_SDK_ROOT = sdk;
-        JAVA_HOME = java.home;
-        TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS = "0";
-        TERMUX_APK_VERSION_TAG = "apt-android-7-debug";
-        shellHook = ''
-          export PATH="${sdk}/platform-tools:${sdk}/build-tools/36.0.0:$PATH"
-          export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdk}/build-tools/36.0.0/aapt2''${GRADLE_OPTS:+ $GRADLE_OPTS}"
-        '';
+      # Android SDK (platforms 35/36, build-tools 35.0.0/36.0.0, NDK 29), JDK 17 and Gradle, with
+      # aapt2 from the SDK: `nix develop` (or `nix develop .#android`), then ./gradlew.
+      devShells.${system} = {
+        default = androidShell;
+        android = androidShell;
       };
     };
 }
