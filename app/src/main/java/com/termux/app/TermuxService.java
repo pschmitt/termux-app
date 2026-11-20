@@ -1071,6 +1071,22 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
      * clients do not hold an activity references.
      */
     public synchronized void unsetTermuxTerminalSessionClient() {
+        unsetTermuxTerminalSessionClient(null);
+    }
+
+    /**
+     * Like {@link #unsetTermuxTerminalSessionClient()}, but only if {@code client} is still the
+     * current one. A destroyed activity must not take the sessions away from a newer one that has
+     * already connected (recreation, relaunch): its terminal would stop updating, finished sessions
+     * would not be reported to it, and its session list would miss changes and crash.
+     *
+     * @param client The client of the caller, or {@code null} to unset whatever client is set.
+     */
+    public synchronized void unsetTermuxTerminalSessionClient(@Nullable TermuxTerminalSessionActivityClient client) {
+        if (client != null && client != mTermuxTerminalSessionActivityClient) {
+            Logger.logDebug(LOG_TAG, "Not unsetting the session client of a destroyed activity: a newer one is set");
+            return;
+        }
         for (int i = 0; i < mShellManager.mTermuxSessions.size(); i++)
             mShellManager.mTermuxSessions.get(i).getTerminalSession().updateTerminalSessionClient(mTermuxTerminalSessionServiceClient);
 
