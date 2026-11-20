@@ -20,6 +20,10 @@
     { nixpkgs, ... }@inputs:
     let
       nixppFor = pkgs: import ./nix/nixpp/packages.nix { inherit inputs pkgs; };
+      # Host-side ADB client (scripts/termuxpp-adb-*.py) built with a caller's Nixpkgs.
+      adbShellFor = pkgs: {
+        termuxpp-adb-shell = pkgs.callPackage ./nix/termuxpp-adb-shell.nix { };
+      };
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
@@ -222,16 +226,23 @@
         src = ./nix/nixpp;
       };
 
-      packages.aarch64-linux = removeAttrs (nixppFor nixpkgs.legacyPackages.aarch64-linux) [
-        "nixpp-runtime-termux"
-        "nixpp-runtime-termux-seed"
-      ];
+      # The host-side ADB client for a caller's Nixpkgs (nixos-config:
+      # `inputs.termuxpp.lib.adbShell.packagesFor pkgs`).
+      lib.adbShell.packagesFor = adbShellFor;
+
+      packages.aarch64-linux =
+        removeAttrs (nixppFor nixpkgs.legacyPackages.aarch64-linux) [
+          "nixpp-runtime-termux"
+          "nixpp-runtime-termux-seed"
+        ]
+        // adbShellFor nixpkgs.legacyPackages.aarch64-linux;
       # Only what builds here: the guest helpers are aarch64-only (packages.aarch64-linux)
       # and nixbot builds every attribute of this set.
       packages.${system} =
         pkgs.lib.filterAttrs (_: drv: pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform drv) (
           nixppFor pkgs
         )
+        // adbShellFor pkgs
         // {
           default = apk;
           inherit apk;
