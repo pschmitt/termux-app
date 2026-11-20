@@ -210,6 +210,19 @@ public class ExtraKeysSwipeViewPagerTest {
     }
 
     @Test
+    public void onlyTheShownRowSlidesNotTheTextInput() {
+        useLongSwipes();
+        float density = mPager.getResources().getDisplayMetrics().density;
+        float x = 900 - ExtraKeysSwipeViewPager.MIN_SWIPE_DISTANCE_DP * density - 30;
+        send(MotionEvent.ACTION_DOWN, 900, 75);
+        send(MotionEvent.ACTION_MOVE, 880, 75);
+        send(MotionEvent.ACTION_MOVE, x, 75);
+        assertTrue("the row follows the finger to the left", mAdapter.views[0].getTranslationX() < 0f);
+        assertEquals("the text input page stays off screen", 0f, mAdapter.views[1].getTranslationX(), 0f);
+        send(MotionEvent.ACTION_UP, x, 75);
+    }
+
+    @Test
     public void shortReleaseOfAFollowedSwipeRunsTheNormalSwipe() {
         useLongSwipes();
         float density = mPager.getResources().getDisplayMetrics().density;

@@ -336,7 +336,8 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
         mFeedbackAnimator = null;
         if (previous != null) previous.cancel();
 
-        final float startTranslation = getChildCount() > 0 ? getChildAt(0).getTranslationX() : 0f;
+        View page = currentPage();
+        final float startTranslation = page == null ? 0f : page.getTranslationX();
         final float startAlpha = mHintAlpha;
         if (!areSystemAnimationsEnabled()) {
             clearHint();
@@ -503,11 +504,27 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
         setPagesTranslationX(0f);
     }
 
+    /**
+     * Slides only the page that is shown. The other pages, like the text input right of the extra
+     * keys, stay where the pager put them, off screen: moving them along would pull them into view.
+     */
     private void setPagesTranslationX(float translationX) {
+        View shown = currentPage();
         for (int i = 0; i < getChildCount(); i++) {
             View child = getChildAt(i);
-            if (child.getTranslationX() != translationX) child.setTranslationX(translationX);
+            float wanted = child == shown ? translationX : 0f;
+            if (child.getTranslationX() != wanted) child.setTranslationX(wanted);
         }
+    }
+
+    /** The page that fills the pager at its current scroll position, or null. */
+    @Nullable
+    private View currentPage() {
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child.getLeft() == getScrollX()) return child;
+        }
+        return null;
     }
 
     private boolean areSystemAnimationsEnabled() {
