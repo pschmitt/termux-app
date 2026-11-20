@@ -21,7 +21,7 @@ pub fn enroll(
     );
     ensure!(runtime.is_absolute(), "the runtime path must be absolute");
     ensure!(store::is_user_name(user), "invalid guest user");
-    let build = guest::build_command(flake, host, false)?;
+    let build = guest::build_command(flake, host, guest::Worker::None)?;
     let build_host = fsutil::read_bounded(&credentials.join("build_host"), 4096)
         .context("missing initial build worker")?;
     let build_host = std::str::from_utf8(&build_host)?.trim();

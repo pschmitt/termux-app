@@ -484,7 +484,30 @@ impl Builder for ProcessBuilder {
 
 /// The command line that builds the system of `host` without compiling on
 /// the phone (`--max-jobs 0`, or through the disposable-worker integration).
-pub fn build_command(flake: &str, host: &str, rworker: bool) -> Result<Vec<String>> {
+/// Where a system is built.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Worker {
+    /// Evaluate here, build on the configured remote builders.
+    #[default]
+    None,
+    /// Evaluate here, build on a disposable rworker (`rworker-nix build`).
+    Builder,
+    /// Evaluate and build on a disposable rworker; this side only locks the
+    /// flake and ships its sources (`rworker-nix remote-build`).
+    RemoteEval,
+}
+
+impl Worker {
+    pub fn new(rworker: bool, remote_eval: bool) -> Self {
+        match (rworker || remote_eval, remote_eval) {
+            (false, _) => Self::None,
+            (true, false) => Self::Builder,
+            (true, true) => Self::RemoteEval,
+        }
+    }
+}
+
+pub fn build_command(flake: &str, host: &str, worker: Worker) -> Result<Vec<String>> {
     if !is_host_name(host) {
         return Err(Error::invalid("invalid system host name"));
     }
@@ -494,14 +517,12 @@ pub fn build_command(flake: &str, host: &str, rworker: bool) -> Result<Vec<Strin
         ));
     }
     let target = format!("{flake}#termuxppConfigurations.{host}.system");
-    let mut command: Vec<String> = if rworker {
-        // Evaluate on the worker too: the phone only locks the flake and
-        // ships its sources (rworker-nix remote-build).
-        vec!["rworker-nix".to_owned(), "remote-build".to_owned()]
-    } else {
-        ["nix", "build", "--max-jobs", "0"]
+    let mut command: Vec<String> = match worker {
+        Worker::None => ["nix", "build", "--max-jobs", "0"]
             .map(str::to_owned)
-            .to_vec()
+            .to_vec(),
+        Worker::Builder => vec!["rworker-nix".to_owned(), "build".to_owned()],
+        Worker::RemoteEval => vec!["rworker-nix".to_owned(), "remote-build".to_owned()],
     };
     command.extend(["--no-link", "--print-out-paths"].map(str::to_owned));
     command.push(target);
@@ -547,7 +568,7 @@ pub fn upgrade_target(
 }
 
 pub fn plan_upgrade(target: &UpgradeTarget, builder: &mut dyn Builder) -> Result<()> {
-    let mut command = build_command(&target.flake, &target.host, false)?;
+    let mut command = build_command(&target.flake, &target.host, Worker::None)?;
     command.splice(2..2, ["--refresh", "--dry-run"].map(str::to_owned));
     builder.output(&command)?;
     Ok(())
@@ -699,10 +720,10 @@ pub fn probe_builders(builder: &mut dyn Builder) -> Result<()> {
 
 pub fn build_upgrade(
     target: &UpgradeTarget,
-    rworker: bool,
+    worker: Worker,
     builder: &mut dyn Builder,
 ) -> Result<PathBuf> {
-    let mut command = build_command(&target.flake, &target.host, rworker)?;
+    let mut command = build_command(&target.flake, &target.host, worker)?;
     command.insert(2, "--refresh".to_owned());
     built_system(&command, builder)
 }
@@ -711,10 +732,10 @@ pub fn build_upgrade(
 pub fn build_system(
     flake: &str,
     host: &str,
-    rworker: bool,
+    worker: Worker,
     builder: &mut dyn Builder,
 ) -> Result<PathBuf> {
-    built_system(&build_command(flake, host, rworker)?, builder)
+    built_system(&build_command(flake, host, worker)?, builder)
 }
 
 fn built_system(command: &[String], builder: &mut dyn Builder) -> Result<PathBuf> {
@@ -743,12 +764,12 @@ pub fn rebuild(
     socket: &Path,
     flake: &str,
     host: &str,
-    rworker: bool,
+    worker: Worker,
     builder: &mut dyn Builder,
     on_stage: &mut dyn FnMut(Stage),
 ) -> Result<PathBuf> {
     on_stage(Stage::Build);
-    let generation = build_system(flake, host, rworker, builder)?;
+    let generation = build_system(flake, host, worker, builder)?;
     activate_system(runtime, socket, &generation, on_stage)?;
     Ok(generation)
 }
@@ -1299,7 +1320,7 @@ mod tests {
     fn build_never_compiles_on_phone() {
         let path = system_path();
         let mut builder = Scripted::new(&format!("{path}\n"));
-        let built = build_system("/source", "test", false, &mut builder).unwrap();
+        let built = build_system("/source", "test", Worker::None, &mut builder).unwrap();
         assert_eq!(built, PathBuf::from(&path));
         assert_eq!(
             builder.commands[0],
@@ -1318,12 +1339,27 @@ mod tests {
     #[test]
     fn build_uses_existing_rworker_integration() {
         let mut builder = Scripted::new(&format!("{}\n", system_path()));
-        build_system("github:example/config", "test", true, &mut builder).unwrap();
+        build_system(
+            "github:example/config",
+            "test",
+            Worker::RemoteEval,
+            &mut builder,
+        )
+        .unwrap();
+        assert_eq!(builder.commands[0][..2], ["rworker-nix", "remote-build"]);
+        let mut builder = Scripted::new(&format!("{}\n", system_path()));
+        build_system(
+            "github:example/config",
+            "test",
+            Worker::Builder,
+            &mut builder,
+        )
+        .unwrap();
         assert_eq!(
             builder.commands[0],
             [
                 "rworker-nix",
-                "remote-build",
+                "build",
                 "--no-link",
                 "--print-out-paths",
                 "github:example/config#termuxppConfigurations.test.system"
@@ -1342,7 +1378,7 @@ mod tests {
             ("", "host"),
         ] {
             assert!(
-                build_system(flake, host, false, &mut builder).is_err(),
+                build_system(flake, host, Worker::None, &mut builder).is_err(),
                 "{flake} {host}"
             );
         }
@@ -1355,7 +1391,7 @@ mod tests {
         for output in [String::new(), "/tmp/not-store\n".to_owned(), two] {
             let mut builder = Scripted::new(&output);
             assert!(
-                build_system("source", "host", false, &mut builder).is_err(),
+                build_system("source", "host", Worker::None, &mut builder).is_err(),
                 "{output:?}"
             );
         }
@@ -1529,7 +1565,7 @@ mod tests {
             &path,
             "source",
             "host",
-            false,
+            Worker::None,
             &mut builder,
             &mut |stage| stages.push(stage),
         )
@@ -1551,7 +1587,7 @@ mod tests {
             &path,
             "source",
             "host",
-            false,
+            Worker::None,
             &mut builder,
             &mut |stage| stages.push(stage),
         );

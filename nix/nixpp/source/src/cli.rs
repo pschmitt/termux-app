@@ -77,6 +77,10 @@ pub struct BuildArgs {
     /// Build on the configured disposable worker
     #[arg(long)]
     rworker: bool,
+
+    /// Evaluate on the disposable worker too (implies --rworker)
+    #[arg(long)]
+    remote_eval: bool,
 }
 
 #[derive(Debug, Args, Default)]
@@ -98,8 +102,12 @@ pub struct UpgradeArgs {
     #[arg(long, conflicts_with = "dry_run")]
     rworker: bool,
 
+    /// Evaluate on the disposable worker too (implies --rworker)
+    #[arg(long, conflicts_with = "dry_run")]
+    remote_eval: bool,
+
     /// Install the host's signed cache pin (the default; kept for scripts)
-    #[arg(long, hide = true, conflicts_with_all = ["build", "flake", "host", "rworker"])]
+    #[arg(long, hide = true, conflicts_with_all = ["build", "flake", "host", "rworker", "remote_eval"])]
     from_cache: bool,
 
     /// Show what Nix would build or fetch without activating a generation
@@ -461,7 +469,7 @@ fn rebuild_system(
         socket,
         &args.flake,
         &args.host,
-        args.rworker,
+        guest::Worker::new(args.rworker, args.remote_eval),
         &mut ProcessBuilder,
         &mut |stage| report_stage(ui, stage),
     )?;
@@ -484,7 +492,11 @@ fn upgrade_system(
         args.host.clone(),
     )?;
     let build = !args.from_cache
-        && (args.build || args.flake.is_some() || args.host.is_some() || args.rworker);
+        && (args.build
+            || args.flake.is_some()
+            || args.host.is_some()
+            || args.rworker
+            || args.remote_eval);
     if !build {
         let runtime = if args.dry_run {
             None
@@ -508,7 +520,11 @@ fn upgrade_system(
     } else {
         let runtime = require(runtime, "upgrade requires NIXPP_RUNTIME or --runtime")?;
         report_stage(ui, Stage::Build);
-        let generation = guest::build_upgrade(&target, args.rworker, &mut ProcessBuilder)?;
+        let generation = guest::build_upgrade(
+            &target,
+            guest::Worker::new(args.rworker, args.remote_eval),
+            &mut ProcessBuilder,
+        )?;
         guest::activate_system(&runtime, socket, &generation, &mut |stage| {
             report_stage(ui, stage);
         })?;
@@ -575,8 +591,12 @@ fn guest_command(
         }
         Command::Build(args) => {
             ui.step(&format!("building {} remotely", args.host));
-            let generation =
-                guest::build_system(&args.flake, &args.host, args.rworker, &mut ProcessBuilder)?;
+            let generation = guest::build_system(
+                &args.flake,
+                &args.host,
+                guest::Worker::new(args.rworker, args.remote_eval),
+                &mut ProcessBuilder,
+            )?;
             ui.print(&path_output(ui, &generation));
         }
         Command::Upgrade(args) => upgrade_system(ui, runtime, &socket, args)?,
@@ -1049,6 +1069,7 @@ mod tests {
             &["upgrade", "--from-cache"],
             &["upgrade", "--build"],
             &["upgrade", "--build", "--rworker"],
+            &["upgrade", "--remote-eval"],
             &["upgrade", "--flake", "x", "--host", "h"],
         ] {
             assert!(parse(upgrade).is_ok(), "{upgrade:?}");
@@ -1057,6 +1078,8 @@ mod tests {
             &["upgrade", "--from-cache", "--build"][..],
             &["upgrade", "--from-cache", "--flake", "x"],
             &["upgrade", "--rworker", "--dry-run"],
+            &["upgrade", "--remote-eval", "--dry-run"],
+            &["upgrade", "--from-cache", "--remote-eval"],
         ] {
             assert!(parse(conflict).is_err(), "{conflict:?}");
         }
@@ -1204,6 +1227,7 @@ mod tests {
             flake: "source".to_owned(),
             host: "host".to_owned(),
             rworker: false,
+            remote_eval: false,
         });
         let error = guest_command(&rebuild, None, None, &ui).unwrap_err();
         assert_eq!(
