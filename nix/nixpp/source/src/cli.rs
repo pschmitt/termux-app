@@ -81,20 +81,25 @@ pub struct BuildArgs {
 
 #[derive(Debug, Args, Default)]
 pub struct UpgradeArgs {
-    /// Override the configured flake URI, without an output fragment
+    /// Evaluate the configured flake and build the system (remote builders)
+    /// instead of installing the system CI published in the signed cache
+    #[arg(long)]
+    build: bool,
+
+    /// Override the configured flake URI, without an output fragment (implies --build)
     #[arg(long)]
     flake: Option<String>,
 
-    /// Override the configured host name
+    /// Override the configured host name (implies --build)
     #[arg(long)]
     host: Option<String>,
 
-    /// Build on the configured disposable worker
+    /// Build on the configured disposable worker (implies --build)
     #[arg(long, conflicts_with = "dry_run")]
     rworker: bool,
 
-    /// Upgrade from the host's signed binary cache without evaluating the flake
-    #[arg(long, conflicts_with_all = ["flake", "host", "rworker"])]
+    /// Install the host's signed cache pin (the default; kept for scripts)
+    #[arg(long, hide = true, conflicts_with_all = ["build", "flake", "host", "rworker"])]
     from_cache: bool,
 
     /// Show what Nix would build or fetch without activating a generation
@@ -120,7 +125,8 @@ pub enum Command {
     Build(BuildArgs),
     /// Build, prepare and switch to a system
     Rebuild(BuildArgs),
-    /// Build and activate the latest configured system
+    /// Install the latest system published for this host (`--build` evaluates
+    /// and builds the configured flake instead)
     Upgrade(UpgradeArgs),
     /// Fetch and activate the latest configured system
     Fetch {
@@ -477,7 +483,9 @@ fn upgrade_system(
         args.flake.clone(),
         args.host.clone(),
     )?;
-    if args.from_cache {
+    let build = !args.from_cache
+        && (args.build || args.flake.is_some() || args.host.is_some() || args.rworker);
+    if !build {
         let runtime = if args.dry_run {
             None
         } else {
@@ -1035,6 +1043,23 @@ mod tests {
         assert!(parse(&["build", "--flake", "x"]).is_err());
         assert!(parse(&["build", "--host", "h"]).is_err());
         assert!(parse(&["rebuild", "--flake", "x", "--host", "h", "--rworker"]).is_ok());
+        for upgrade in [
+            &["upgrade"][..],
+            &["upgrade", "--dry-run"],
+            &["upgrade", "--from-cache"],
+            &["upgrade", "--build"],
+            &["upgrade", "--build", "--rworker"],
+            &["upgrade", "--flake", "x", "--host", "h"],
+        ] {
+            assert!(parse(upgrade).is_ok(), "{upgrade:?}");
+        }
+        for conflict in [
+            &["upgrade", "--from-cache", "--build"][..],
+            &["upgrade", "--from-cache", "--flake", "x"],
+            &["upgrade", "--rworker", "--dry-run"],
+        ] {
+            assert!(parse(conflict).is_err(), "{conflict:?}");
+        }
     }
 
     #[test]
