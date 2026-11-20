@@ -8,13 +8,13 @@ import com.termux.app.terminal.io.ExtraKeysSwipeDetector.Result;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 public class ExtraKeysSwipeDetectorTest {
 
+    private static final float DRAG_START = 30f;
     private static final float MIN_DISTANCE = 150f;
     private static final float LONG_DISTANCE = 400f;
     private static final float SLOP = 24f;
@@ -38,26 +38,46 @@ public class ExtraKeysSwipeDetectorTest {
 
     @Before
     public void setUp() {
-        mDetector = new ExtraKeysSwipeDetector(MIN_DISTANCE, LONG_DISTANCE, SLOP);
+        mDetector = new ExtraKeysSwipeDetector(DRAG_START, MIN_DISTANCE, LONG_DISTANCE, SLOP);
         mBindings = new FakeBindings();
     }
 
     @Test
-    public void swipeToTheRightIsALeftSwipeRecognizedOnce() {
+    public void theRowFollowsFromTheDragStartAndTheSwipeRunsOnRelease() {
         mDetector.onDown(100, 50, mBindings);
-        assertSame(Result.NONE, mDetector.onMove(160, 52));
-        assertSame(Result.SWIPE, mDetector.onMove(100 + MIN_DISTANCE, 55));
+        assertSame(Result.NONE, mDetector.onMove(110, 51));
+        assertSame(Result.RECOGNIZED, mDetector.onMove(100 + DRAG_START, 52));
         assertSame(Direction.LEFT, mDetector.getDirection());
-        // Not again for the rest of the same touch.
-        assertSame(Result.NONE, mDetector.onMove(100 + MIN_DISTANCE + 80, 55));
-        assertSame(Result.NONE, mDetector.onUp(100 + MIN_DISTANCE + 90, 55));
+        assertTrue(mDetector.isFollowing());
+        assertSame("not far enough yet", Result.NONE, mDetector.getPending());
+        mDetector.onMove(100 + MIN_DISTANCE, 52);
+        assertSame(Result.SWIPE, mDetector.getPending());
+        assertSame(Result.SWIPE, mDetector.onUp(100 + MIN_DISTANCE, 52));
+        assertFalse(mDetector.isFollowing());
     }
 
     @Test
     public void swipeToTheLeftIsARightSwipe() {
         mDetector.onDown(500, 50, mBindings);
-        assertSame(Result.SWIPE, mDetector.onMove(500 - MIN_DISTANCE, 50));
+        assertSame(Result.RECOGNIZED, mDetector.onMove(500 - DRAG_START, 50));
         assertSame(Direction.RIGHT, mDetector.getDirection());
+        assertSame(Result.SWIPE, mDetector.onUp(500 - MIN_DISTANCE, 50));
+    }
+
+    @Test
+    public void tooShortASwipeIsCalledOff() {
+        mDetector.onDown(100, 50, mBindings);
+        mDetector.onMove(100 + DRAG_START, 50);
+        assertSame(Result.NONE, mDetector.onUp(100 + MIN_DISTANCE - 1, 50));
+    }
+
+    @Test
+    public void goingBackCallsTheSwipeOff() {
+        mDetector.onDown(100, 50, mBindings);
+        mDetector.onMove(100 + DRAG_START, 50);
+        mDetector.onMove(100 + MIN_DISTANCE + 50, 50);
+        assertSame(Result.SWIPE, mDetector.getPending());
+        assertSame(Result.NONE, mDetector.onUp(110, 50));
     }
 
     @Test
@@ -67,13 +87,6 @@ public class ExtraKeysSwipeDetectorTest {
         assertSame(Result.NONE, mDetector.onMove(500 - MIN_DISTANCE * 2, 50));
         // Not even by coming back past the start.
         assertSame(Result.NONE, mDetector.onMove(500 + MIN_DISTANCE * 2, 50));
-    }
-
-    @Test
-    public void shortSwipeIsNotRecognized() {
-        mDetector.onDown(100, 50, mBindings);
-        assertSame(Result.NONE, mDetector.onMove(100 + MIN_DISTANCE - 1, 50));
-        assertSame(Result.NONE, mDetector.onUp(100 + MIN_DISTANCE - 1, 50));
     }
 
     @Test
@@ -88,30 +101,15 @@ public class ExtraKeysSwipeDetectorTest {
     public void backAndForthIsNotRecognized() {
         mDetector.onDown(500, 50, mBindings);
         assertSame(Result.NONE, mDetector.onMove(500 - SLOP - 1, 50));
-        assertSame(Result.NONE, mDetector.onMove(500 + MIN_DISTANCE + 50, 50));
-        assertSame(Result.NONE, mDetector.onMove(500 - MIN_DISTANCE - 50, 50));
-    }
-
-    @Test
-    public void smallWobbleWithinSlopStillCounts() {
-        mDetector.onDown(300, 50, mBindings);
-        assertSame(Result.NONE, mDetector.onMove(300 - SLOP + 1, 50));
-        assertSame(Result.SWIPE, mDetector.onMove(300 + MIN_DISTANCE, 50));
+        assertSame(Result.NONE, mDetector.onMove(500 + MIN_DISTANCE, 50));
     }
 
     @Test
     public void mostlyVerticalDragIsNotRecognized() {
         // The extra keys scroll vertically.
         mDetector.onDown(100, 50, mBindings);
-        assertSame(Result.NONE, mDetector.onMove(100 + MIN_DISTANCE, 50 + MIN_DISTANCE));
-        assertSame(Result.NONE, mDetector.onMove(100 + MIN_DISTANCE + 200, 50 + 2 * (MIN_DISTANCE + 200)));
-    }
-
-    @Test
-    public void verticalTravelEarlierInTheTouchStillCounts() {
-        mDetector.onDown(100, 50, mBindings);
-        assertSame(Result.NONE, mDetector.onMove(110, 50 + 200));
-        assertSame(Result.NONE, mDetector.onMove(100 + MIN_DISTANCE, 50));
+        assertSame(Result.NONE, mDetector.onMove(100 + DRAG_START, 50 + DRAG_START));
+        assertSame(Result.NONE, mDetector.onMove(100 + MIN_DISTANCE, 50 + 2 * MIN_DISTANCE));
     }
 
     @Test
@@ -119,88 +117,65 @@ public class ExtraKeysSwipeDetectorTest {
         // The text input is selected or the pager is moving.
         mDetector.onDown(100, 50, null);
         assertSame(Result.NONE, mDetector.onMove(100 + MIN_DISTANCE * 3, 50));
+        assertSame(Result.NONE, mDetector.onUp(100 + MIN_DISTANCE * 3, 50));
     }
 
     @Test
-    public void cancelStopsRecognition() {
+    public void cancelEndsTheSwipe() {
         mDetector.onDown(100, 50, mBindings);
+        mDetector.onMove(100 + DRAG_START, 50);
         mDetector.cancel(); // second finger
-        assertSame(Result.NONE, mDetector.onMove(100 + MIN_DISTANCE * 3, 50));
-    }
-
-    @Test
-    public void nextTouchStartsOver() {
-        mDetector.onDown(100, 50, mBindings);
-        assertSame(Result.SWIPE, mDetector.onMove(100 + MIN_DISTANCE, 50));
-        mDetector.onDown(100, 50, mBindings);
-        assertSame(Result.SWIPE, mDetector.onMove(100 + MIN_DISTANCE, 50));
-    }
-
-    @Test
-    public void withALongSwipeTheSwipeIsFollowedAndDecidedOnRelease() {
-        mBindings.longLeft = true;
-        mDetector.onDown(100, 50, mBindings);
-        assertSame(Result.RECOGNIZED, mDetector.onMove(100 + MIN_DISTANCE, 50));
-        assertTrue(mDetector.isFollowing());
-        assertFalse(mDetector.isLongReached());
-        assertEquals(0f, mDetector.getLongProgress(), 0.001f);
-
-        mDetector.onMove(100 + (MIN_DISTANCE + LONG_DISTANCE) / 2, 50);
-        assertEquals(0.5f, mDetector.getLongProgress(), 0.001f);
-        assertSame(Result.SWIPE, mDetector.onUp(100 + (MIN_DISTANCE + LONG_DISTANCE) / 2, 50));
         assertFalse(mDetector.isFollowing());
+        assertSame(Result.NONE, mDetector.onUp(100 + LONG_DISTANCE, 50));
     }
 
     @Test
     public void releasedFarEnoughIsALongSwipe() {
         mBindings.longRight = true;
         mDetector.onDown(600, 50, mBindings);
-        assertSame(Result.RECOGNIZED, mDetector.onMove(600 - MIN_DISTANCE, 50));
-        assertSame(Direction.RIGHT, mDetector.getDirection());
+        mDetector.onMove(600 - DRAG_START, 50);
         mDetector.onMove(600 - LONG_DISTANCE, 50);
-        assertTrue(mDetector.isLongReached());
+        assertSame(Result.LONG_SWIPE, mDetector.getPending());
         // Vertical travel no longer matters once the swipe is followed.
         assertSame(Result.LONG_SWIPE, mDetector.onUp(600 - LONG_DISTANCE - 10, 140));
     }
 
     @Test
-    public void comingBackFromTheLongSwipeIsTheNormalSwipeAgain() {
+    public void withoutALongSwipeFurtherIsStillTheSwipe() {
+        mDetector.onDown(100, 50, mBindings);
+        mDetector.onMove(100 + DRAG_START, 50);
+        assertSame(Result.SWIPE, mDetector.onUp(100 + LONG_DISTANCE * 2, 50));
+    }
+
+    @Test
+    public void betweenTheDistancesIsTheNormalSwipe() {
         mBindings.longLeft = true;
         mDetector.onDown(100, 50, mBindings);
-        mDetector.onMove(100 + MIN_DISTANCE, 50);
+        mDetector.onMove(100 + DRAG_START, 50);
         mDetector.onMove(100 + LONG_DISTANCE + 20, 50);
-        assertTrue(mDetector.isLongReached());
+        assertSame(Result.LONG_SWIPE, mDetector.getPending());
         mDetector.onMove(100 + MIN_DISTANCE + 20, 50);
-        assertFalse(mDetector.isLongReached());
+        assertSame(Result.SWIPE, mDetector.getPending());
         assertSame(Result.SWIPE, mDetector.onUp(100 + MIN_DISTANCE + 20, 50));
     }
 
     @Test
-    public void goingBackToTheStartCallsAFollowedSwipeOff() {
-        mBindings.longLeft = true;
-        mDetector.onDown(100, 50, mBindings);
-        mDetector.onMove(100 + MIN_DISTANCE, 50);
-        mDetector.onMove(100 + 20, 50);
-        assertTrue(mDetector.isCalledOff());
-        assertSame(Result.NONE, mDetector.onUp(100 + 20, 50));
-    }
-
-    @Test
-    public void longSwipeAloneMakesTheDirectionSwipeable() {
+    public void aLongSwipeAloneNeedsTheLongDistance() {
         mBindings.left = false;
         mBindings.longLeft = true;
         mDetector.onDown(100, 50, mBindings);
-        assertSame(Result.RECOGNIZED, mDetector.onMove(100 + MIN_DISTANCE, 50));
+        assertSame(Result.RECOGNIZED, mDetector.onMove(100 + DRAG_START, 50));
+        assertSame(Result.NONE, mDetector.onUp(100 + MIN_DISTANCE + 20, 50));
+        mDetector.onDown(100, 50, mBindings);
+        mDetector.onMove(100 + DRAG_START, 50);
+        assertSame(Result.LONG_SWIPE, mDetector.onUp(100 + LONG_DISTANCE, 50));
     }
 
     @Test
-    public void cancelEndsAFollowedSwipe() {
-        mBindings.longLeft = true;
-        mDetector.onDown(100, 50, mBindings);
-        mDetector.onMove(100 + MIN_DISTANCE, 50);
-        mDetector.cancel();
-        assertFalse(mDetector.isFollowing());
-        assertSame(Result.NONE, mDetector.onUp(100 + LONG_DISTANCE, 50));
+    public void distancesNeverShrinkBelowTheDragStart() {
+        mDetector.setDistances(1, 2);
+        assertTrue(mDetector.getMinDistance() >= DRAG_START);
+        assertTrue(mDetector.getLongDistance() >= mDetector.getMinDistance());
     }
 
 }

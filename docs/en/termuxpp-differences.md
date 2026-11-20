@@ -322,8 +322,9 @@ from right to left. In TermuxPP both swipe directions over the extra keys row
 are configurable actions, and the right-to-left swipe switches to the next
 session by default. Opening the text input is the `toggle-text-input` action,
 which any gesture can run. Set `extra-keys-swipe-right-action = toggle-text-input`
-for the upstream behavior. Each direction can also have a long swipe whose hint
-shows which action releasing runs. Sources: [swipe pager](../../app/src/main/java/com/termux/app/terminal/io/ExtraKeysSwipeViewPager.java),
+for the upstream behavior. Swipes follow the finger like list swipe actions
+(Gmail, Todoist), and each direction can also have a long swipe; the strip the row
+uncovers shows which action releasing runs. Sources: [swipe pager](../../app/src/main/java/com/termux/app/terminal/io/ExtraKeysSwipeViewPager.java),
 [swipe detector](../../app/src/main/java/com/termux/app/terminal/io/ExtraKeysSwipeDetector.java)
 and [extra keys swipe documentation](terminal-settings.md#extra-keys-swipe).
 

@@ -4,24 +4,24 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 /**
- * Recognizes deliberate horizontal swipes across the normal extra keys row, in both directions.
+ * Recognizes deliberate horizontal swipes across the normal extra keys row, in both directions, the
+ * way swipe actions on list items work (Gmail, Todoist): the row follows the finger from the start
+ * of the drag, and the action is decided when the finger goes up.
  *
  * The directions are named after the page that the swipe would go to, like the pager does: a
  * {@link Direction#LEFT} swipe has the finger moving from left to right, a {@link Direction#RIGHT}
  * swipe from right to left (toward the text input page on the right).
  *
- * A swipe is recognized once the finger is at least {@code minDistance} away from where it went
- * down, horizontally, while it moved clearly more horizontally than vertically and never went more
- * than {@code touchSlop} the other way. A press that starts elsewhere than on the settled normal
- * row, that gets a second finger or that is cancelled never is a swipe.
+ * A drag becomes a swipe ({@link Result#RECOGNIZED}) once the finger is {@code dragStart} away from
+ * where it went down, horizontally, while it moved clearly more horizontally than vertically and
+ * never went more than {@code touchSlop} the other way, in a direction that has an action. From then
+ * on the touch belongs to the swipe. Released at least {@code longDistance} away it is a
+ * {@link Result#LONG_SWIPE} if the direction has one, at least {@code minDistance} away a
+ * {@link Result#SWIPE} if the direction has one, and otherwise nothing happens: going back toward
+ * the start calls a swipe off.
  *
- * If the direction has no long swipe, the swipe fires at once ({@link Result#SWIPE}). Otherwise
- * the swipe is only {@link Result#RECOGNIZED} and followed until the finger goes up: released at
- * least {@code longDistance} away it is a {@link Result#LONG_SWIPE}, released less far but still
- * past {@code minDistance} a {@link Result#SWIPE}, and brought back closer than that to where it
- * started it is called off ({@link Result#NONE}).
- *
- * Without Android dependencies, so that the rules can be unit tested.
+ * A press that starts elsewhere than on the settled normal row, that gets a second finger or that
+ * is cancelled never is a swipe. Without Android dependencies, so that the rules can be unit tested.
  */
 public final class ExtraKeysSwipeDetector {
 
@@ -41,9 +41,9 @@ public final class ExtraKeysSwipeDetector {
     }
 
     public enum Result {
-        /** Nothing to do, or a followed swipe was called off. */
+        /** Nothing to do, or a swipe was called off. */
         NONE,
-        /** A swipe with a long swipe is followed from now on: the touch belongs to the swipe. */
+        /** The drag is a swipe from now on: the touch belongs to it. */
         RECOGNIZED,
         /** The (normal) swipe is done. */
         SWIPE,
@@ -58,13 +58,14 @@ public final class ExtraKeysSwipeDetector {
         boolean hasLongSwipe(@NonNull Direction direction);
     }
 
-    private final float mMinDistance;
-    private final float mLongDistance;
+    private final float mDragStart;
     private final float mTouchSlop;
+    private float mMinDistance;
+    private float mLongDistance;
 
     private boolean mTracking;
     private boolean mFollowing;
-    private boolean mLeftEnabled, mRightEnabled, mLeftLong, mRightLong;
+    private boolean mLeftSwipe, mRightSwipe, mLeftLong, mRightLong;
     private int mSign;
     private Direction mDirection;
     private float mDownX;
@@ -72,10 +73,24 @@ public final class ExtraKeysSwipeDetector {
     private float mMaxAbsDy;
     private float mDistance;
 
-    public ExtraKeysSwipeDetector(float minDistance, float longDistance, float touchSlop) {
-        mMinDistance = minDistance;
-        mLongDistance = Math.max(longDistance, minDistance);
+    public ExtraKeysSwipeDetector(float dragStart, float minDistance, float longDistance, float touchSlop) {
+        mDragStart = Math.max(dragStart, touchSlop);
         mTouchSlop = touchSlop;
+        setDistances(minDistance, longDistance);
+    }
+
+    /** The distances of the swipe and the long swipe, which depend on the width of the row. */
+    public void setDistances(float minDistance, float longDistance) {
+        mMinDistance = Math.max(minDistance, mDragStart);
+        mLongDistance = Math.max(longDistance, mMinDistance);
+    }
+
+    public float getMinDistance() {
+        return mMinDistance;
+    }
+
+    public float getLongDistance() {
+        return mLongDistance;
     }
 
     /**
@@ -86,11 +101,11 @@ public final class ExtraKeysSwipeDetector {
      *                 moving, nothing is recognized.
      */
     public void onDown(float x, float y, @Nullable Bindings bindings) {
+        mLeftSwipe = bindings != null && bindings.hasSwipe(Direction.LEFT);
+        mRightSwipe = bindings != null && bindings.hasSwipe(Direction.RIGHT);
         mLeftLong = bindings != null && bindings.hasLongSwipe(Direction.LEFT);
         mRightLong = bindings != null && bindings.hasLongSwipe(Direction.RIGHT);
-        mLeftEnabled = mLeftLong || (bindings != null && bindings.hasSwipe(Direction.LEFT));
-        mRightEnabled = mRightLong || (bindings != null && bindings.hasSwipe(Direction.RIGHT));
-        mTracking = mLeftEnabled || mRightEnabled;
+        mTracking = mLeftSwipe || mRightSwipe || mLeftLong || mRightLong;
         mFollowing = false;
         mSign = 0;
         mDirection = null;
@@ -123,23 +138,18 @@ public final class ExtraKeysSwipeDetector {
                 mTracking = false;
                 return Result.NONE;
             }
-            Direction direction = sign > 0 ? Direction.LEFT : Direction.RIGHT;
-            if (!(direction == Direction.LEFT ? mLeftEnabled : mRightEnabled)) {
+            if (!hasAction(sign > 0 ? Direction.LEFT : Direction.RIGHT)) {
                 mTracking = false;
                 return Result.NONE;
             }
         }
 
         float distance = Math.abs(dx);
-        if (mSign != 0 && distance >= mMinDistance && mMaxAbsDy < distance * MAX_VERTICAL_TO_HORIZONTAL_RATIO) {
+        if (mSign != 0 && distance >= mDragStart && mMaxAbsDy < distance * MAX_VERTICAL_TO_HORIZONTAL_RATIO) {
             mDirection = mSign > 0 ? Direction.LEFT : Direction.RIGHT;
             mDistance = distance;
-            if (mDirection == Direction.LEFT ? mLeftLong : mRightLong) {
-                mFollowing = true;
-                return Result.RECOGNIZED;
-            }
-            mTracking = false;
-            return Result.SWIPE;
+            mFollowing = true;
+            return Result.RECOGNIZED;
         }
         return Result.NONE;
     }
@@ -147,15 +157,13 @@ public final class ExtraKeysSwipeDetector {
     /** The finger went up. */
     @NonNull
     public Result onUp(float x, float y) {
-        Result result = onMove(x, y);
-        if (!mFollowing) {
-            mTracking = false;
-            return result;
-        }
+        onMove(x, y);
+        boolean following = mFollowing;
         mFollowing = false;
         mTracking = false;
-        if (mDistance >= mLongDistance) return Result.LONG_SWIPE;
-        if (mDistance >= mMinDistance) return Result.SWIPE;
+        if (!following) return Result.NONE;
+        if (hasLong(mDirection) && mDistance >= mLongDistance) return Result.LONG_SWIPE;
+        if (hasSwipe(mDirection) && mDistance >= mMinDistance) return Result.SWIPE;
         return Result.NONE;
     }
 
@@ -165,7 +173,19 @@ public final class ExtraKeysSwipeDetector {
         mFollowing = false;
     }
 
-    /** Whether a swipe with a long swipe is being followed. */
+    private boolean hasSwipe(@Nullable Direction direction) {
+        return direction == Direction.LEFT ? mLeftSwipe : direction == Direction.RIGHT && mRightSwipe;
+    }
+
+    private boolean hasLong(@Nullable Direction direction) {
+        return direction == Direction.LEFT ? mLeftLong : direction == Direction.RIGHT && mRightLong;
+    }
+
+    private boolean hasAction(@NonNull Direction direction) {
+        return hasSwipe(direction) || hasLong(direction);
+    }
+
+    /** Whether a swipe is being followed. */
     public boolean isFollowing() {
         return mFollowing;
     }
@@ -181,24 +201,23 @@ public final class ExtraKeysSwipeDetector {
         return mDistance;
     }
 
-    /** Whether releasing now would be a long swipe. */
-    public boolean isLongReached() {
-        return mFollowing && mDistance >= mLongDistance;
+    /** Whether the followed swipe has a long swipe. */
+    public boolean hasLongSwipe() {
+        return mFollowing && hasLong(mDirection);
     }
 
-    /** Whether releasing now would call the followed swipe off. */
-    public boolean isCalledOff() {
-        return mFollowing && mDistance < mMinDistance;
+    /** Whether the followed swipe has a normal swipe. */
+    public boolean hasSwipe() {
+        return mFollowing && hasSwipe(mDirection);
     }
 
-    /**
-     * How far the followed swipe is on its way from the normal swipe to the long swipe, from 0 (at
-     * {@code minDistance} or less) to 1 (at {@code longDistance} or more).
-     */
-    public float getLongProgress() {
-        if (mLongDistance <= mMinDistance) return mDistance >= mLongDistance ? 1f : 0f;
-        float progress = (mDistance - mMinDistance) / (mLongDistance - mMinDistance);
-        return Math.max(0f, Math.min(1f, progress));
+    /** What releasing now would do. */
+    @NonNull
+    public Result getPending() {
+        if (!mFollowing) return Result.NONE;
+        if (hasLong(mDirection) && mDistance >= mLongDistance) return Result.LONG_SWIPE;
+        if (hasSwipe(mDirection) && mDistance >= mMinDistance) return Result.SWIPE;
+        return Result.NONE;
     }
 
 }

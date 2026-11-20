@@ -7,7 +7,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.provider.Settings;
 import android.util.AttributeSet;
@@ -29,50 +28,39 @@ import com.termux.app.terminal.io.ExtraKeysSwipeDetector.Result;
  * The pager of the terminal toolbar: the normal extra keys row on page 0 and the text input on
  * page 1.
  *
- * Deliberate horizontal swipes over the normal row are reported to {@link Listener#onSwipe}, in
- * both directions: the pager itself never drags from the normal row to the text input, that is
- * the {@code toggle-text-input} action that a swipe or any other gesture can be bound to. From the
- * text input, dragging back to the normal row is the pager's own, untouched.
+ * Horizontal swipes over the normal row work like swipe actions on list items (Gmail, Todoist):
+ * the row follows the finger, and the strip it uncovers at the edge the finger comes from shows
+ * the action that releasing runs. Too short a swipe shows the action dimmed and is called off on
+ * release; past the swipe distance the strip turns plum and names the swipe's action; past the
+ * long swipe distance, if the direction has a long swipe, it turns lavender and names that action,
+ * with a tick. The action runs on release, then the row snaps back.
  *
- * Once a swipe is recognized, the touch is consumed: the keys get a cancel, so that no key is
- * pressed, and the rest of the touch belongs to the swipe. Everything else is passed on as is, so
- * key presses, key repeat on hold and popups keep working.
- *
- * A direction with a long swipe is followed until the finger goes up: the row slides along with
- * the finger and a hint names the action that releasing runs, filling up on the way to the long
- * swipe and turning to the long swipe's action, with a tick, once it is reached. Going back to
- * where the swipe started calls it off.
+ * The pager itself never drags from the normal row to the text input: that is the
+ * {@code toggle-text-input} action. From the text input, dragging back to the normal row is the
+ * pager's own, untouched. Once a drag is a swipe, the keys get a cancel, so that no key is pressed;
+ * everything else is passed on, so key presses, key repeat and popups keep working.
  */
 public class ExtraKeysSwipeViewPager extends ViewPager {
 
-    /** The minimum travel of a swipe, in dp. */
-    static final float MIN_SWIPE_DISTANCE_DP = 48;
+    /** How far the finger moves before the row follows it, in dp. */
+    static final float DRAG_START_DP = 12;
 
-    /** The minimum travel of a long swipe, in dp. */
-    static final float LONG_SWIPE_DISTANCE_DP = 140;
+    /** The swipe distance: this fraction of the row's width, but at least {@link #MIN_SWIPE_DP}. */
+    static final float SWIPE_FRACTION = 0.2f;
+    static final float MIN_SWIPE_DP = 64;
 
-    /** The furthest the row slides along with a recognized swipe before it snaps back, in dp. */
-    static final float FEEDBACK_PEAK_DP = 40;
+    /** The long swipe distance: this fraction of the row's width, but at least twice the swipe distance. */
+    static final float LONG_SWIPE_FRACTION = 0.5f;
 
-    /** The furthest the row follows the finger during a followed swipe, in dp. */
-    static final float FOLLOW_PEAK_DP = 56;
-
-    /** The duration of the slide out and snap back of a recognized swipe, before the system animation scale. */
-    static final long FEEDBACK_DURATION_MS = 220;
-
-    /** The duration of the snap back and fade out at the end of a followed swipe. */
+    /** The duration of the snap back at the end of a swipe. */
     static final long RELEASE_DURATION_MS = 200;
 
-    /** The duration of the hint fading in when a followed swipe is recognized. */
-    static final long HINT_FADE_IN_MS = 120;
-
-    /* The toolbar is always black: TermuxPP's lavender on a dark plum pill. */
-    private static final int HINT_SCRIM_COLOR = 0x8C000000;
-    private static final int HINT_PILL_COLOR = 0xF0261E33;
-    private static final int HINT_ACCENT_COLOR = 0xFFD8B4FE;
-    private static final int HINT_PROGRESS_COLOR = 0x5CD8B4FE;
-    private static final int HINT_TEXT_COLOR = 0xFFFFFFFF;
-    private static final int HINT_ON_ACCENT_COLOR = 0xFF2A0F55;
+    /* The toolbar is always black: TermuxPP's palette. */
+    private static final int STRIP_IDLE_COLOR = 0xFF1E1A24;
+    private static final int STRIP_SWIPE_COLOR = 0xFF3B1D6A;
+    private static final int STRIP_LONG_COLOR = 0xFFD8B4FE;
+    private static final int TEXT_COLOR = 0xFFFFFFFF;
+    private static final int TEXT_ON_LONG_COLOR = 0xFF2A0F55;
 
     public interface Listener extends ExtraKeysSwipeDetector.Bindings {
 
@@ -80,27 +68,27 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
         void onSwipe(@NonNull Direction direction, boolean longSwipe);
 
         /**
-         * Whether a swipe has an action right now. Asked for each touch: if {@code false}, the
-         * swipe is not recognized at all, nothing is consumed and nothing is animated.
+         * Whether a swipe has an action right now. Asked for each touch: without one, the swipe is
+         * not recognized at all and nothing is consumed or drawn.
          */
         @Override
         default boolean hasSwipe(@NonNull Direction direction) {
             return true;
         }
 
-        /** Whether the direction has a long swipe right now, which makes the swipe followed. */
+        /** Whether the direction has a long swipe right now. */
         @Override
         default boolean hasLongSwipe(@NonNull Direction direction) {
             return false;
         }
 
-        /** The name of the action of a swipe for the hint, or {@code null} if it has none. */
+        /** The name of the action of a swipe for the strip, or {@code null} if it has none. */
         @Nullable
         default String getSwipeLabel(@NonNull Direction direction, boolean longSwipe) {
             return null;
         }
 
-        /** Whether the row may slide as feedback. The hint of a followed swipe is always shown. */
+        /** Whether the row may follow the finger. The strip is always shown. */
         default boolean isFeedbackEnabled() {
             return true;
         }
@@ -109,29 +97,26 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
     private final ExtraKeysSwipeDetector mSwipeDetector;
     private Listener mListener;
 
-    /** Set when a swipe was recognized for the running touch, which is then swallowed. */
+    /** Set when the running touch is a swipe, which then owns the touch. */
     private boolean mSwallowTouch;
 
     /** Set when the running touch started on the settled normal row, where the pager may not drag. */
     private boolean mPagingBlocked;
 
-    private ValueAnimator mFeedbackAnimator;
+    private ValueAnimator mReleaseAnimator;
 
-    /* The hint of a followed swipe. */
-    private final Paint mScrimPaint = new Paint();
-    private final Paint mPillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /* The strip of a followed swipe. */
+    private final Paint mStripPaint = new Paint();
     private final Paint mLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mSubLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final RectF mPillRect = new RectF();
     private final float mDensity;
-    @Nullable private Direction mHintDirection;
-    @Nullable private String mHintLabel;
-    @Nullable private String mHintLongLabel;
-    private float mHintAlpha;
-    private float mHintProgress;
-    private boolean mHintLongReached;
-    private boolean mHintCalledOff;
-    private ValueAnimator mHintFadeInAnimator;
+    @Nullable private Direction mStripDirection;
+    @Nullable private String mSwipeLabel;
+    @Nullable private String mLongLabel;
+    /** How wide the uncovered strip is, in px. */
+    private float mStripWidth;
+    @NonNull private Result mStripPending = Result.NONE;
+    private float mStripAlpha = 1f;
 
     public ExtraKeysSwipeViewPager(@NonNull Context context) {
         this(context, null);
@@ -141,22 +126,35 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
         super(context, attrs);
         mDensity = context.getResources().getDisplayMetrics().density;
         int touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
-        float minDistance = Math.max(MIN_SWIPE_DISTANCE_DP * mDensity, 3f * touchSlop);
-        mSwipeDetector = new ExtraKeysSwipeDetector(minDistance,
-            Math.max(LONG_SWIPE_DISTANCE_DP * mDensity, 2.5f * minDistance), touchSlop);
+        float minDistance = MIN_SWIPE_DP * mDensity;
+        mSwipeDetector = new ExtraKeysSwipeDetector(DRAG_START_DP * mDensity, minDistance, 2 * minDistance, touchSlop);
 
-        mScrimPaint.setColor(HINT_SCRIM_COLOR);
         mLabelPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
         mLabelPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14,
             context.getResources().getDisplayMetrics()));
-        mLabelPaint.setTextAlign(Paint.Align.CENTER);
         mSubLabelPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 11,
             context.getResources().getDisplayMetrics()));
-        mSubLabelPaint.setTextAlign(Paint.Align.CENTER);
     }
 
     public void setListener(@Nullable Listener listener) {
         mListener = listener;
+    }
+
+    @Override
+    protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
+        super.onSizeChanged(width, height, oldWidth, oldHeight);
+        float minDistance = Math.max(MIN_SWIPE_DP * mDensity, SWIPE_FRACTION * width);
+        mSwipeDetector.setDistances(minDistance, Math.max(2 * minDistance, LONG_SWIPE_FRACTION * width));
+    }
+
+    /** The swipe distance in px, for tests. */
+    float getSwipeDistance() {
+        return mSwipeDetector.getMinDistance();
+    }
+
+    /** The long swipe distance in px, for tests. */
+    float getLongSwipeDistance() {
+        return mSwipeDetector.getLongDistance();
     }
 
     private boolean isOnSettledNormalRow() {
@@ -182,7 +180,13 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
                     return true;
                 }
                 if (mSwallowTouch) return true;
-                if (handleResult(mSwipeDetector.onMove(event.getX(), event.getY()), event)) return true;
+                if (mSwipeDetector.onMove(event.getX(), event.getY()) == Result.RECOGNIZED
+                    && getCurrentItem() == 0) {
+                    mSwallowTouch = true;
+                    cancelTouchOfChildren(event);
+                    startFollow();
+                    return true;
+                }
                 break;
 
             case MotionEvent.ACTION_UP:
@@ -190,19 +194,11 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
                     finishFollow(mSwipeDetector.onUp(event.getX(), event.getY()));
                     return true;
                 }
+                mSwipeDetector.onUp(event.getX(), event.getY());
                 if (mSwallowTouch) return true;
-                if (handleResult(mSwipeDetector.onUp(event.getX(), event.getY()), event)) return true;
                 break;
 
             case MotionEvent.ACTION_POINTER_DOWN:
-                if (mSwipeDetector.isFollowing()) {
-                    mSwipeDetector.cancel();
-                    finishFollow(Result.NONE);
-                    return true;
-                }
-                mSwipeDetector.cancel();
-                break;
-
             case MotionEvent.ACTION_CANCEL:
                 if (mSwipeDetector.isFollowing()) {
                     mSwipeDetector.cancel();
@@ -218,23 +214,6 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
                 break;
         }
         return super.dispatchTouchEvent(event);
-    }
-
-    /** @return Whether the event was taken by the swipe. */
-    private boolean handleResult(@NonNull Result result, @NonNull MotionEvent event) {
-        if (result == Result.NONE || getCurrentItem() != 0) return false;
-        mSwallowTouch = true;
-        cancelTouchOfChildren(event);
-        Direction direction = mSwipeDetector.getDirection();
-        if (direction == null) return true;
-
-        if (result == Result.RECOGNIZED) {
-            startFollow(direction);
-        } else if (mListener != null) {
-            if (mListener.isFeedbackEnabled()) startSwipeFeedback(direction);
-            mListener.onSwipe(direction, result == Result.LONG_SWIPE);
-        }
-        return true;
     }
 
     /** No drag of the pager from the normal row: both directions are swipes there. */
@@ -265,82 +244,53 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
 
     /* The followed swipe. */
 
-    private void startFollow(@NonNull Direction direction) {
-        stopSwipeFeedback();
-        mHintDirection = direction;
-        mHintLabel = mListener == null ? null : mListener.getSwipeLabel(direction, false);
-        mHintLongLabel = mListener == null ? null : mListener.getSwipeLabel(direction, true);
-        mHintLongReached = false;
-        mHintCalledOff = false;
-        mHintProgress = 0f;
-
-        if (areSystemAnimationsEnabled()) {
-            final ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-            animator.setDuration(HINT_FADE_IN_MS);
-            animator.setInterpolator(new DecelerateInterpolator());
-            animator.addUpdateListener(a -> {
-                mHintAlpha = (float) a.getAnimatedValue();
-                invalidate();
-            });
-            mHintFadeInAnimator = animator;
-            animator.start();
-        } else {
-            mHintAlpha = 1f;
-        }
+    private void startFollow() {
+        stopRelease();
+        Direction direction = mSwipeDetector.getDirection();
+        mStripDirection = direction;
+        mSwipeLabel = mListener == null || direction == null || !mSwipeDetector.hasSwipe()
+            ? null : mListener.getSwipeLabel(direction, false);
+        mLongLabel = mListener == null || direction == null || !mSwipeDetector.hasLongSwipe()
+            ? null : mListener.getSwipeLabel(direction, true);
+        mStripPending = Result.NONE;
+        mStripAlpha = 1f;
         updateFollow();
     }
 
     private void updateFollow() {
-        if (mHintDirection == null) return;
-        boolean longReached = mSwipeDetector.isLongReached();
-        if (longReached != mHintLongReached) {
-            mHintLongReached = longReached;
-            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        if (mStripDirection == null) return;
+        Result pending = mSwipeDetector.getPending();
+        if (pending != mStripPending) {
+            // A tick when releasing would now do something else.
+            if (pending != Result.NONE) performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+            mStripPending = pending;
         }
-        mHintCalledOff = mSwipeDetector.isCalledOff();
-        mHintProgress = mSwipeDetector.getLongProgress();
-
-        if (mListener != null && mListener.isFeedbackEnabled()) {
-            setPagesTranslationX(mHintDirection.sign() * followTranslation(mSwipeDetector.getDistance()));
-        }
+        mStripWidth = Math.max(0f, Math.min(getWidth(), mSwipeDetector.getDistance()));
+        float translation = mListener != null && mListener.isFeedbackEnabled() ? mStripWidth : 0f;
+        setPagesTranslationX(mStripDirection.sign() * translation);
         invalidate();
     }
 
-    /** How far the row follows a finger that is {@code distance} away: along at first, then less and less. */
-    private float followTranslation(float distance) {
-        if (distance <= 0) return 0f;
-        float peak = FOLLOW_PEAK_DP * mDensity;
-        return peak * (1f - (float) Math.exp(-distance / (2f * peak)));
-    }
-
     private void finishFollow(@NonNull Result result) {
-        final Direction direction = mHintDirection;
-        if (mHintFadeInAnimator != null) {
-            mHintFadeInAnimator.cancel();
-            mHintFadeInAnimator = null;
-        }
-        if (result == Result.LONG_SWIPE || result == Result.SWIPE) {
-            // Show what was taken while the hint fades out.
-            mHintLongReached = result == Result.LONG_SWIPE;
-            mHintCalledOff = false;
-        }
-        startReleaseAnimation();
+        Direction direction = mStripDirection;
+        mStripPending = result;
+        startRelease();
         if (direction != null && mListener != null && (result == Result.SWIPE || result == Result.LONG_SWIPE)) {
             mListener.onSwipe(direction, result == Result.LONG_SWIPE);
         }
     }
 
-    /** Lets the row snap back and the hint fade out, from wherever they are. */
-    private void startReleaseAnimation() {
-        ValueAnimator previous = mFeedbackAnimator;
-        mFeedbackAnimator = null;
+    /** Lets the row snap back and the strip close with it, from wherever they are. */
+    private void startRelease() {
+        ValueAnimator previous = mReleaseAnimator;
+        mReleaseAnimator = null;
         if (previous != null) previous.cancel();
 
         View page = currentPage();
         final float startTranslation = page == null ? 0f : page.getTranslationX();
-        final float startAlpha = mHintAlpha;
+        final float startStrip = mStripWidth;
         if (!areSystemAnimationsEnabled()) {
-            clearHint();
+            clearStrip();
             setPagesTranslationX(0f);
             return;
         }
@@ -351,157 +301,119 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
         animator.addUpdateListener(a -> {
             float remaining = (float) a.getAnimatedValue();
             setPagesTranslationX(startTranslation * remaining);
-            mHintAlpha = startAlpha * remaining;
+            mStripWidth = startStrip * remaining;
+            mStripAlpha = remaining;
             invalidate();
         });
         animator.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator a) {
-                if (mFeedbackAnimator == animator) {
-                    mFeedbackAnimator = null;
-                    clearHint();
+                if (mReleaseAnimator == animator) {
+                    mReleaseAnimator = null;
+                    clearStrip();
                     setPagesTranslationX(0f);
                 }
             }
         });
-        mFeedbackAnimator = animator;
+        mReleaseAnimator = animator;
         animator.start();
     }
 
-    private void clearHint() {
-        mHintDirection = null;
-        mHintLabel = null;
-        mHintLongLabel = null;
-        mHintAlpha = 0f;
-        mHintProgress = 0f;
-        mHintLongReached = false;
-        mHintCalledOff = false;
+    private void stopRelease() {
+        ValueAnimator animator = mReleaseAnimator;
+        mReleaseAnimator = null;
+        if (animator != null) animator.cancel();
+        clearStrip();
+        setPagesTranslationX(0f);
+    }
+
+    private void clearStrip() {
+        mStripDirection = null;
+        mSwipeLabel = null;
+        mLongLabel = null;
+        mStripWidth = 0f;
+        mStripPending = Result.NONE;
+        mStripAlpha = 1f;
         invalidate();
     }
 
     @Override
     protected void dispatchDraw(Canvas canvas) {
         super.dispatchDraw(canvas);
-        if (mHintDirection != null && mHintAlpha > 0f) drawHint(canvas);
+        if (mStripDirection != null && mStripWidth > 0f) drawStrip(canvas);
     }
 
     /**
-     * A scrim over the row and a pill in its middle that names the action that releasing runs:
-     * the swipe's, filling up toward the long swipe, then the long swipe's in the accent color.
+     * The strip the row uncovers, at the edge the finger comes from: its color and label tell what
+     * releasing runs. The label is anchored at that edge and revealed as the row moves.
      */
-    private void drawHint(@NonNull Canvas canvas) {
-        final Direction direction = mHintDirection;
+    private void drawStrip(@NonNull Canvas canvas) {
+        final Direction direction = mStripDirection;
         if (direction == null) return;
-        final int alpha = Math.round(255 * Math.max(0f, Math.min(1f, mHintAlpha)));
         final float left = getScrollX();
         final float width = getWidth();
         final float height = getHeight();
+        final boolean fromLeft = direction == Direction.LEFT;
+        final float stripLeft = fromLeft ? left : left + width - mStripWidth;
+        final float stripRight = fromLeft ? left + mStripWidth : left + width;
+        final int alpha = Math.round(255 * Math.max(0f, Math.min(1f, mStripAlpha)));
 
-        mScrimPaint.setAlpha(Math.round(Color.alpha(HINT_SCRIM_COLOR) * alpha / 255f));
-        canvas.drawRect(left, 0, left + width, height, mScrimPaint);
-
-        final boolean longReached = mHintLongReached;
-        final boolean calledOff = mHintCalledOff;
-        String label = calledOff ? "Cancel" : longReached ? mHintLongLabel : mHintLabel;
-        if (label == null) label = longReached ? "" : "Keep going";
-        final String arrow = longReached ? "»" : "›";
-        final String text = calledOff ? label
-            : direction == Direction.LEFT ? label + "  " + arrow : arrowFor(arrow) + "  " + label;
-        // Tell what lies further, while it is not reached yet.
-        final String subText = !calledOff && !longReached && mHintLongLabel != null
-            ? "further: " + mHintLongLabel : null;
-
-        final float padH = 16 * mDensity;
-        final float padV = 6 * mDensity;
-        final float gap = 2 * mDensity;
-        final Paint.FontMetrics labelMetrics = mLabelPaint.getFontMetrics();
-        final Paint.FontMetrics subMetrics = mSubLabelPaint.getFontMetrics();
-        final float labelHeight = labelMetrics.descent - labelMetrics.ascent;
-        final float subHeight = subMetrics.descent - subMetrics.ascent;
-        final boolean showSub = subText != null && labelHeight + gap + subHeight + 2 * padV <= height - 4 * mDensity;
-        final float contentHeight = labelHeight + (showSub ? gap + subHeight : 0);
-        float contentWidth = mLabelPaint.measureText(text);
-        if (showSub) contentWidth = Math.max(contentWidth, mSubLabelPaint.measureText(subText));
-
-        final float pillWidth = Math.min(width - 16 * mDensity, contentWidth + 2 * padH);
-        final float pillHeight = Math.min(height - 4 * mDensity, contentHeight + 2 * padV);
-        final float cx = left + width / 2f;
-        final float cy = height / 2f;
-        mPillRect.set(cx - pillWidth / 2f, cy - pillHeight / 2f, cx + pillWidth / 2f, cy + pillHeight / 2f);
-        final float radius = pillHeight / 2f;
-
-        // The pill, then its fill toward the long swipe from the side the finger comes from.
-        mPillPaint.setColor(longReached ? HINT_ACCENT_COLOR : HINT_PILL_COLOR);
-        mPillPaint.setAlpha(Math.round(Color.alpha(mPillPaint.getColor()) * alpha / 255f));
-        canvas.drawRoundRect(mPillRect, radius, radius, mPillPaint);
-        if (!longReached && !calledOff && mHintLongLabel != null && mHintProgress > 0f) {
-            canvas.save();
-            float fill = pillWidth * mHintProgress;
-            if (direction == Direction.LEFT)
-                canvas.clipRect(mPillRect.left, mPillRect.top, mPillRect.left + fill, mPillRect.bottom);
-            else
-                canvas.clipRect(mPillRect.right - fill, mPillRect.top, mPillRect.right, mPillRect.bottom);
-            mPillPaint.setColor(HINT_PROGRESS_COLOR);
-            mPillPaint.setAlpha(Math.round(Color.alpha(HINT_PROGRESS_COLOR) * alpha / 255f));
-            canvas.drawRoundRect(mPillRect, radius, radius, mPillPaint);
-            canvas.restore();
+        final Result pending = mStripPending;
+        final int color;
+        final int textColor;
+        final String label;
+        final float labelOpacity;
+        if (pending == Result.LONG_SWIPE) {
+            color = STRIP_LONG_COLOR;
+            textColor = TEXT_ON_LONG_COLOR;
+            label = mLongLabel;
+            labelOpacity = 1f;
+        } else if (pending == Result.SWIPE) {
+            color = STRIP_SWIPE_COLOR;
+            textColor = TEXT_COLOR;
+            label = mSwipeLabel;
+            labelOpacity = 1f;
+        } else {
+            // Not far enough yet: what the swipe would do, dimmed.
+            color = STRIP_IDLE_COLOR;
+            textColor = TEXT_COLOR;
+            label = mSwipeLabel != null ? mSwipeLabel : mLongLabel;
+            labelOpacity = 0.55f;
         }
 
-        final int textColor = longReached ? HINT_ON_ACCENT_COLOR : HINT_TEXT_COLOR;
-        mLabelPaint.setColor(textColor);
-        mLabelPaint.setAlpha(Math.round((calledOff ? 0.6f : 1f) * alpha));
-        float baseline = cy - contentHeight / 2f - labelMetrics.ascent;
-        canvas.drawText(text, cx, baseline, mLabelPaint);
-        if (showSub) {
-            mSubLabelPaint.setColor(HINT_TEXT_COLOR);
-            mSubLabelPaint.setAlpha(Math.round(0.7f * alpha));
-            canvas.drawText(subText, cx, baseline + labelMetrics.descent + gap - subMetrics.ascent, mSubLabelPaint);
-        }
-    }
+        canvas.save();
+        canvas.clipRect(stripLeft, 0, stripRight, height);
+        mStripPaint.setColor(color);
+        mStripPaint.setAlpha(Math.round(alpha * (Color.alpha(color) / 255f)));
+        canvas.drawRect(stripLeft, 0, stripRight, height, mStripPaint);
 
-    private static String arrowFor(String arrow) {
-        return "»".equals(arrow) ? "«" : "‹";
-    }
+        if (label != null) {
+            final String arrow = pending == Result.LONG_SWIPE ? "»" : "›";
+            final String text = fromLeft ? label + " " + arrow : (arrow.equals("»") ? "«" : "‹") + " " + label;
+            // What lies further, while the swipe is armed and the long swipe not reached yet.
+            final String sub = pending == Result.SWIPE && mLongLabel != null ? "further: " + mLongLabel : null;
+            final float pad = 16 * mDensity;
+            final Paint.FontMetrics labelMetrics = mLabelPaint.getFontMetrics();
+            final Paint.FontMetrics subMetrics = mSubLabelPaint.getFontMetrics();
+            final float labelHeight = labelMetrics.descent - labelMetrics.ascent;
+            final float subHeight = subMetrics.descent - subMetrics.ascent;
+            final boolean showSub = sub != null && labelHeight + subHeight + 2 * mDensity <= height - 4 * mDensity;
+            final float contentHeight = labelHeight + (showSub ? 2 * mDensity + subHeight : 0);
+            final float baseline = height / 2f - contentHeight / 2f - labelMetrics.ascent;
 
-
-
-    /* The feedback of an immediate swipe. */
-
-    /**
-     * Lets the row slide a little in the direction of the swipe and snap back, as feedback that
-     * the swipe was taken. Skipped when the system animations are turned off. It always ends on
-     * the rest position, also when cancelled by the next swipe or by the view going away.
-     */
-    private void startSwipeFeedback(@NonNull Direction direction) {
-        stopSwipeFeedback();
-        if (!areSystemAnimationsEnabled()) return;
-
-        final float peak = direction.sign() * FEEDBACK_PEAK_DP * mDensity;
-        final ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-        animator.setDuration(FEEDBACK_DURATION_MS);
-        animator.addUpdateListener(a ->
-            setPagesTranslationX(peak * (float) Math.sin(Math.PI * (float) a.getAnimatedValue())));
-        animator.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator a) {
-                setPagesTranslationX(0f);
-                if (mFeedbackAnimator == animator) mFeedbackAnimator = null;
+            mLabelPaint.setColor(textColor);
+            mLabelPaint.setAlpha(Math.round(alpha * labelOpacity));
+            mLabelPaint.setTextAlign(fromLeft ? Paint.Align.LEFT : Paint.Align.RIGHT);
+            final float x = fromLeft ? left + pad : left + width - pad;
+            canvas.drawText(text, x, baseline, mLabelPaint);
+            if (showSub) {
+                mSubLabelPaint.setColor(textColor);
+                mSubLabelPaint.setAlpha(Math.round(alpha * 0.7f));
+                mSubLabelPaint.setTextAlign(fromLeft ? Paint.Align.LEFT : Paint.Align.RIGHT);
+                canvas.drawText(sub, x, baseline + labelMetrics.descent + 2 * mDensity - subMetrics.ascent, mSubLabelPaint);
             }
-        });
-        mFeedbackAnimator = animator;
-        animator.start();
-    }
-
-    private void stopSwipeFeedback() {
-        ValueAnimator animator = mFeedbackAnimator;
-        mFeedbackAnimator = null;
-        if (animator != null) animator.cancel(); // ends on the rest position
-        if (mHintFadeInAnimator != null) {
-            mHintFadeInAnimator.cancel();
-            mHintFadeInAnimator = null;
         }
-        clearHint();
-        setPagesTranslationX(0f);
+        canvas.restore();
     }
 
     /**
@@ -532,30 +444,26 @@ public class ExtraKeysSwipeViewPager extends ViewPager {
             Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f;
     }
 
-    /** The running feedback animation or null, for tests. */
-    ValueAnimator getSwipeFeedbackAnimator() {
-        return mFeedbackAnimator;
+    /** The running snap back or null, for tests. */
+    ValueAnimator getReleaseAnimator() {
+        return mReleaseAnimator;
     }
 
-    /** Whether the feedback is running, for tests. */
-    boolean isSwipeFeedbackRunning() {
-        return mFeedbackAnimator != null;
+    /** Whether the strip of a swipe is shown, for tests. */
+    boolean isStripShown() {
+        return mStripDirection != null;
     }
 
-    /** Whether the hint of a followed swipe is shown, for tests. */
-    boolean isHintShown() {
-        return mHintDirection != null;
-    }
-
-    /** Whether the hint shows the long swipe as reached, for tests. */
-    boolean isHintLongReached() {
-        return mHintLongReached;
+    /** What releasing now would do, for tests. */
+    @NonNull
+    Result getStripPending() {
+        return mStripPending;
     }
 
     @Override
     protected void onDetachedFromWindow() {
         mSwipeDetector.cancel();
-        stopSwipeFeedback();
+        stopRelease();
         super.onDetachedFromWindow();
     }
 

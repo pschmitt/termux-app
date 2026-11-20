@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(RobolectricTestRunner.class)
@@ -108,16 +109,56 @@ public class ExtraKeysSwipeViewPagerTest {
         }
     }
 
+    private float swipe() {
+        return mPager.getSwipeDistance();
+    }
+
+    private float longSwipe() {
+        return mPager.getLongSwipeDistance();
+    }
+
+    /** Drag from fromX to toX and release there. */
+    private void drag(float fromX, float toX) {
+        send(MotionEvent.ACTION_DOWN, fromX, 75);
+        send(MotionEvent.ACTION_MOVE, fromX + Math.signum(toX - fromX) * 30, 75);
+        send(MotionEvent.ACTION_MOVE, toX, 75);
+        send(MotionEvent.ACTION_UP, toX, 75);
+    }
+
+    private void useLongSwipes() {
+        mPager.setListener(new ExtraKeysSwipeViewPager.Listener() {
+            @Override public boolean hasLongSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction) { return true; }
+            @Override public String getSwipeLabel(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) {
+                return longSwipe ? "New session" : "Next session";
+            }
+            @Override public void onSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) {
+                mSwipes++;
+                mEvents.add((longSwipe ? "long-" : "") + direction.name().toLowerCase(java.util.Locale.ROOT));
+            }
+        });
+    }
+
+    private void assertRestingAtZero() {
+        for (int i = 0; i < mPager.getChildCount(); i++)
+            assertEquals(0f, mPager.getChildAt(i).getTranslationX(), 0f);
+    }
+
     @Test
-    public void swipeAwayFromTheTextInputIsRecognizedOnceAndCancelsTheKey() {
+    public void distancesScaleWithTheRow() {
+        // 1000 px wide at density 1: a fifth of the row, and half of it.
+        assertEquals(200f, swipe(), 0.5f);
+        assertEquals(500f, longSwipe(), 0.5f);
+    }
+
+    @Test
+    public void swipeRunsOnReleaseAndCancelsTheKey() {
         send(MotionEvent.ACTION_DOWN, 100, 75);
-        send(MotionEvent.ACTION_MOVE, 120, 76);
-        assertEquals(0, mSwipes);
-        send(MotionEvent.ACTION_MOVE, 400, 78);
-        assertEquals(1, mSwipes);
-        send(MotionEvent.ACTION_MOVE, 600, 78);
-        send(MotionEvent.ACTION_UP, 600, 78);
-        assertEquals(1, mSwipes);
+        send(MotionEvent.ACTION_MOVE, 130, 76);
+        send(MotionEvent.ACTION_MOVE, 100 + swipe() + 10, 78);
+        assertEquals("nothing runs before the release", 0, mSwipes);
+        assertTrue("the row follows the finger", mAdapter.views[0].getTranslationX() > 0f);
+        send(MotionEvent.ACTION_UP, 100 + swipe() + 10, 78);
+        assertEquals(List.of("left"), mEvents);
 
         // The key saw the press and then a cancel, never a release, so it presses nothing.
         List<Integer> seen = mAdapter.views[0].actions;
@@ -128,7 +169,21 @@ public class ExtraKeysSwipeViewPagerTest {
     }
 
     @Test
-    public void tapAndShortDragAreLeftToTheKey() {
+    public void rightSwipeDoesNotPageToTheTextInput() {
+        drag(900, 900 - swipe() - 10);
+        assertEquals(List.of("right"), mEvents);
+        ShadowLooper.idleMainLooper(500, TimeUnit.MILLISECONDS);
+        assertEquals(0, mPager.getCurrentItem());
+    }
+
+    @Test
+    public void tooShortASwipeIsCalledOff() {
+        drag(100, 100 + swipe() - 20);
+        assertEquals(0, mSwipes);
+    }
+
+    @Test
+    public void tapIsLeftToTheKey() {
         send(MotionEvent.ACTION_DOWN, 100, 75);
         send(MotionEvent.ACTION_UP, 100, 75);
         assertEquals(0, mSwipes);
@@ -147,216 +202,92 @@ public class ExtraKeysSwipeViewPagerTest {
     }
 
     @Test
-    public void swipeTowardTheTextInputIsARightSwipeAndDoesNotPage() {
-        send(MotionEvent.ACTION_DOWN, 800, 75);
-        send(MotionEvent.ACTION_MOVE, 780, 75);
-        send(MotionEvent.ACTION_MOVE, 500, 75);
-        send(MotionEvent.ACTION_UP, 500, 75);
-        assertEquals(List.of("right"), mEvents);
-        ShadowLooper.idleMainLooper(500, TimeUnit.MILLISECONDS);
-        assertEquals(0, mPager.getCurrentItem());
+    public void noSwipeOnTheTextInputPage() {
+        mPager.setCurrentItem(1, false);
+        layout();
+        drag(100, 100 + longSwipe());
+        assertEquals(0, mSwipes);
     }
 
     @Test
-    public void withoutAnActionTowardTheTextInputThePagerStillDoesNotPage() {
+    public void withoutAnActionTheTouchIsLeftAlone() {
         mPager.setListener(new ExtraKeysSwipeViewPager.Listener() {
             @Override public boolean hasSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction) { return false; }
             @Override public void onSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) { mSwipes++; }
         });
-        send(MotionEvent.ACTION_DOWN, 800, 75);
-        for (int x = 780; x >= 100; x -= 40) send(MotionEvent.ACTION_MOVE, x, 75);
-        send(MotionEvent.ACTION_UP, 100, 75);
+        drag(800, 100);
         ShadowLooper.idleMainLooper(500, TimeUnit.MILLISECONDS);
         assertEquals(0, mSwipes);
+        assertFalse(mPager.isStripShown());
         assertEquals(0, mPager.getCurrentItem());
-    }
-
-    private void useLongSwipes() {
-        mPager.setListener(new ExtraKeysSwipeViewPager.Listener() {
-            @Override public boolean hasLongSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction) { return true; }
-            @Override public String getSwipeLabel(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) {
-                return longSwipe ? "New session" : "Next session";
-            }
-            @Override public void onSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) {
-                mSwipes++;
-                mEvents.add((longSwipe ? "long-" : "") + direction.name().toLowerCase(java.util.Locale.ROOT));
-            }
-        });
+        assertEquals(MotionEvent.ACTION_DOWN, (int) mAdapter.views[0].actions.get(0));
     }
 
     @Test
-    public void longSwipeIsFollowedWithAHintAndRunsOnRelease() {
+    public void theStripTellsWhatReleasingRuns() {
         useLongSwipes();
-        float density = mPager.getResources().getDisplayMetrics().density;
-        float longDistance = ExtraKeysSwipeViewPager.LONG_SWIPE_DISTANCE_DP * density;
         send(MotionEvent.ACTION_DOWN, 50, 75);
-        send(MotionEvent.ACTION_MOVE, 70, 75);
-        send(MotionEvent.ACTION_MOVE, 50 + ExtraKeysSwipeViewPager.MIN_SWIPE_DISTANCE_DP * density + 10, 75);
-        assertTrue(mPager.isHintShown());
-        assertFalse(mPager.isHintLongReached());
-        assertEquals("nothing runs before the release", 0, mSwipes);
-        assertTrue("the row follows the finger", mPager.getChildAt(0).getTranslationX() > 0f);
-
-        send(MotionEvent.ACTION_MOVE, 50 + longDistance + 10, 75);
-        assertTrue(mPager.isHintLongReached());
-        send(MotionEvent.ACTION_UP, 50 + longDistance + 10, 75);
+        send(MotionEvent.ACTION_MOVE, 80, 75);
+        assertTrue(mPager.isStripShown());
+        assertSame(ExtraKeysSwipeDetector.Result.NONE, mPager.getStripPending());
+        send(MotionEvent.ACTION_MOVE, 50 + swipe() + 10, 75);
+        assertSame(ExtraKeysSwipeDetector.Result.SWIPE, mPager.getStripPending());
+        send(MotionEvent.ACTION_MOVE, 50 + longSwipe() + 10, 75);
+        assertSame(ExtraKeysSwipeDetector.Result.LONG_SWIPE, mPager.getStripPending());
+        assertEquals("the row follows the finger one to one",
+            longSwipe() + 10, mAdapter.views[0].getTranslationX(), 1f);
+        send(MotionEvent.ACTION_UP, 50 + longSwipe() + 10, 75);
         assertEquals(List.of("long-left"), mEvents);
-
-        // The key was cancelled, never released.
-        assertFalse(mAdapter.views[0].actions.contains(MotionEvent.ACTION_UP));
-        mPager.getSwipeFeedbackAnimator().end();
-        assertFalse(mPager.isHintShown());
-        assertRestingAtZero();
     }
 
     @Test
     public void onlyTheShownRowSlidesNotTheTextInput() {
         useLongSwipes();
-        float density = mPager.getResources().getDisplayMetrics().density;
-        float x = 900 - ExtraKeysSwipeViewPager.MIN_SWIPE_DISTANCE_DP * density - 30;
         send(MotionEvent.ACTION_DOWN, 900, 75);
-        send(MotionEvent.ACTION_MOVE, 880, 75);
-        send(MotionEvent.ACTION_MOVE, x, 75);
+        send(MotionEvent.ACTION_MOVE, 870, 75);
+        send(MotionEvent.ACTION_MOVE, 900 - swipe() - 30, 75);
         assertTrue("the row follows the finger to the left", mAdapter.views[0].getTranslationX() < 0f);
         assertEquals("the text input page stays off screen", 0f, mAdapter.views[1].getTranslationX(), 0f);
-        send(MotionEvent.ACTION_UP, x, 75);
-    }
-
-    @Test
-    public void shortReleaseOfAFollowedSwipeRunsTheNormalSwipe() {
-        useLongSwipes();
-        float density = mPager.getResources().getDisplayMetrics().density;
-        float x = 900 - ExtraKeysSwipeViewPager.MIN_SWIPE_DISTANCE_DP * density - 10;
-        send(MotionEvent.ACTION_DOWN, 900, 75);
-        send(MotionEvent.ACTION_MOVE, 880, 75);
-        send(MotionEvent.ACTION_MOVE, x, 75);
-        send(MotionEvent.ACTION_UP, x, 75);
+        send(MotionEvent.ACTION_UP, 900 - swipe() - 30, 75);
         assertEquals(List.of("right"), mEvents);
     }
 
     @Test
-    public void followedSwipeBroughtBackOrCancelledRunsNothing() {
-        useLongSwipes();
-        float density = mPager.getResources().getDisplayMetrics().density;
-        float x = 50 + ExtraKeysSwipeViewPager.MIN_SWIPE_DISTANCE_DP * density + 10;
-        send(MotionEvent.ACTION_DOWN, 50, 75);
-        send(MotionEvent.ACTION_MOVE, 70, 75);
-        send(MotionEvent.ACTION_MOVE, x, 75);
-        send(MotionEvent.ACTION_MOVE, 55, 75);
-        send(MotionEvent.ACTION_UP, 55, 75);
-
-        send(MotionEvent.ACTION_DOWN, 50, 75);
-        send(MotionEvent.ACTION_MOVE, 70, 75);
-        send(MotionEvent.ACTION_MOVE, x, 75);
-        send(MotionEvent.ACTION_CANCEL, x, 75);
-        assertEquals(0, mSwipes);
-    }
-
-    @Test
-    public void swipeIsNotRecognizedOnTheTextInputPage() {
-        mPager.setCurrentItem(1, false);
-        layout();
-        send(MotionEvent.ACTION_DOWN, 100, 75);
-        send(MotionEvent.ACTION_MOVE, 400, 75);
-        send(MotionEvent.ACTION_UP, 400, 75);
-        assertEquals(0, mSwipes);
-    }
-
-    @Test
-    public void nothingIsSwallowedWithoutAListener() {
-        mPager.setListener(null);
-        send(MotionEvent.ACTION_DOWN, 100, 75);
-        send(MotionEvent.ACTION_MOVE, 400, 75);
-        send(MotionEvent.ACTION_UP, 400, 75);
-        assertEquals(0, mSwipes);
-        // The stock ViewPager may cancel the key itself for a drag; what matters is that it stays on page 0.
-        assertEquals(0, mPager.getCurrentItem());
-    }
-
-    private void swipe(float fromX, float toX) {
-        send(MotionEvent.ACTION_DOWN, fromX, 75);
-        send(MotionEvent.ACTION_MOVE, fromX + 30, 75);
-        send(MotionEvent.ACTION_MOVE, toX, 75);
-        send(MotionEvent.ACTION_UP, toX, 75);
-    }
-
-    /** Advances the clock in frame sized steps, so the animator gets frames spread over its duration. */
-    private void advance(long millis) {
-        for (long t = 0; t < millis; t += 16) ShadowLooper.idleMainLooper(16, TimeUnit.MILLISECONDS);
-    }
-
-    private void assertRestingAtZero() {
-        for (int i = 0; i < mPager.getChildCount(); i++)
-            assertEquals(0f, mPager.getChildAt(i).getTranslationX(), 0f);
-    }
-
-    @Test
-    public void recognizedSwipeSlidesTheRowAndEndsAtRest() {
-        swipe(100, 400);
-        assertEquals(1, mSwipes);
-        assertTrue(mPager.isSwipeFeedbackRunning());
-
-        // Seek instead of waiting: Robolectric's frame clock does not pace animators reliably.
-        android.animation.ValueAnimator animator = mPager.getSwipeFeedbackAnimator();
-        animator.setCurrentPlayTime(ExtraKeysSwipeViewPager.FEEDBACK_DURATION_MS / 2);
-        assertTrue("the row moved to the right", mPager.getChildAt(0).getTranslationX() > 0f);
+    public void releaseSnapsBackToRest() {
+        drag(100, 100 + swipe() + 10);
+        android.animation.ValueAnimator animator = mPager.getReleaseAnimator();
+        assertTrue("snapping back", animator != null);
         animator.end();
-        advance(500);
-        assertFalse(mPager.isSwipeFeedbackRunning());
+        assertFalse(mPager.isStripShown());
         assertRestingAtZero();
     }
 
     @Test
-    public void repeatedSwipesDoNotLeaveTheRowDisplaced() {
-        swipe(100, 400);
-        advance(60);
-        swipe(100, 400);
-        assertEquals(2, mSwipes);
-        advance(500);
-        assertFalse(mPager.isSwipeFeedbackRunning());
-        assertRestingAtZero();
-    }
-
-    @Test
-    public void goingAwayMidAnimationLeavesTheRowAtRest() {
-        swipe(100, 400);
-        advance(60);
-        ((ViewGroup) mPager.getParent()).removeView(mPager);
-        assertFalse(mPager.isSwipeFeedbackRunning());
-        assertRestingAtZero();
-    }
-
-    @Test
-    public void noAnimationWhenTheSystemAnimationsAreOff() {
-        Settings.Global.putFloat(mPager.getContext().getContentResolver(), Settings.Global.ANIMATOR_DURATION_SCALE, 0f);
-        swipe(100, 400);
-        assertEquals("the action still runs", 1, mSwipes);
-        assertFalse(mPager.isSwipeFeedbackRunning());
-        assertRestingAtZero();
-    }
-
-    @Test
-    public void withoutAnActionTheSwipeIsNotRecognizedAnimatedOrConsumed() {
-        mPager.setListener(new ExtraKeysSwipeViewPager.Listener() {
-            @Override public boolean hasSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction) { return false; }
-            @Override public void onSwipe(@NonNull ExtraKeysSwipeDetector.Direction direction, boolean longSwipe) { mSwipes++; }
-        });
-        swipe(100, 400);
+    public void cancelOrSecondFingerCallsTheSwipeOff() {
+        send(MotionEvent.ACTION_DOWN, 100, 75);
+        send(MotionEvent.ACTION_MOVE, 130, 75);
+        send(MotionEvent.ACTION_MOVE, 100 + swipe() + 10, 75);
+        send(MotionEvent.ACTION_CANCEL, 100 + swipe() + 10, 75);
         assertEquals(0, mSwipes);
-        assertFalse(mPager.isSwipeFeedbackRunning());
-        assertRestingAtZero();
-        // The key got the touch like with a stock pager: it was pressed and not cancelled by us at the start.
-        assertEquals(MotionEvent.ACTION_DOWN, (int) mAdapter.views[0].actions.get(0));
     }
 
     @Test
-    public void eachTouchIsRecognizedOnItsOwn() {
-        for (int i = 0; i < 2; i++) {
-            send(MotionEvent.ACTION_DOWN, 100, 75);
-            send(MotionEvent.ACTION_MOVE, 400, 75);
-            send(MotionEvent.ACTION_UP, 400, 75);
-        }
-        assertEquals(2, mSwipes);
+    public void withoutSystemAnimationsTheRowIsAtRestAtOnce() {
+        Settings.Global.putFloat(mPager.getContext().getContentResolver(), Settings.Global.ANIMATOR_DURATION_SCALE, 0f);
+        drag(100, 100 + swipe() + 10);
+        assertEquals("the action still runs", 1, mSwipes);
+        assertFalse(mPager.isStripShown());
+        assertRestingAtZero();
+    }
+
+    @Test
+    public void goingAwayMidSwipeLeavesTheRowAtRest() {
+        send(MotionEvent.ACTION_DOWN, 100, 75);
+        send(MotionEvent.ACTION_MOVE, 130, 75);
+        send(MotionEvent.ACTION_MOVE, 100 + swipe(), 75);
+        ((ViewGroup) mPager.getParent()).removeView(mPager);
+        assertFalse(mPager.isStripShown());
+        assertRestingAtZero();
     }
 
 }

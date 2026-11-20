@@ -239,43 +239,25 @@ named after the toolbar page the swipe would go to: the text input is the page t
 | `extra-keys-swipe-left-action` | left to right | `none` |
 | `extra-keys-swipe-right-action` | right to left | `next-session` |
 
-The swipe has to be at least 48 dp long and clearly more horizontal than vertical. Only the
-deliberate swipe over the normal row is consumed, and the keys under the finger are released
-without being pressed. Tapping, holding and repeating keys, the swipe-up popup and vertical
-scrolling of the row keep working.
-
-The toolbar no longer drags from the extra keys to the text input on its own. Opening the text
-input is the `toggle-text-input` action, which any gesture can run. To keep the upstream
-behavior:
-
-```properties
-extra-keys-swipe-right-action = toggle-text-input
-```
-
-Dragging back from the text input to the extra keys works as before.
-
-When a swipe is recognized, the row slides a little (up to 40 dp) in the direction of the finger
-and snaps back within about 0.2 seconds, as feedback that the swipe was taken. The animation is not
-shown when the system animations are turned off (animator duration scale 0). The action itself
-still runs then. With `none` the swipe in that direction is not recognized and the row behaves as
-if this feature did not exist.
+Swipes work like swipe actions on list items in Gmail or Todoist: once the finger has moved a
+little, clearly more horizontally than vertically, the row follows it, and the strip it uncovers at
+the edge the finger comes from shows what releasing runs. Release past the swipe distance (a fifth
+of the row's width, at least 64 dp) to run the action; release short of it, or move back, and
+nothing happens. The keys under the finger are released without being pressed. Tapping, holding
+and repeating keys, the swipe-up popup and vertical scrolling of the row keep working.
 
 ### Long swipes
 
 `extra-keys-long-swipe-left-action` and `extra-keys-long-swipe-right-action` add a second action to
-a direction. The action runs when the finger travels further, at least 140 dp. Both are unset by
-default. While a direction has a long swipe, its swipe is followed until the finger goes up, and
-the action is chosen on release:
+a direction, run by a swipe further than the long swipe distance: half of the row's width, and at
+least twice the swipe distance. Both are unset by default. The strip shows which action releasing
+runs:
 
-- When the swipe is recognized, the row follows the finger and a hint pill names the action that
-  releasing runs (for example `Next session ›`), with the long swipe's action below it
-  (`further: New session`).
-- The pill fills up on the way to the long swipe. When the long swipe is reached, the pill turns
-  to the accent color, names the long swipe's action (`New session »`) and the phone ticks.
-- Release past the long distance to run the long swipe, or before it to run the normal swipe.
-  Move back toward the start to call the swipe off: the pill shows `Cancel` and nothing runs.
+- dimmed, with the action's name: not far enough yet, releasing does nothing;
+- plum, with the swipe's action (and `further:` the long swipe's action below it);
+- lavender, with the long swipe's action, and a tick when it is reached.
 
-The hint is shown also when `gesture-animations` is off. Only the row stays still then. Example:
+The row only stays still when `gesture-animations` is off; the strip is shown either way. Example:
 
 ```properties
 # A long swipe with the finger moving left to right opens a new session
