@@ -40,11 +40,30 @@ pub fn validate_candidate(name: &str) -> Result<()> {
 /// A non-zero controller status is turned into an error carrying the
 /// controller's message.
 pub fn manage(socket: &Path, command: &str, candidate: Option<&str>) -> Result<Value> {
+    manage_with_backup(socket, command, candidate, None)
+}
+
+/// [`manage`], asking the controller to have Home Manager back up the existing
+/// files that block a `switch` (`<file>.<extension>`). The key is sent only
+/// when set, so a request without a backup is the same on the wire as ever.
+pub fn manage_with_backup(
+    socket: &Path,
+    command: &str,
+    candidate: Option<&str>,
+    backup: Option<&str>,
+) -> Result<Value> {
     let mut request = Map::new();
     request.insert("command".to_owned(), Value::String(command.to_owned()));
     if let Some(candidate) = candidate {
         validate_candidate(candidate)?;
         request.insert("candidate".to_owned(), Value::String(candidate.to_owned()));
+    }
+    if let Some(extension) = backup {
+        crate::controller::validate_backup_extension(extension)?;
+        request.insert(
+            "backupExtension".to_owned(),
+            Value::String(extension.to_owned()),
+        );
     }
     let mut stream = UnixStream::connect(socket).map_err(|error| {
         Error::invalid(format!(
@@ -77,12 +96,19 @@ pub fn manage(socket: &Path, command: &str, candidate: Option<&str>) -> Result<V
         .and_then(Value::as_i64)
         .ok_or_else(|| Error::invalid("invalid native controller status"))?;
     if status != 0 {
-        return Err(Error::invalid(
-            response.get("error").and_then(Value::as_str).map_or_else(
-                || format!("native controller failed with status {status}"),
-                str::to_owned,
-            ),
-        ));
+        let message = response.get("error").and_then(Value::as_str).map_or_else(
+            || format!("native controller failed with status {status}"),
+            str::to_owned,
+        );
+        // A controller started before --backup existed rejects the new key.
+        let message = if backup.is_some() && message == "invalid management request" {
+            format!(
+                "{message}: the running native controller predates --backup; restart TermuxPP or switch without it"
+            )
+        } else {
+            message
+        };
+        return Err(Error::invalid(message));
     }
     Ok(response)
 }
@@ -873,25 +899,62 @@ pub enum Stage {
 }
 
 /// Build, prepare (unless already retained) and switch to a system.
+#[allow(clippy::too_many_arguments)]
 pub fn rebuild(
     runtime: &Path,
     socket: &Path,
     flake: &str,
     host: &str,
     worker: Worker,
+    backup: Option<&str>,
     builder: &mut dyn Builder,
     on_stage: &mut dyn FnMut(Stage),
 ) -> Result<PathBuf> {
     on_stage(Stage::Build);
     let generation = build_system(flake, host, worker, builder)?;
-    activate_system(runtime, socket, &generation, on_stage)?;
+    activate_system(runtime, socket, &generation, backup, on_stage)?;
     Ok(generation)
+}
+
+/// The Home Manager backup extension the system configuration enables by
+/// default (`homeManagerBackupExtension` in the upgrade config), if any. A
+/// missing file or key means no backup.
+pub fn configured_backup_extension(config: &Path) -> Result<Option<String>> {
+    let data = match read_bounded(config, 4096) {
+        Ok(data) => data,
+        Err(_) if !config.exists() => return Ok(None),
+        Err(error) => {
+            return Err(Error::invalid(format!(
+                "cannot read {}: {error}",
+                config.display()
+            )));
+        }
+    };
+    let value: Value = serde_json::from_slice(&data)
+        .map_err(|error| Error::invalid(format!("invalid {}: {error}", config.display())))?;
+    match value.get("homeManagerBackupExtension") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(extension)) => {
+            crate::controller::validate_backup_extension(extension).map_err(|error| {
+                Error::invalid(format!(
+                    "{}: homeManagerBackupExtension: {error}",
+                    config.display()
+                ))
+            })?;
+            Ok(Some(extension.clone()))
+        }
+        Some(_) => Err(Error::invalid(format!(
+            "invalid {}: homeManagerBackupExtension must be a string",
+            config.display()
+        ))),
+    }
 }
 
 pub fn activate_system(
     runtime: &Path,
     socket: &Path,
     generation: &Path,
+    backup: Option<&str>,
     on_stage: &mut dyn FnMut(Stage),
 ) -> Result<()> {
     let name = generation
@@ -904,7 +967,7 @@ pub fn activate_system(
         prepare(runtime, generation)?;
     }
     on_stage(Stage::Switch);
-    manage(socket, "switch", Some(&name))?;
+    manage_with_backup(socket, "switch", Some(&name), backup)?;
     Ok(())
 }
 
@@ -1701,6 +1764,71 @@ mod tests {
     }
 
     #[test]
+    fn backup_extension_is_sent_as_data_only_when_set() {
+        let (_dir, path) = socket_path();
+        let server = controller(&path, b"{\"status\":0}\n".to_vec());
+        let name = format!("{}-termuxpp-system-test", "a".repeat(32));
+        manage_with_backup(&path, "switch", Some(&name), Some("bak")).unwrap();
+        let request: Value = serde_json::from_slice(&server.join().unwrap()).unwrap();
+        assert_eq!(
+            request,
+            json!({"command": "switch", "candidate": name, "backupExtension": "bak"})
+        );
+        let error = message(manage_with_backup(
+            &path,
+            "switch",
+            Some(&name),
+            Some("a/b"),
+        ));
+        assert!(error.contains("invalid backup extension"), "{error}");
+    }
+
+    #[test]
+    fn an_old_controller_rejecting_the_backup_key_is_explained() {
+        let (_dir, path) = socket_path();
+        let server = controller(
+            &path,
+            b"{\"status\":1,\"error\":\"invalid management request\"}\n".to_vec(),
+        );
+        let name = format!("{}-termuxpp-system-test", "a".repeat(32));
+        let error = message(manage_with_backup(
+            &path,
+            "switch",
+            Some(&name),
+            Some("bak"),
+        ));
+        server.join().unwrap();
+        assert!(error.contains("predates --backup"), "{error}");
+    }
+
+    #[test]
+    fn configured_backup_extension_comes_from_the_upgrade_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("upgrade.json");
+        assert_eq!(configured_backup_extension(&config).unwrap(), None);
+        for (text, expected) in [
+            (r#"{"flake":"f","host":"h"}"#, None),
+            (r#"{"homeManagerBackupExtension":null}"#, None),
+            (r#"{"homeManagerBackupExtension":"hm-bak"}"#, Some("hm-bak")),
+        ] {
+            fs::write(&config, text).unwrap();
+            assert_eq!(
+                configured_backup_extension(&config).unwrap().as_deref(),
+                expected,
+                "{text}"
+            );
+        }
+        for text in [
+            r#"{"homeManagerBackupExtension":7}"#,
+            r#"{"homeManagerBackupExtension":"a/b"}"#,
+            "not json",
+        ] {
+            fs::write(&config, text).unwrap();
+            assert!(configured_backup_extension(&config).is_err(), "{text}");
+        }
+    }
+
+    #[test]
     fn invalid_candidate_never_connects() {
         let (_dir, path) = socket_path();
         for candidate in [
@@ -1808,6 +1936,7 @@ mod tests {
             "source",
             "host",
             Worker::Builders,
+            None,
             &mut builder,
             &mut |stage| stages.push(stage),
         )
@@ -1830,6 +1959,7 @@ mod tests {
             "source",
             "host",
             Worker::Builders,
+            None,
             &mut builder,
             &mut |stage| stages.push(stage),
         );

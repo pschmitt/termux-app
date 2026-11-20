@@ -224,6 +224,37 @@ pub fn check(runtime: &Path, name: &str, thorough: bool, runner: &mut dyn Runner
     )
 }
 
+/// Largest accepted Home Manager backup extension.
+const BACKUP_EXTENSION_LIMIT: usize = 32;
+
+/// Default extension of `--backup` (the one `home-manager switch -b` suggests).
+pub const DEFAULT_BACKUP_EXTENSION: &str = "backup";
+
+/// Check a Home Manager backup extension: it becomes a file-name suffix
+/// (`<file>.<extension>`), so it is a short plain word that cannot name a
+/// directory or look like an option.
+pub fn validate_backup_extension(extension: &str) -> Result<()> {
+    let plain = extension
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        && extension.starts_with(|c: char| c.is_ascii_alphanumeric());
+    if plain && extension.len() <= BACKUP_EXTENSION_LIMIT {
+        Ok(())
+    } else {
+        Err(Error::invalid(format!(
+            "invalid backup extension: use 1 to {BACKUP_EXTENSION_LIMIT} letters, digits, '.', '_' or '-', starting with a letter or digit"
+        )))
+    }
+}
+
+/// Runs its first argument with `HOME_MANAGER_BACKUP_EXT` set: Home Manager's
+/// activation moves an existing, unmanaged file to `<file>.<extension>`
+/// instead of refusing to clobber it. The extension is a positional argument,
+/// never shell text, and an existing backup is never overwritten (Home
+/// Manager only does that with `HOME_MANAGER_BACKUP_OVERWRITE`, left unset).
+const WITH_BACKUP: &str =
+    "HOME_MANAGER_BACKUP_EXT=$1; export HOME_MANAGER_BACKUP_EXT; shift; exec \"$@\"";
+
 fn require_success(status: i32, what: &str) -> Result<()> {
     if status == 0 {
         Ok(())
@@ -234,12 +265,29 @@ fn require_success(status: i32, what: &str) -> Result<()> {
     }
 }
 
+/// Explain what to do when Home Manager refuses to activate, which is most
+/// often an existing file that would be clobbered.
+fn activation_failure(error: Error, backup: Option<&str>) -> Error {
+    let hint = match backup {
+        None => {
+            "if Home Manager reported existing files that would be clobbered, run `nixpp recover`, \
+             then retry with --backup[=EXT] to move them to <file>.EXT"
+        }
+        Some(_) => {
+            "if Home Manager reported that a backup file would be clobbered, move that <file>.EXT \
+             away, run `nixpp recover`, then retry"
+        }
+    };
+    Error::invalid(format!("{error}; {hint}"))
+}
+
 /// Activate a Home Manager generation (and the candidate's system secrets)
 /// inside the session of `name`, or of the legacy runtime when `None`.
 fn activate_home(
     runtime: &Path,
     name: Option<&str>,
     home: Option<&str>,
+    backup: Option<&str>,
     runner: &mut dyn Runner,
 ) -> Result<()> {
     let home = home
@@ -252,11 +300,29 @@ fn activate_home(
         let status = runner.run(&command, ACTIVATE_TIMEOUT)?;
         require_success(status, "System secrets activation")?;
     }
-    let command = session_command(runtime, name, &[format!("{home}/activate")])?;
+    let activate = format!("{home}/activate");
+    let arguments = match backup {
+        None => vec![activate],
+        Some(extension) => {
+            validate_backup_extension(extension)?;
+            [
+                "/bin/sh",
+                "-c",
+                WITH_BACKUP,
+                "nixpp-backup",
+                extension,
+                &activate,
+            ]
+            .map(str::to_owned)
+            .to_vec()
+        }
+    };
+    let command = session_command(runtime, name, &arguments)?;
     require_success(
         runner.run(&command, ACTIVATE_TIMEOUT)?,
         "Home Manager activation",
-    )?;
+    )
+    .map_err(|error| activation_failure(error, backup))?;
     // Upstream activate prints "No change so reusing latest profile generation"
     // while the current-home GC root already points at this generation, so the
     // XDG profile can stay behind after a recovery. Let upstream nix-env
@@ -295,6 +361,22 @@ pub fn switch(
     runner: &mut dyn Runner,
     expected_state: Option<&State>,
 ) -> Result<i32> {
+    switch_with_backup(runtime, name, previous_home, runner, expected_state, None)
+}
+
+/// [`switch`], with Home Manager backing up the existing files that block the
+/// activation to `<file>.<backup>` instead of failing.
+pub fn switch_with_backup(
+    runtime: &Path,
+    name: &str,
+    previous_home: Option<&str>,
+    runner: &mut dyn Runner,
+    expected_state: Option<&State>,
+    backup: Option<&str>,
+) -> Result<i32> {
+    if let Some(extension) = backup {
+        validate_backup_extension(extension)?;
+    }
     let runtime = resolve(runtime)?;
     let _lock = FileLock::acquire(&runtime.join(CONTROL_LOCK))?;
     if pending_exists(&runtime)? {
@@ -377,7 +459,13 @@ pub fn switch(
         phase,
     };
     write_json(&runtime, PENDING_FILE, &journal("activating"))?;
-    activate_home(&runtime, Some(name), Some(&data.home_manager), runner)?;
+    activate_home(
+        &runtime,
+        Some(name),
+        Some(&data.home_manager),
+        backup,
+        runner,
+    )?;
     let status = check(&runtime, name, true, runner)?;
     if status != 0 {
         return Err(Error::invalid(format!(
@@ -408,6 +496,7 @@ pub fn recover(runtime: &Path, runner: &mut dyn Runner) -> Result<i32> {
         &runtime,
         before.current.as_deref(),
         before.home_manager.as_deref(),
+        None,
         runner,
     )?;
     publish_selection(&runtime, &before)?;
@@ -449,7 +538,7 @@ pub fn rollback(runtime: &Path, runner: &mut dyn Runner) -> Result<i32> {
             phase: "activating",
         },
     )?;
-    activate_home(&runtime, None, old.home_manager.as_deref(), runner)?;
+    activate_home(&runtime, None, old.home_manager.as_deref(), None, runner)?;
     publish_selection(&runtime, &old)?;
     remove_journal(&runtime)?;
     Ok(0)
@@ -564,10 +653,18 @@ pub fn dispatch(runtime: &Path, request: &Value, runner: &mut dyn Runner) -> Res
         .filter(|object| {
             object
                 .keys()
-                .all(|key| key == "command" || key == "candidate")
+                .all(|key| matches!(key.as_str(), "command" | "candidate" | "backupExtension"))
         })
         .ok_or_else(|| Error::invalid("invalid management request"))?;
     let command = object.get("command").and_then(Value::as_str);
+    let backup = match object.get("backupExtension") {
+        None => None,
+        Some(Value::String(extension)) if command == Some("switch") => {
+            validate_backup_extension(extension)?;
+            Some(extension.as_str())
+        }
+        Some(_) => return Err(Error::invalid("unexpected backup extension argument")),
+    };
     if let Some(command @ ("switch" | "check")) = command {
         let name = object
             .get("candidate")
@@ -575,7 +672,7 @@ pub fn dispatch(runtime: &Path, request: &Value, runner: &mut dyn Runner) -> Res
             .filter(|name| is_candidate_name(name))
             .ok_or_else(|| Error::invalid("invalid candidate name"))?;
         let status = if command == "switch" {
-            switch(runtime, name, None, runner, None)?
+            switch_with_backup(runtime, name, None, runner, None, backup)?
         } else {
             check(runtime, name, true, runner)?
         };
@@ -901,6 +998,131 @@ mod tests {
                 .unwrap(),
             Path::new(&fixture.baseline)
         );
+    }
+
+    #[test]
+    fn switch_with_backup_sets_the_extension_for_the_activation_only() {
+        let fixture = Fixture::new();
+        let mut runner = MockRunner::returning(0);
+        let status = switch_with_backup(
+            &fixture.runtime,
+            &fixture.name,
+            Some(&fixture.baseline),
+            &mut runner,
+            None,
+            Some("bak"),
+        )
+        .unwrap();
+        assert_eq!(status, 0);
+        let activation = runner.command(1);
+        let tail = &activation[activation.len() - 6..];
+        assert_eq!(&tail[..2], ["/bin/sh", "-c"]);
+        assert!(tail[2].starts_with("HOME_MANAGER_BACKUP_EXT=$1;"));
+        assert_eq!(tail[3], "nixpp-backup");
+        assert_eq!(tail[4], "bak");
+        assert_eq!(tail[5], format!("{}/activate", fixture.home));
+        for index in [0, 2, 3] {
+            assert!(
+                !runner.command(index).iter().any(|a| a == "bak"),
+                "call {index}"
+            );
+        }
+    }
+
+    #[test]
+    fn failed_activation_names_the_backup_flag_and_stays_recoverable() {
+        let fixture = Fixture::new();
+        let mut runner = MockRunner::statuses(&[0, 1]);
+        let error = message(do_switch(&fixture, &mut runner));
+        assert!(error.contains("recovery is required"), "{error}");
+        assert!(error.contains("--backup"), "{error}");
+        assert!(fixture.exists("system-pending.json"));
+        assert_eq!(
+            recover(&fixture.runtime, &mut MockRunner::returning(0)).unwrap(),
+            0
+        );
+        assert!(!fixture.exists("system-pending.json"));
+
+        let mut runner = MockRunner::statuses(&[0, 1]);
+        let error = message(switch_with_backup(
+            &fixture.runtime,
+            &fixture.name,
+            None,
+            &mut runner,
+            None,
+            Some("bak"),
+        ));
+        assert!(error.contains("backup file would be clobbered"), "{error}");
+        assert!(fixture.exists("system-pending.json"));
+        assert_eq!(
+            recover(&fixture.runtime, &mut MockRunner::returning(0)).unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn backup_extensions_are_plain_words() {
+        for good in ["bak", "backup", "hm-1.old", "a_b", "7"] {
+            validate_backup_extension(good).unwrap();
+        }
+        for bad in [
+            "",
+            ".hidden",
+            "-x",
+            "a/b",
+            "a b",
+            "a;b",
+            "é",
+            &"x".repeat(33),
+        ] {
+            assert!(validate_backup_extension(bad).is_err(), "{bad:?}");
+        }
+        let fixture = Fixture::new();
+        let mut runner = MockRunner::returning(0);
+        let error = message(switch_with_backup(
+            &fixture.runtime,
+            &fixture.name,
+            Some(&fixture.baseline),
+            &mut runner,
+            None,
+            Some("a;b"),
+        ));
+        assert!(error.contains("invalid backup extension"), "{error}");
+        assert!(runner.calls.is_empty());
+        assert!(!fixture.exists("system-pending.json"));
+    }
+
+    #[test]
+    fn management_switch_accepts_a_backup_extension_and_nothing_else_does() {
+        let fixture = Fixture::new();
+        let state = State {
+            current: None,
+            home_manager: Some(fixture.baseline.clone()),
+            previous: None,
+            previous_home_manager: None,
+        };
+        write_json(&fixture.runtime, STATE_FILE, &state).unwrap();
+        let mut runner = MockRunner::returning(7);
+        let response = dispatch(
+            &fixture.runtime,
+            &json!({"command": "switch", "candidate": fixture.name, "backupExtension": "bak"}),
+            &mut runner,
+        )
+        .unwrap();
+        assert_eq!(response, json!({"status": 7}));
+        for request in [
+            json!({"command": "check", "candidate": fixture.name, "backupExtension": "bak"}),
+            json!({"command": "recover", "backupExtension": "bak"}),
+            json!({"command": "switch", "candidate": fixture.name, "backupExtension": 7}),
+            json!({"command": "switch", "candidate": fixture.name, "backupExtension": "../x"}),
+        ] {
+            let mut runner = MockRunner::returning(0);
+            assert!(
+                dispatch(&fixture.runtime, &request, &mut runner).is_err(),
+                "{request}"
+            );
+            assert!(runner.calls.is_empty());
+        }
     }
 
     #[test]

@@ -29,6 +29,14 @@ Activation journals the previous system/Home Manager pair and publishes selectio
 only after the activation and checks succeed. A retained failure journal blocks
 another switch until explicit recovery.
 
+`switch`, `rebuild`, `upgrade` and `fetch latest` accept `--backup[=EXT]` (default
+`EXT` is `backup`): the controller runs the Home Manager activation with
+`HOME_MANAGER_BACKUP_EXT=EXT`, so an existing unmanaged file in its way is moved
+to `<file>.EXT` instead of failing with "would be clobbered". An existing
+`<file>.EXT` is never overwritten. `homeManagerBackupExtension` in
+`/etc/nixpp/upgrade.json` makes it the default; `--no-backup` overrides that.
+After a failed activation run `nixpp recover` before retrying.
+
 The guest uses `NIXPP_SOCKET` (default `/tmp/nixpp.sock`). `--json` produces
 machine-readable results without terminal escapes. Human output uses restrained
 colors on terminals; redirected output and `NO_COLOR` are plain. `--color` selects

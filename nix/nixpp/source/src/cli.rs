@@ -84,8 +84,41 @@ pub struct BuildArgs {
     remote_eval: bool,
 }
 
+/// What to do with existing files that block the Home Manager activation.
+#[derive(Debug, Args, Default, Clone)]
+pub struct BackupArgs {
+    /// Move existing files that Home Manager would clobber to <file>.EXT
+    /// instead of failing (EXT defaults to "backup"); an existing <file>.EXT
+    /// is never overwritten. The system configuration can enable this by
+    /// default (homeManagerBackupExtension in /etc/nixpp/upgrade.json)
+    #[arg(
+        long,
+        value_name = "EXT",
+        num_args = 0..=1,
+        require_equals = true,
+        default_missing_value = controller::DEFAULT_BACKUP_EXTENSION
+    )]
+    backup: Option<String>,
+
+    /// Fail on files in the way, even if the system configuration enables --backup
+    #[arg(long, conflicts_with = "backup")]
+    no_backup: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct RebuildArgs {
+    #[command(flatten)]
+    build: BuildArgs,
+
+    #[command(flatten)]
+    backup: BackupArgs,
+}
+
 #[derive(Debug, Args, Default)]
 pub struct UpgradeArgs {
+    #[command(flatten)]
+    backup: BackupArgs,
+
     /// Evaluate the configured flake and build the system (remote builders)
     /// instead of installing the system CI published in the signed cache
     #[arg(long)]
@@ -135,7 +168,7 @@ pub enum Command {
     /// Build a system remotely and print its store path
     Build(BuildArgs),
     /// Build, prepare and switch to a system
-    Rebuild(BuildArgs),
+    Rebuild(RebuildArgs),
     /// Install the latest system published for this host (`--build` evaluates
     /// and builds the configured flake instead)
     Upgrade(UpgradeArgs),
@@ -143,6 +176,8 @@ pub enum Command {
     Fetch {
         #[arg(value_enum)]
         target: FetchTarget,
+        #[command(flatten)]
+        backup: BackupArgs,
     },
     /// Compare system closures (previous to current by default)
     Diff {
@@ -176,6 +211,8 @@ pub enum Command {
     Switch {
         /// Candidate name (store basename)
         candidate: String,
+        #[command(flatten)]
+        backup: BackupArgs,
     },
     /// Check a prepared system through the native controller
     Check {
@@ -286,6 +323,8 @@ pub enum Operation {
         /// Verified active Home Manager store path; first migration only
         #[arg(long, value_name = "PATH")]
         previous_home_manager: Option<String>,
+        #[command(flatten)]
+        backup: BackupArgs,
     },
     /// Restore the generation recorded before an interrupted activation
     Recover,
@@ -464,15 +503,18 @@ fn rebuild_system(
     ui: &Ui,
     runtime: Option<PathBuf>,
     socket: &Path,
-    args: &BuildArgs,
+    args: &RebuildArgs,
 ) -> Result<()> {
     let runtime = require(runtime, "rebuild requires NIXPP_RUNTIME or --runtime")?;
+    let backup = backup_extension(&args.backup)?;
+    let build = &args.build;
     let generation = guest::rebuild(
         &runtime,
         socket,
-        &args.flake,
-        &args.host,
-        guest::Worker::new(args.rworker, args.remote_eval),
+        &build.flake,
+        &build.host,
+        guest::Worker::new(build.rworker, build.remote_eval),
+        backup.as_deref(),
         &mut ProcessBuilder,
         &mut |stage| report_stage(ui, stage),
     )?;
@@ -482,6 +524,21 @@ fn rebuild_system(
 }
 
 const UPGRADE_CONFIG: &str = "/etc/nixpp/upgrade.json";
+
+/// The backup extension for this activation: `--backup`, else the system
+/// configuration's default, unless `--no-backup`.
+fn backup_extension(args: &BackupArgs) -> Result<Option<String>> {
+    if args.no_backup {
+        return Ok(None);
+    }
+    match &args.backup {
+        Some(extension) => {
+            controller::validate_backup_extension(extension)?;
+            Ok(Some(extension.clone()))
+        }
+        None => guest::configured_backup_extension(Path::new(UPGRADE_CONFIG)),
+    }
+}
 
 fn upgrade_system(
     ui: &Ui,
@@ -494,6 +551,11 @@ fn upgrade_system(
         args.flake.clone(),
         args.host.clone(),
     )?;
+    let backup = if args.dry_run {
+        None
+    } else {
+        backup_extension(&args.backup)?
+    };
     let build = !args.from_cache
         && (args.build
             || args.flake.is_some()
@@ -512,9 +574,15 @@ fn upgrade_system(
         ui.step("verifying the cache pin");
         let generation = guest::cached_upgrade(&target, args.dry_run, &mut ProcessBuilder)?;
         if let Some(runtime) = runtime {
-            guest::activate_system(&runtime, socket, &generation, &mut |stage| {
-                report_stage(ui, stage);
-            })?;
+            guest::activate_system(
+                &runtime,
+                socket,
+                &generation,
+                backup.as_deref(),
+                &mut |stage| {
+                    report_stage(ui, stage);
+                },
+            )?;
             ui.ok("system switched");
         }
         ui.print(&path_output(ui, &generation));
@@ -528,9 +596,15 @@ fn upgrade_system(
             guest::Worker::new(args.rworker, args.remote_eval),
             &mut ProcessBuilder,
         )?;
-        guest::activate_system(&runtime, socket, &generation, &mut |stage| {
-            report_stage(ui, stage);
-        })?;
+        guest::activate_system(
+            &runtime,
+            socket,
+            &generation,
+            backup.as_deref(),
+            &mut |stage| {
+                report_stage(ui, stage);
+            },
+        )?;
         ui.ok("system switched");
         ui.print(&path_output(ui, &generation));
     }
@@ -605,7 +679,16 @@ fn guest_command(
         Command::Upgrade(args) => upgrade_system(ui, runtime, &socket, args)?,
         Command::Fetch {
             target: FetchTarget::Latest,
-        } => upgrade_system(ui, runtime, &socket, &UpgradeArgs::default())?,
+            backup,
+        } => upgrade_system(
+            ui,
+            runtime,
+            &socket,
+            &UpgradeArgs {
+                backup: backup.clone(),
+                ..UpgradeArgs::default()
+            },
+        )?,
         Command::Doctor => doctor(ui, &socket)?,
         Command::Diff { from, to } => {
             let runtime = require(runtime, "diff requires NIXPP_RUNTIME or --runtime")?;
@@ -660,8 +743,10 @@ fn guest_command(
             ui.print(&crate::gc::pin_is_obsolete(&runtime, generation)?.to_string());
         }
         Command::Rebuild(args) => rebuild_system(ui, runtime, &socket, args)?,
-        Command::Switch { candidate } => {
-            let response = guest::manage(&socket, "switch", Some(candidate))?;
+        Command::Switch { candidate, backup } => {
+            let backup = backup_extension(backup)?;
+            let response =
+                guest::manage_with_backup(&socket, "switch", Some(candidate), backup.as_deref())?;
             ui.ok(&format!("switched to {candidate}"));
             print_response(ui, &response);
         }
@@ -813,12 +898,14 @@ fn operate(runtime: Option<PathBuf>, operation: &Operation, ui: &Ui) -> Result<u
         Operation::Switch {
             candidate,
             previous_home_manager,
-        } => controller::switch(
+            backup,
+        } => controller::switch_with_backup(
             &runtime,
             candidate,
             previous_home_manager.as_deref(),
             &mut runner,
             None,
+            backup.backup.as_deref(),
         )?,
         Operation::Recover => controller::recover(&runtime, &mut runner)?,
         Operation::Rollback => controller::rollback(&runtime, &mut runner)?,
@@ -1000,6 +1087,62 @@ mod tests {
         assert_eq!(cli.runtime, Some(PathBuf::from("/rt")));
         assert_eq!(cli.socket, Some(PathBuf::from("/rt/nixpp.sock")));
         assert!(matches!(cli.command, Command::Serve));
+    }
+
+    fn backup_of(arguments: &[&str]) -> BackupArgs {
+        match parse(arguments).unwrap().command {
+            Command::Switch { backup, .. } => backup,
+            Command::Upgrade(args) => args.backup,
+            Command::Fetch { backup, .. } => backup,
+            Command::Rebuild(args) => args.backup,
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn backup_flag_takes_an_optional_extension() {
+        let none = backup_of(&["switch", "cand"]);
+        assert_eq!((none.backup, none.no_backup), (None, false));
+        let bare = backup_of(&["switch", "cand", "--backup"]);
+        assert_eq!(bare.backup.as_deref(), Some("backup"));
+        let named = backup_of(&["upgrade", "--backup=hm-old"]);
+        assert_eq!(named.backup.as_deref(), Some("hm-old"));
+        assert_eq!(
+            backup_of(&["fetch", "latest", "--backup"])
+                .backup
+                .as_deref(),
+            Some("backup")
+        );
+        let rebuild = backup_of(&["rebuild", "--flake", "f", "--host", "h", "--backup=x"]);
+        assert_eq!(rebuild.backup.as_deref(), Some("x"));
+        assert!(backup_of(&["upgrade", "--no-backup"]).no_backup);
+        // A detached value is not taken as the extension: it must be =EXT.
+        let Command::Switch { candidate, backup } =
+            parse(&["switch", "--backup", "cand"]).unwrap().command
+        else {
+            panic!("not a switch");
+        };
+        assert_eq!(
+            (candidate.as_str(), backup.backup.as_deref()),
+            ("cand", Some("backup"))
+        );
+        assert!(parse(&["upgrade", "--backup", "--no-backup"]).is_err());
+    }
+
+    #[test]
+    fn backup_extension_prefers_flags_over_the_default() {
+        let flag = |backup: Option<&str>, no_backup| BackupArgs {
+            backup: backup.map(str::to_owned),
+            no_backup,
+        };
+        assert_eq!(backup_extension(&flag(None, true)).unwrap(), None);
+        assert_eq!(
+            backup_extension(&flag(Some("bak"), false))
+                .unwrap()
+                .as_deref(),
+            Some("bak")
+        );
+        assert!(backup_extension(&flag(Some("a/b"), false)).is_err());
     }
 
     #[test]
@@ -1228,11 +1371,14 @@ mod tests {
             error.to_string(),
             "prepare requires --runtime or NIXPP_RUNTIME"
         );
-        let rebuild = Command::Rebuild(BuildArgs {
-            flake: "source".to_owned(),
-            host: "host".to_owned(),
-            rworker: false,
-            remote_eval: false,
+        let rebuild = Command::Rebuild(RebuildArgs {
+            build: BuildArgs {
+                flake: "source".to_owned(),
+                host: "host".to_owned(),
+                rworker: false,
+                remote_eval: false,
+            },
+            backup: BackupArgs::default(),
         });
         let error = guest_command(&rebuild, None, None, &ui).unwrap_err();
         assert_eq!(
@@ -1247,6 +1393,7 @@ mod tests {
         for candidate in ["../escape", "/absolute", "short"] {
             let command = Command::Switch {
                 candidate: candidate.to_owned(),
+                backup: BackupArgs::default(),
             };
             let error = guest_command(
                 &command,
