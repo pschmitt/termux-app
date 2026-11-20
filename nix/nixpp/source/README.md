@@ -130,9 +130,7 @@ that is not writable by other users, and accepts only clients with the same UID.
 Direct controller operations use the same mutation locks as the service and do
 not need a working socket. Do not run the former Python service concurrently.
 
-The legacy [native bundle manager](../legacy) remains for unmigrated bootstrap
-and recovery consumers only. It does not manage this guest system. The optional
-Android API bridge is separate from this system-management port; arbitrary native
+The optional Android API bridge is separate from this system-management port; arbitrary native
 commands and a general Termux package bridge are not exposed by the controller.
 
 ## Validation

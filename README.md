@@ -48,6 +48,7 @@ See the [Termux package management guide][package-management] for APT usage.
 | [Upstream and TermuxPP differences](docs/en/termuxpp-differences.md) | App identity, compatibility, the Nix guest, services, and ADB access. |
 | [API CLI helper](termux-api-package/TERMUXPP.md) | Build the native API command-line package. |
 | [TermuxAm helper](termux-am/TERMUXPP.md) | Build and package the Android command helper. |
+| [nixpp](nix/nixpp/source/README.md) | The Nix guest runtime and system manager, and its Nix packages. |
 
 ## License
 

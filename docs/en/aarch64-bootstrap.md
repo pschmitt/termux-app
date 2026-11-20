@@ -38,7 +38,9 @@ printf '%s  base.zip\n' ea2aeba8819e517db711f8c32369e89e7c52cee73e07930ff91185e1
 scripts/build-aarch64-bootstrap.py fetch \
     --base-zip base.zip --package openssh --package rbw --out-dir debs
 
-# 3. Build. --nixpp is an AArch64 Android/Bionic executable using only Android system libraries.
+# 3. Build. --nixpp is an AArch64 Android/Bionic executable using only Android system libraries:
+#    nix build .#nixpp-runtime-termux (bin/nixpp) and .#nixpp-runtime-termux-seed
+#    (share/nixpp), on an x86_64 Linux worker.
 scripts/build-aarch64-bootstrap.py build \
     --deb-dir debs --lock debs/debs.lock.json \
     --deb /path/to/termux-api-bootstrap.deb \

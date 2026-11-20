@@ -1,11 +1,25 @@
 {
   description = "TermuxPP reproducible Android development environment";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Rust toolchain with the aarch64-linux-android std for nixpp's Bionic build.
+    fenix = {
+      url = "github:nix-community/fenix/monthly";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    # Sources (MIT) of the full-Nix launcher, bootstrap seed and Android API
+    # bridge (nix/nixpp/bootstrap-seed.nix); no droid-nix binary is used.
+    droid-nix-src = {
+      url = "github:lassulus/droid-nix/bb08d50117568e9994b6d87c918c4c2d7b5de9b1";
+      flake = false;
+    };
+  };
 
   outputs =
-    { nixpkgs, ... }:
+    { nixpkgs, ... }@inputs:
     let
+      nixppFor = pkgs: import ./nix/nixpp/packages.nix { inherit inputs pkgs; };
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
@@ -182,7 +196,18 @@
       bootstrapHelperDebs = helperDebs "termuxpp-helper-debs-bootstrap-aarch64" true;
     in
     {
-      packages.${system} = {
+      # nixpp built with a caller's Nixpkgs, e.g. nixos-config's guest pkgs.
+      lib.nixpp = {
+        packagesFor = nixppFor;
+        # Tests and assets that nixos-config's system checks run against.
+        src = ./nix/nixpp;
+      };
+
+      packages.aarch64-linux = removeAttrs (nixppFor nixpkgs.legacyPackages.aarch64-linux) [
+        "nixpp-runtime-termux"
+        "nixpp-runtime-termux-seed"
+      ];
+      packages.${system} = nixppFor pkgs // {
         default = apk;
         inherit apk;
         termux-am-device =

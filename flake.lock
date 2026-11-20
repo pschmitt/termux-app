@@ -1,5 +1,44 @@
 {
   "nodes": {
+    "droid-nix-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794321727,
+        "narHash": "sha256-dRihdv0/lU0hhJchsDU+vhoRA29WJSIivUtgqTpqp8Y=",
+        "owner": "lassulus",
+        "repo": "droid-nix",
+        "rev": "bb08d50117568e9994b6d87c918c4c2d7b5de9b1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "lassulus",
+        "repo": "droid-nix",
+        "rev": "bb08d50117568e9994b6d87c918c4c2d7b5de9b1",
+        "type": "github"
+      }
+    },
+    "fenix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "rust-analyzer-src": "rust-analyzer-src"
+      },
+      "locked": {
+        "lastModified": 1793537868,
+        "narHash": "sha256-a6WgeC/aUP43oXL+NFDNfBMl7tokr20mUalQRnKT9n8=",
+        "owner": "nix-community",
+        "repo": "fenix",
+        "rev": "ba9210be006df88ed8c14562f97ad4b4ffb048a0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "ref": "monthly",
+        "repo": "fenix",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1794537146,
@@ -18,7 +57,26 @@
     },
     "root": {
       "inputs": {
+        "droid-nix-src": "droid-nix-src",
+        "fenix": "fenix",
         "nixpkgs": "nixpkgs"
+      }
+    },
+    "rust-analyzer-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793356632,
+        "narHash": "sha256-sDRn+SFPNzi5QTa7o8iB2+6TQ6ZBhZ34dLO5I1hVYd4=",
+        "owner": "rust-lang",
+        "repo": "rust-analyzer",
+        "rev": "9e0d1ec24eb81de12160ecfa7f31c89735bda951",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rust-lang",
+        "ref": "nightly",
+        "repo": "rust-analyzer",
+        "type": "github"
       }
     }
   },
