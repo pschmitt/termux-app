@@ -184,7 +184,7 @@ fn accept_one(listener: &UnixListener) -> Result<()> {
 }
 
 /// A pidfd that becomes readable when `child` exits; None before Linux 5.3.
-fn pidfd(child: libc::pid_t) -> Option<OwnedFd> {
+pub(super) fn pidfd(child: libc::pid_t) -> Option<OwnedFd> {
     // SAFETY: pidfd_open takes a PID and flags and returns a new descriptor.
     let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, child, 0) };
     let fd = RawFd::try_from(fd).ok().filter(|fd| *fd >= 0)?;

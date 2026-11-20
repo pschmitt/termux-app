@@ -265,29 +265,95 @@ fn watch_outputs(outputs: [&File; 2]) -> io::Result<Vec<File>> {
     Ok(watched)
 }
 
+/// How often to look for the command's exit without a pidfd (Linux < 5.3).
+const FALLBACK_POLL_MS: libc::c_int = 100;
+
 fn wait_for_client(stream: &UnixStream, outputs: &[File], child: &mut Child) -> Result<u8> {
+    // The pidfd becomes readable when the command exits, so an idle command
+    // never wakes this loop up.
+    let exited = libc::pid_t::try_from(child.id())
+        .ok()
+        .and_then(super::outer::pidfd);
+    let timeout = if exited.is_some() {
+        -1
+    } else {
+        FALLBACK_POLL_MS
+    };
+    let watched = 1..1 + outputs.len();
     let mut control = vec![pollfd(stream.as_raw_fd(), libc::POLLIN)];
     control.extend(outputs.iter().map(|output| pollfd(output.as_raw_fd(), 0)));
+    if let Some(fd) = &exited {
+        control.push(pollfd(fd.as_raw_fd(), libc::POLLIN));
+    }
     loop {
         if let Some(status) = child.try_wait()? {
             return Ok(super::outer::exit_code(status));
         }
-        poll(&mut control, 100)?;
+        poll(&mut control, timeout)?;
         ensure!(
             control[0].revents == 0,
             "native command client disconnected"
         );
         // OpenSSH can leave the command alive after dropping its streams.
         // Monitor the output peers too, without consuming input or output.
-        for output in &mut control[1..] {
+        for output in &mut control[watched.clone()] {
             if output.revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) != 0 {
                 output.fd = -1;
             }
         }
         ensure!(
-            outputs.is_empty() || control[1..].iter().any(|output| output.fd >= 0),
+            outputs.is_empty() || control[watched.clone()].iter().any(|output| output.fd >= 0),
             "native command output disconnected"
         );
+    }
+}
+
+/// A signalfd for SIGWINCH, which stays blocked for this thread while it
+/// lives, so window size changes wake poll(2) instead of a timer.
+struct WindowChanges {
+    fd: OwnedFd,
+    previous: libc::sigset_t,
+}
+
+impl WindowChanges {
+    fn new() -> Option<Self> {
+        // SAFETY: the sets are initialised by sigemptyset before use, and
+        // signalfd returns a new descriptor that this value then owns.
+        unsafe {
+            let mut set: libc::sigset_t = mem::zeroed();
+            libc::sigemptyset(&mut set);
+            libc::sigaddset(&mut set, libc::SIGWINCH);
+            let mut previous: libc::sigset_t = mem::zeroed();
+            if libc::pthread_sigmask(libc::SIG_BLOCK, &set, &mut previous) != 0 {
+                return None;
+            }
+            let fd = libc::signalfd(-1, &set, libc::SFD_CLOEXEC | libc::SFD_NONBLOCK);
+            if fd < 0 {
+                libc::pthread_sigmask(libc::SIG_SETMASK, &previous, std::ptr::null_mut());
+                return None;
+            }
+            Some(Self {
+                fd: OwnedFd::from_raw_fd(fd),
+                previous,
+            })
+        }
+    }
+
+    /// Consume the pending notifications.
+    fn drain(&self) {
+        let mut info = MaybeUninit::<libc::signalfd_siginfo>::uninit();
+        let size = mem::size_of::<libc::signalfd_siginfo>();
+        // SAFETY: reads at most `size` bytes into `info` from our own fd.
+        while unsafe { libc::read(self.fd.as_raw_fd(), info.as_mut_ptr().cast(), size) } > 0 {}
+    }
+}
+
+impl Drop for WindowChanges {
+    fn drop(&mut self) {
+        // SAFETY: restores the mask saved by new().
+        unsafe {
+            libc::pthread_sigmask(libc::SIG_SETMASK, &self.previous, std::ptr::null_mut());
+        }
     }
 }
 
@@ -341,10 +407,23 @@ fn relay_terminal(stream: &mut UnixStream, mut master: File) -> Result<u8> {
     let _terminal = RawTerminal::enter()?;
     let mut stdin = File::from(io::stdin().as_fd().try_clone_to_owned()?);
     let mut stdout = File::from(io::stdout().as_fd().try_clone_to_owned()?);
+    // Without a signalfd, look for window size changes every 100 ms.
+    let resizes = WindowChanges::new();
+    let timeout = if resizes.is_some() {
+        -1
+    } else {
+        FALLBACK_POLL_MS
+    };
     let mut fds = [
         pollfd(libc::STDIN_FILENO, libc::POLLIN),
         pollfd(master.as_raw_fd(), libc::POLLIN),
         pollfd(stream.as_raw_fd(), libc::POLLIN),
+        pollfd(
+            resizes
+                .as_ref()
+                .map_or(-1, |resizes| resizes.fd.as_raw_fd()),
+            libc::POLLIN,
+        ),
     ];
     let mut buffer = [0; 4096];
     let mut status = None;
@@ -356,7 +435,12 @@ fn relay_terminal(stream: &mut UnixStream, mut master: File) -> Result<u8> {
             size.apply(master.as_raw_fd())?;
             previous = Some(dimensions);
         }
-        poll(&mut fds, 100)?;
+        poll(&mut fds, timeout)?;
+        if fds[3].revents != 0
+            && let Some(resizes) = &resizes
+        {
+            resizes.drain();
+        }
         if fds[1].revents != 0 {
             match master.read(&mut buffer) {
                 Ok(0) => fds[1].fd = -1,
