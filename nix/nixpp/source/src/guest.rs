@@ -495,7 +495,9 @@ pub fn build_command(flake: &str, host: &str, rworker: bool) -> Result<Vec<Strin
     }
     let target = format!("{flake}#termuxppConfigurations.{host}.system");
     let mut command: Vec<String> = if rworker {
-        vec!["rworker-nix".to_owned(), "build".to_owned()]
+        // Evaluate on the worker too: the phone only locks the flake and
+        // ships its sources (rworker-nix remote-build).
+        vec!["rworker-nix".to_owned(), "remote-build".to_owned()]
     } else {
         ["nix", "build", "--max-jobs", "0"]
             .map(str::to_owned)
@@ -634,7 +636,7 @@ pub fn cached_upgrade(
 }
 
 pub fn probe_store(builder: &mut dyn Builder, store: Option<&str>) -> Result<()> {
-    let mut command = ["timeout", "8", "nix", "store", "ping"]
+    let mut command = ["timeout", "8", "nix", "store", "info"]
         .map(str::to_owned)
         .to_vec();
     if let Some(store) = store {
@@ -1321,7 +1323,7 @@ mod tests {
             builder.commands[0],
             [
                 "rworker-nix",
-                "build",
+                "remote-build",
                 "--no-link",
                 "--print-out-paths",
                 "github:example/config#termuxppConfigurations.test.system"
