@@ -226,22 +226,28 @@
         "nixpp-runtime-termux"
         "nixpp-runtime-termux-seed"
       ];
-      packages.${system} = nixppFor pkgs // {
-        default = apk;
-        inherit apk;
-        termux-am-device =
-          helperDeb "termuxpp-termux-am-device-deb-aarch64" deviceHelperDebs
-            "termux-am_0.8.1+termuxpp1_all.deb";
-        termux-api-device =
-          helperDeb "termuxpp-termux-api-device-deb-aarch64" deviceHelperDebs
-            "termux-api_0.60.0+termuxpp1_aarch64.deb";
-        termux-am-bootstrap =
-          helperDeb "termuxpp-termux-am-bootstrap-deb-aarch64" bootstrapHelperDebs
-            "termux-am_0.8.1+termuxpp1_all.deb";
-        termux-api-bootstrap =
-          helperDeb "termuxpp-termux-api-bootstrap-deb-aarch64" bootstrapHelperDebs
-            "termux-api_0.60.0+termuxpp1_aarch64.deb";
-      };
+      # Only what builds here: the guest helpers are aarch64-only (packages.aarch64-linux)
+      # and nixbot builds every attribute of this set.
+      packages.${system} =
+        pkgs.lib.filterAttrs (_: drv: pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform drv) (
+          nixppFor pkgs
+        )
+        // {
+          default = apk;
+          inherit apk;
+          termux-am-device =
+            helperDeb "termuxpp-termux-am-device-deb-aarch64" deviceHelperDebs
+              "termux-am_0.8.1+termuxpp1_all.deb";
+          termux-api-device =
+            helperDeb "termuxpp-termux-api-device-deb-aarch64" deviceHelperDebs
+              "termux-api_0.60.0+termuxpp1_aarch64.deb";
+          termux-am-bootstrap =
+            helperDeb "termuxpp-termux-am-bootstrap-deb-aarch64" bootstrapHelperDebs
+              "termux-am_0.8.1+termuxpp1_all.deb";
+          termux-api-bootstrap =
+            helperDeb "termuxpp-termux-api-bootstrap-deb-aarch64" bootstrapHelperDebs
+              "termux-api_0.60.0+termuxpp1_aarch64.deb";
+        };
       apps.${system}.update-deps = {
         type = "app";
         program = "${apk.mitmCache.updateScript}";
