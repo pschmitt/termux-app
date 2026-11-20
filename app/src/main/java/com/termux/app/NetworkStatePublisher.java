@@ -18,6 +18,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 import dev.pschmitt.termux.shared.logger.Logger;
 import dev.pschmitt.termux.shared.termux.nix.TermuxNix;
@@ -27,8 +28,10 @@ import dev.pschmitt.termux.shared.termux.nix.TermuxNix;
  * ({@code /run/nixpp-runtime/network.json} in the guest), where the guest service supervisor
  * starts and stops services restricted with {@code services.<name>.allowedSsids}.
  *
- * <p>The file is rewritten on every Wi-Fi change and at least every minute: the guest treats
- * state older than five minutes as unknown, so restricted services stop when the app is gone.
+ * <p>The file is rewritten when the SSID changes. Every minute its modification time is renewed
+ * without rewriting it: the guest treats state older than five minutes (by mtime) as unknown, so
+ * restricted services stop when the app is gone. Network callbacks are debounced, since signal
+ * strength changes report new capabilities all the time.
  * {@code ssid} is null without Wi-Fi or when Android withholds the name (no location permission).
  */
 public final class NetworkStatePublisher {
@@ -36,6 +39,7 @@ public final class NetworkStatePublisher {
     private static final String LOG_TAG = "NetworkStatePublisher";
     private static final String FILE_NAME = "network.json";
     private static final long REFRESH_MS = 60_000;
+    private static final long CHANGE_DEBOUNCE_MS = 1_000;
 
     private final Context context;
     private final HandlerThread thread = new HandlerThread("termuxpp-network-state");
@@ -50,6 +54,15 @@ public final class NetworkStatePublisher {
         }
     };
 
+    /* The SSID last written, only touched on the handler thread. */
+    private boolean published;
+    @Nullable private String publishedSsid;
+
+    private void networkChanged() {
+        handler.removeCallbacks(refresh);
+        handler.postDelayed(refresh, CHANGE_DEBOUNCE_MS);
+    }
+
     public NetworkStatePublisher(@NonNull Context context) {
         this.context = context.getApplicationContext();
     }
@@ -60,11 +73,11 @@ public final class NetworkStatePublisher {
         ConnectivityManager connectivity = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         if (connectivity != null) {
             callback = new ConnectivityManager.NetworkCallback() {
-                @Override public void onAvailable(@NonNull Network network) { handler.post(refresh); }
-                @Override public void onLost(@NonNull Network network) { handler.post(refresh); }
+                @Override public void onAvailable(@NonNull Network network) { networkChanged(); }
+                @Override public void onLost(@NonNull Network network) { networkChanged(); }
                 @Override public void onCapabilitiesChanged(@NonNull Network network,
                                                             @NonNull NetworkCapabilities capabilities) {
-                    handler.post(refresh);
+                    networkChanged();
                 }
             };
             try {
@@ -97,6 +110,11 @@ public final class NetworkStatePublisher {
         if (!runtime.isDirectory()) return;
         String ssid = AdbShellService.currentSsid(context);
         File target = new File(runtime, FILE_NAME);
+        // Unchanged: only keep it fresh, no rewrite and no fsync.
+        if (published && Objects.equals(ssid, publishedSsid) && target.isFile()
+            && target.setLastModified(System.currentTimeMillis())) {
+            return;
+        }
         File temporary = new File(runtime, "." + FILE_NAME + ".tmp");
         try {
             JSONObject state = new JSONObject();
@@ -111,6 +129,8 @@ public final class NetworkStatePublisher {
                 Logger.logWarn(LOG_TAG, "Cannot restrict " + temporary);
             }
             if (!temporary.renameTo(target)) throw new IOException("rename failed");
+            published = true;
+            publishedSsid = ssid;
         } catch (IOException | JSONException e) {
             Logger.logWarn(LOG_TAG, "Cannot publish the network state: " + e.getMessage());
             //noinspection ResultOfMethodCallIgnored

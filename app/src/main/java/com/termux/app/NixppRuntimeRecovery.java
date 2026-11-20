@@ -24,6 +24,8 @@ public final class NixppRuntimeRecovery {
     private static final AtomicBoolean SCHEDULED = new AtomicBoolean();
 
     private static final long WATCHDOG_MS = 30_000;
+    /* While the controller answers: each check connects to it, so do not wake it often. */
+    private static final long WATCHDOG_HEALTHY_MS = 2 * 60_000;
     private static final long WATCHDOG_MAX_BACKOFF_MS = 5 * 60_000;
     private static HandlerThread watchdogThread;
     private static Handler watchdogHandler;
@@ -44,7 +46,7 @@ public final class NixppRuntimeRecovery {
         watchdogHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                long delay = WATCHDOG_MS;
+                long delay = WATCHDOG_HEALTHY_MS;
                 File runtime = new File(TermuxNix.RUNTIME_DIR_PATH);
                 if (new File(runtime, "system.enabled").isFile() && !controllerAnswers(runtime)) {
                     failedRestarts++;

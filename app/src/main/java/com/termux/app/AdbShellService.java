@@ -18,6 +18,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
@@ -105,7 +106,9 @@ public final class AdbShellService extends Service {
     private final java.util.concurrent.ExecutorService clients = new java.util.concurrent.ThreadPoolExecutor(
         0, 4, 30, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.SynchronousQueue<>());
     private Thread serverThread;
-    private static final long NETWORK_RECHECK_MS = 2000;
+    /* Only with an SSID allow-list: Android may redact the SSID without a broadcast (permission
+     * changes), so re-check now and then. The receiver covers Wi-Fi and location-mode changes. */
+    private static final long NETWORK_RECHECK_MS = 60_000;
     private final Handler networkHandler = new Handler(Looper.getMainLooper());
     private final Runnable networkCheck = this::updateNetworkAccess;
     private boolean waitingForNetwork;
@@ -133,6 +136,8 @@ public final class AdbShellService extends Service {
         startForeground(NOTIFICATION_ID, buildNotification());
         IntentFilter filter = new IntentFilter(WifiManager.NETWORK_STATE_CHANGED_ACTION);
         filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
+        // Turning location off makes Android withhold the SSID.
+        filter.addAction(android.location.LocationManager.MODE_CHANGED_ACTION);
         ContextCompat.registerReceiver(this, wifiChanges, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
@@ -173,15 +178,23 @@ public final class AdbShellService extends Service {
             waitingForNetwork = waiting;
             getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, buildNotification());
         }
-        // Permission or location changes may redact the SSID without a Wi-Fi broadcast.
-        networkHandler.postDelayed(networkCheck, NETWORK_RECHECK_MS);
+        // Permission changes may redact the SSID without a broadcast. Without an allow-list
+        // access does not depend on the network, so there is nothing to re-check.
+        if (!allowedSsids().trim().isEmpty()) networkHandler.postDelayed(networkCheck, NETWORK_RECHECK_MS);
+    }
+
+    /** The configured SSID allow-list, empty for any network. */
+    @NonNull
+    private static String allowedSsids() {
+        TermuxSharedProperties properties = TermuxAppSharedProperties.getProperties();
+        if (properties == null) return "";
+        return properties.getPropertyValue(TermuxPropertyConstants.KEY_ADB_SHELL_ALLOWED_SSIDS, "", true);
     }
 
     private boolean networkAllowsAccess() {
         TermuxSharedProperties properties = TermuxAppSharedProperties.getProperties();
         if (properties == null) return false;
-        String configured = properties.getPropertyValue(
-            TermuxPropertyConstants.KEY_ADB_SHELL_ALLOWED_SSIDS, "", true);
+        String configured = allowedSsids();
         if (configured.trim().isEmpty()) return true;
         try {
             WifiManager wifi = getApplicationContext().getSystemService(WifiManager.class);
