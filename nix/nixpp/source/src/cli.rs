@@ -78,7 +78,8 @@ pub struct BuildArgs {
     #[arg(long)]
     rworker: bool,
 
-    /// Evaluate on the disposable worker too (implies --rworker)
+    /// Evaluate where the system is built too: on the first reachable
+    /// configured builder, or on the disposable worker with --rworker
     #[arg(long)]
     remote_eval: bool,
 }
@@ -102,7 +103,9 @@ pub struct UpgradeArgs {
     #[arg(long, conflicts_with = "dry_run")]
     rworker: bool,
 
-    /// Evaluate on the disposable worker too (implies --rworker)
+    /// Evaluate where the system is built too: on the first reachable
+    /// configured builder, or on the disposable worker with --rworker
+    /// (implies --build)
     #[arg(long, conflicts_with = "dry_run")]
     remote_eval: bool,
 
@@ -1070,6 +1073,8 @@ mod tests {
             &["upgrade", "--build"],
             &["upgrade", "--build", "--rworker"],
             &["upgrade", "--remote-eval"],
+            &["upgrade", "--build", "--remote-eval"],
+            &["upgrade", "--rworker", "--remote-eval"],
             &["upgrade", "--flake", "x", "--host", "h"],
         ] {
             assert!(parse(upgrade).is_ok(), "{upgrade:?}");

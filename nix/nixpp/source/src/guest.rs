@@ -489,20 +489,26 @@ impl Builder for ProcessBuilder {
 pub enum Worker {
     /// Evaluate here, build on the configured remote builders.
     #[default]
-    None,
+    Builders,
+    /// Evaluate and build on the first reachable configured remote builder;
+    /// this side only locks the flake (and ships a local flake's source).
+    BuildersRemoteEval,
     /// Evaluate here, build on a disposable rworker (`rworker-nix build`).
-    Builder,
+    Rworker,
     /// Evaluate and build on a disposable rworker; this side only locks the
     /// flake and ships its sources (`rworker-nix remote-build`).
-    RemoteEval,
+    RworkerRemoteEval,
 }
 
 impl Worker {
+    /// Where to build (`--rworker`) and where to evaluate (`--remote-eval`)
+    /// are independent choices.
     pub fn new(rworker: bool, remote_eval: bool) -> Self {
-        match (rworker || remote_eval, remote_eval) {
-            (false, _) => Self::None,
-            (true, false) => Self::Builder,
-            (true, true) => Self::RemoteEval,
+        match (rworker, remote_eval) {
+            (false, false) => Self::Builders,
+            (false, true) => Self::BuildersRemoteEval,
+            (true, false) => Self::Rworker,
+            (true, true) => Self::RworkerRemoteEval,
         }
     }
 }
@@ -518,11 +524,16 @@ pub fn build_command(flake: &str, host: &str, worker: Worker) -> Result<Vec<Stri
     }
     let target = format!("{flake}#termuxppConfigurations.{host}.system");
     let mut command: Vec<String> = match worker {
-        Worker::None => ["nix", "build", "--max-jobs", "0"]
+        Worker::Builders => ["nix", "build", "--max-jobs", "0"]
             .map(str::to_owned)
             .to_vec(),
-        Worker::Builder => vec!["rworker-nix".to_owned(), "build".to_owned()],
-        Worker::RemoteEval => vec!["rworker-nix".to_owned(), "remote-build".to_owned()],
+        Worker::Rworker => vec!["rworker-nix".to_owned(), "build".to_owned()],
+        Worker::RworkerRemoteEval => vec!["rworker-nix".to_owned(), "remote-build".to_owned()],
+        Worker::BuildersRemoteEval => {
+            return Err(Error::invalid(
+                "remote evaluation on the builders is not a single command",
+            ));
+        }
     };
     command.extend(["--no-link", "--print-out-paths"].map(str::to_owned));
     command.push(target);
@@ -568,7 +579,7 @@ pub fn upgrade_target(
 }
 
 pub fn plan_upgrade(target: &UpgradeTarget, builder: &mut dyn Builder) -> Result<()> {
-    let mut command = build_command(&target.flake, &target.host, Worker::None)?;
+    let mut command = build_command(&target.flake, &target.host, Worker::Builders)?;
     command.splice(2..2, ["--refresh", "--dry-run"].map(str::to_owned));
     builder.output(&command)?;
     Ok(())
@@ -667,7 +678,8 @@ pub fn probe_store(builder: &mut dyn Builder, store: Option<&str>) -> Result<()>
     Ok(())
 }
 
-pub fn probe_builders(builder: &mut dyn Builder) -> Result<()> {
+/// The SSH stores of the configured remote builders, in configuration order.
+fn builder_stores(builder: &mut dyn Builder) -> Result<Vec<String>> {
     let config = builder.output(&["nix", "config", "show", "builders"].map(str::to_owned))?;
     let config = if let Some(path) = config.trim().strip_prefix('@') {
         String::from_utf8(read_bounded(Path::new(path), 65536)?)
@@ -675,17 +687,28 @@ pub fn probe_builders(builder: &mut dyn Builder) -> Result<()> {
     } else {
         config
     };
-    let stores: std::collections::BTreeSet<_> = config
+    let mut stores: Vec<String> = Vec::new();
+    for store in config
         .split([';', '\n'])
         .filter_map(|line| line.split_whitespace().next())
         .filter(|store| store.starts_with("ssh-ng://") || store.starts_with("ssh://"))
-        .collect();
+    {
+        if !stores.iter().any(|known| known == store) {
+            stores.push(store.to_owned());
+        }
+    }
     if stores.is_empty() {
         return Err(Error::invalid("no remote SSH builders configured"));
     }
+    Ok(stores)
+}
+
+pub fn probe_builders(builder: &mut dyn Builder) -> Result<()> {
+    let stores = builder_stores(builder)?;
     let unavailable = std::thread::scope(|scope| {
         let tasks: Vec<_> = stores
-            .into_iter()
+            .iter()
+            .map(String::as_str)
             .map(|store| {
                 (
                     store,
@@ -718,11 +741,95 @@ pub fn probe_builders(builder: &mut dyn Builder) -> Result<()> {
     Ok(())
 }
 
+/// The SSH destination (`[user@]host`) of an `ssh://` or `ssh-ng://` store.
+fn ssh_destination(store: &str) -> Result<String> {
+    let rest = store
+        .strip_prefix("ssh-ng://")
+        .or_else(|| store.strip_prefix("ssh://"))
+        .ok_or_else(|| Error::invalid("builder is not an SSH store"))?;
+    let destination = rest.split('?').next().unwrap_or_default();
+    if destination.is_empty()
+        || destination.starts_with('-')
+        || destination.contains(|c: char| c.is_whitespace() || c == '/')
+    {
+        return Err(Error::invalid("invalid builder host"));
+    }
+    Ok(destination.to_owned())
+}
+
+fn shell_quote(word: &str) -> String {
+    format!("'{}'", word.replace('\'', "'\\''"))
+}
+
+fn json_field(output: &str, field: &str) -> Result<String> {
+    let value: Value =
+        serde_json::from_str(output).map_err(|_| Error::invalid("nix printed invalid JSON"))?;
+    value
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| Error::invalid(format!("nix printed no {field}")))
+}
+
+/// Lock the flake here, then evaluate and build the system on the first
+/// reachable configured remote builder and copy it back. The builders fetch
+/// remote flakes and their inputs themselves; a local flake's source is
+/// copied to them first.
+fn build_on_builder(
+    flake: &str,
+    host: &str,
+    refresh: bool,
+    builder: &mut dyn Builder,
+) -> Result<PathBuf> {
+    // Validates the arguments before anything runs.
+    build_command(flake, host, Worker::Builders)?;
+    let stores = builder_stores(builder)?;
+    let store = stores
+        .iter()
+        .find(|store| probe_store(builder, Some(store.as_str())).is_ok())
+        .cloned()
+        .ok_or_else(|| Error::invalid("no configured remote builder is reachable"))?;
+    let destination = ssh_destination(&store)?;
+
+    let mut metadata = ["nix", "flake", "metadata", "--json"]
+        .map(str::to_owned)
+        .to_vec();
+    if refresh {
+        metadata.push("--refresh".to_owned());
+    }
+    metadata.push(flake.to_owned());
+    let locked = json_field(&builder.output(&metadata)?, "url")?;
+    if locked.starts_with("path:") || locked.starts_with("git+file:") {
+        let source = json_field(
+            &builder.output(&["nix", "flake", "prefetch", "--json", flake].map(str::to_owned))?,
+            "storePath",
+        )?;
+        if !source.starts_with("/nix/store/") || source.contains(char::is_whitespace) {
+            return Err(Error::invalid("unexpected flake source path"));
+        }
+        builder.output(&["nix", "copy", "--to", &store, &source].map(str::to_owned))?;
+    }
+
+    let target = format!("{locked}#termuxppConfigurations.{host}.system");
+    let remote = ["nix", "build", "--no-link", "--print-out-paths", &target]
+        .map(shell_quote)
+        .join(" ");
+    let output = builder
+        .output(&["ssh", "-o", "BatchMode=yes", "--", &destination, &remote].map(str::to_owned))?;
+    let generation = single_system(&output)?;
+    let path = path_str(&generation)?;
+    builder.output(&["nix", "copy", "--from", &store, &path].map(str::to_owned))?;
+    Ok(generation)
+}
+
 pub fn build_upgrade(
     target: &UpgradeTarget,
     worker: Worker,
     builder: &mut dyn Builder,
 ) -> Result<PathBuf> {
+    if worker == Worker::BuildersRemoteEval {
+        return build_on_builder(&target.flake, &target.host, true, builder);
+    }
     let mut command = build_command(&target.flake, &target.host, worker)?;
     command.insert(2, "--refresh".to_owned());
     built_system(&command, builder)
@@ -735,11 +842,18 @@ pub fn build_system(
     worker: Worker,
     builder: &mut dyn Builder,
 ) -> Result<PathBuf> {
+    if worker == Worker::BuildersRemoteEval {
+        return build_on_builder(flake, host, false, builder);
+    }
     built_system(&build_command(flake, host, worker)?, builder)
 }
 
 fn built_system(command: &[String], builder: &mut dyn Builder) -> Result<PathBuf> {
-    let output = builder.output(command)?;
+    single_system(&builder.output(command)?)
+}
+
+/// The one system generation a build printed.
+fn single_system(output: &str) -> Result<PathBuf> {
     let mut paths = output.lines();
     let (Some(path), None) = (paths.next(), paths.next()) else {
         return Err(Error::invalid(
@@ -1320,7 +1434,7 @@ mod tests {
     fn build_never_compiles_on_phone() {
         let path = system_path();
         let mut builder = Scripted::new(&format!("{path}\n"));
-        let built = build_system("/source", "test", Worker::None, &mut builder).unwrap();
+        let built = build_system("/source", "test", Worker::Builders, &mut builder).unwrap();
         assert_eq!(built, PathBuf::from(&path));
         assert_eq!(
             builder.commands[0],
@@ -1342,7 +1456,7 @@ mod tests {
         build_system(
             "github:example/config",
             "test",
-            Worker::RemoteEval,
+            Worker::RworkerRemoteEval,
             &mut builder,
         )
         .unwrap();
@@ -1351,7 +1465,7 @@ mod tests {
         build_system(
             "github:example/config",
             "test",
-            Worker::Builder,
+            Worker::Rworker,
             &mut builder,
         )
         .unwrap();
@@ -1367,6 +1481,134 @@ mod tests {
         );
     }
 
+    /// Answers each command through a closure and records it.
+    struct Responder<F: FnMut(&[String]) -> Result<String>> {
+        respond: F,
+        commands: Vec<Vec<String>>,
+    }
+
+    impl<F: FnMut(&[String]) -> Result<String>> Builder for Responder<F> {
+        fn output(&mut self, command: &[String]) -> Result<String> {
+            self.commands.push(command.to_vec());
+            (self.respond)(command)
+        }
+    }
+
+    /// Two builders, the first unreachable; `url` is what the flake locks to.
+    fn builders_fixture(url: &'static str) -> impl FnMut(&[String]) -> Result<String> {
+        move |command: &[String]| {
+            let joined = command.join(" ");
+            if joined == "nix config show builders" {
+                Ok("ssh-ng://b1 aarch64-linux - 4 1 big-parallel - ; ssh-ng://b2 aarch64-linux - 4 1 big-parallel -\n".to_owned())
+            } else if joined.contains("nix store info --store ssh-ng://b1") {
+                Err(Error::invalid("unreachable"))
+            } else if joined.starts_with("nix flake metadata") {
+                Ok(json!({ "url": url }).to_string())
+            } else if joined.starts_with("nix flake prefetch") {
+                Ok(json!({ "storePath": "/nix/store/abc-source" }).to_string())
+            } else if command[0] == "ssh" {
+                Ok(format!("{}\n", system_path()))
+            } else {
+                Ok(String::new())
+            }
+        }
+    }
+
+    #[test]
+    fn worker_flags_are_independent() {
+        assert_eq!(Worker::new(false, false), Worker::Builders);
+        assert_eq!(Worker::new(false, true), Worker::BuildersRemoteEval);
+        assert_eq!(Worker::new(true, false), Worker::Rworker);
+        assert_eq!(Worker::new(true, true), Worker::RworkerRemoteEval);
+    }
+
+    #[test]
+    fn remote_eval_on_builders_uses_the_first_reachable_one() {
+        let mut builder = Responder {
+            respond: builders_fixture("github:o/cfg/rev?narHash=sha256-x&dir=y"),
+            commands: Vec::new(),
+        };
+        let built = build_system(
+            "github:o/cfg",
+            "test",
+            Worker::BuildersRemoteEval,
+            &mut builder,
+        )
+        .unwrap();
+        assert_eq!(built, PathBuf::from(system_path()));
+        let commands: Vec<String> = builder.commands.iter().map(|c| c.join(" ")).collect();
+        // A remote flake is fetched by the builder itself: nothing is shipped.
+        assert!(!commands.iter().any(|c| c.starts_with("nix flake prefetch")));
+        assert!(!commands.iter().any(|c| c.starts_with("nix copy --to")));
+        let ssh = builder.commands.iter().find(|c| c[0] == "ssh").unwrap();
+        assert_eq!(ssh[..4], ["ssh", "-o", "BatchMode=yes", "--"]);
+        assert_eq!(ssh[4], "b2");
+        assert_eq!(
+            ssh[5],
+            "'nix' 'build' '--no-link' '--print-out-paths' \
+             'github:o/cfg/rev?narHash=sha256-x&dir=y#termuxppConfigurations.test.system'"
+        );
+        assert_eq!(
+            commands.last().unwrap(),
+            &format!("nix copy --from ssh-ng://b2 {}", system_path())
+        );
+    }
+
+    #[test]
+    fn remote_eval_on_builders_ships_a_local_flake() {
+        let mut builder = Responder {
+            respond: builders_fixture("path:/home/u/cfg?narHash=sha256-y"),
+            commands: Vec::new(),
+        };
+        build_upgrade(
+            &UpgradeTarget {
+                flake: "/home/u/cfg".to_owned(),
+                host: "test".to_owned(),
+                cache: None,
+            },
+            Worker::BuildersRemoteEval,
+            &mut builder,
+        )
+        .unwrap();
+        let commands: Vec<String> = builder.commands.iter().map(|c| c.join(" ")).collect();
+        assert!(commands.contains(&"nix flake metadata --json --refresh /home/u/cfg".to_owned()));
+        assert!(commands.contains(&"nix copy --to ssh-ng://b2 /nix/store/abc-source".to_owned()));
+    }
+
+    #[test]
+    fn remote_eval_on_builders_needs_a_reachable_builder() {
+        let mut builder = Responder {
+            respond: |command: &[String]| {
+                if command.join(" ") == "nix config show builders" {
+                    Ok("ssh-ng://b1 aarch64-linux\n".to_owned())
+                } else if command.contains(&"info".to_owned()) {
+                    Err(Error::invalid("unreachable"))
+                } else {
+                    panic!("unexpected command {command:?}")
+                }
+            },
+            commands: Vec::new(),
+        };
+        assert!(
+            build_system(
+                "github:o/cfg",
+                "test",
+                Worker::BuildersRemoteEval,
+                &mut builder
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn ssh_destinations_are_validated() {
+        assert_eq!(ssh_destination("ssh-ng://rofl-13").unwrap(), "rofl-13");
+        assert_eq!(ssh_destination("ssh://u@h?ssh-key=/k").unwrap(), "u@h");
+        for bad in ["ssh-ng://", "ssh-ng://-oProxy=x", "https://h", "ssh://a b"] {
+            assert!(ssh_destination(bad).is_err(), "{bad}");
+        }
+    }
+
     #[test]
     fn invalid_build_arguments_never_launch() {
         let mut builder = Scripted::new("");
@@ -1378,7 +1620,7 @@ mod tests {
             ("", "host"),
         ] {
             assert!(
-                build_system(flake, host, Worker::None, &mut builder).is_err(),
+                build_system(flake, host, Worker::Builders, &mut builder).is_err(),
                 "{flake} {host}"
             );
         }
@@ -1391,7 +1633,7 @@ mod tests {
         for output in [String::new(), "/tmp/not-store\n".to_owned(), two] {
             let mut builder = Scripted::new(&output);
             assert!(
-                build_system("source", "host", Worker::None, &mut builder).is_err(),
+                build_system("source", "host", Worker::Builders, &mut builder).is_err(),
                 "{output:?}"
             );
         }
@@ -1565,7 +1807,7 @@ mod tests {
             &path,
             "source",
             "host",
-            Worker::None,
+            Worker::Builders,
             &mut builder,
             &mut |stage| stages.push(stage),
         )
@@ -1587,7 +1829,7 @@ mod tests {
             &path,
             "source",
             "host",
-            Worker::None,
+            Worker::Builders,
             &mut builder,
             &mut |stage| stages.push(stage),
         );
