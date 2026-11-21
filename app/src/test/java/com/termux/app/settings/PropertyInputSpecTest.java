@@ -205,8 +205,8 @@ public class PropertyInputSpecTest {
     public void shortcuts() {
         for (String key : new String[] {"shortcut.create-session", "shortcut.next-session",
             "shortcut.previous-session", "shortcut.rename-session"}) {
-            valid(key, "ctrl+t", "CTRL+T", "ctrl + 2", " ctrl+r ", "ctrl+ab");
-            invalid(key, "t", "ctrl", "ctrl+", "ctrl++", "alt+t", "ctrl+alt+t", "ctrl+abc", "ctrl-t", "ctrl+ ");
+            valid(key, "ctrl+t", "CTRL+T", "ctrl + 2", " ctrl+r ", "ctrl+ab", "disabled", " DISABLED ");
+            invalid(key, "t", "disable", "off", "ctrl", "ctrl+", "ctrl++", "alt+t", "ctrl+alt+t", "ctrl+abc", "ctrl-t", "ctrl+ ");
         }
     }
 

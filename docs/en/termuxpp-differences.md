@@ -350,5 +350,11 @@ create and open a new terminal when previous or next session is invoked with
 only one terminal open. This applies to keyboard shortcuts and configured
 gestures, including the extra-keys swipe. The default is to keep the current session.
 
+Each `shortcut.create-session`, `shortcut.next-session`, `shortcut.previous-session` and
+`shortcut.rename-session` property accepts `disabled` (case and surrounding spaces ignored) to
+switch that shortcut off without a parse error. Sources:
+[parser](../../termux-shared/src/main/java/dev/pschmitt/termux/shared/termux/settings/properties/TermuxSharedProperties.java)
+and [validator](../../app/src/main/java/com/termux/app/settings/PropertyInputSpec.java).
+
 The ADB shell listener optionally restricts its availability to configured
 Wi-Fi SSIDs. See [ADB shell Wi-Fi restriction](integrations.md#adb-shell-wi-fi-restriction).

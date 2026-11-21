@@ -562,7 +562,8 @@ public final class PropertyInputSpec {
      */
     @Nullable
     private static String shortcut(String value) {
-        String error = "Expected ctrl+ and a key, like ctrl+t";
+        if (value.trim().equalsIgnoreCase("disabled")) return null;
+        String error = "Expected ctrl+ and a key, like ctrl+t, or disabled";
         String[] parts = value.toLowerCase(java.util.Locale.ROOT).trim().split("\\+");
         String input = parts.length == 2 ? parts[1].trim() : null;
         if (!(parts.length == 2 && parts[0].trim().equals("ctrl")) || input.isEmpty() || input.length() > 2)
@@ -615,8 +616,8 @@ public final class PropertyInputSpec {
 
     private static String shortcut(String action, String example) {
         return "The keyboard shortcut to " + action + ". Format: ctrl+ and one key, like " + example
-            + ", where Ctrl is the virtual Ctrl key of the extra keys (or Ctrl on a hardware keyboard). Case is"
-            + " ignored. Default: not set, there is no shortcut.";
+            + ", where Ctrl is the virtual Ctrl key of the extra keys (or Ctrl on a hardware keyboard), or"
+            + " disabled to switch the shortcut off. Case is ignored. Default: not set, there is no shortcut.";
     }
 
     private static String keys(BiMap<String, ?> map) {

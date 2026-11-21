@@ -534,6 +534,9 @@ public abstract class TermuxSharedProperties {
             true, true, LOG_TAG);
     }
 
+    /** Value of a {@code shortcut.*} property that switches the shortcut off. */
+    public static final String VALUE_SHORTCUT_DISABLED = "disabled";
+
     /**
      * Returns the code point for the value if key is not {@code null} and value is not {@code null} and is valid,
      * otherwise returns {@code null}.
@@ -545,6 +548,8 @@ public abstract class TermuxSharedProperties {
     public static Integer getCodePointForSessionShortcuts(String key, String value) {
         if (key == null) return null;
         if (value == null) return null;
+        // "disabled" switches the shortcut off, so a configured default can be removed.
+        if (value.trim().equalsIgnoreCase(VALUE_SHORTCUT_DISABLED)) return null;
         String[] parts = value.toLowerCase().trim().split("\\+");
         String input = parts.length == 2 ? parts[1].trim() : null;
         if (!(parts.length == 2 && parts[0].trim().equals("ctrl")) || input.isEmpty() || input.length() > 2) {
