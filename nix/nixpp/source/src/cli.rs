@@ -187,6 +187,9 @@ pub enum Command {
         /// Later generation number or store basename
         #[arg(requires = "from")]
         to: Option<String>,
+        /// Also show packages whose version did not change
+        #[arg(long)]
+        full: bool,
     },
     /// Check the native controller, Nix store, builders and signed cache
     Doctor,
@@ -690,13 +693,14 @@ fn guest_command(
             },
         )?,
         Command::Doctor => doctor(ui, &socket)?,
-        Command::Diff { from, to } => {
+        Command::Diff { from, to, full } => {
             let runtime = require(runtime, "diff requires NIXPP_RUNTIME or --runtime")?;
             let format = if ui.json() {
                 guest::DiffFormat::Nix
             } else {
                 guest::DiffFormat::Dix {
                     color: ui.stdout_color(),
+                    full: *full,
                 }
             };
             let (from, to, diff) = guest::diff_generations(

@@ -441,7 +441,7 @@ fn closure_diff_defaults_to_previous_then_active() {
 
 pub enum DiffFormat {
     Nix,
-    Dix { color: bool },
+    Dix { color: bool, full: bool },
 }
 
 /// Compare retained closures under the controller lock so neither candidate
@@ -457,7 +457,7 @@ pub fn diff_generations(
     let (from, to) = diff_endpoints(&crate::controller::generations(runtime)?, from, to)?;
     let mut command = match format {
         DiffFormat::Nix => vec!["nix".into(), "store".into(), "diff-closures".into()],
-        DiffFormat::Dix { color } => {
+        DiffFormat::Dix { color, full } => {
             let mut args = vec![
                 option_env!("NIXPP_DIX").unwrap_or("dix").into(),
                 if color {
@@ -473,6 +473,9 @@ pub fn diff_generations(
                 "diff"
             };
             args.push(verb.into());
+            if full && verb == "diff" {
+                args.push("--full".into());
+            }
             args
         }
     };
